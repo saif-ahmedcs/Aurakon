@@ -24,7 +24,7 @@ CREATE TABLE users (
   is_verified BOOLEAN NOT NULL DEFAULT false,
   email_verification_token_hash CHAR(64) NULL,
   email_verification_expires DATETIME NULL,
-  username VARCHAR(20) NULL
+  username VARCHAR(20) NOT NULL
 );
 
 CREATE TABLE refresh_tokens (
