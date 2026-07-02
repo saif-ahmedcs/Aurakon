@@ -4,11 +4,19 @@ const crypto = require("crypto");
 const asyncHandler = require("../utils/asyncHandler");
 const { isPasswordValid } = require("../utils/passwordPolicy");
 const pool = require("../db");
+const rateLimit = require("express-rate-limit");
 
 const router = express.Router();
 
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: "too many registration attempts, please try again later" },
+});
+
 router.post(
   "/register",
+  registerLimiter,
   asyncHandler(async (req, res) => {
     const { email, password, username } = req.body;
 
