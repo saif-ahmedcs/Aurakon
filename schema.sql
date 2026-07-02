@@ -21,5 +21,6 @@ CREATE TABLE users (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   is_verified BOOLEAN NOT NULL DEFAULT false,
   email_verification_token_hash CHAR(64) NULL,
-  email_verification_expires DATETIME NULL
+  email_verification_expires DATETIME NULL,
+  username VARCHAR(20) NULL
 );
