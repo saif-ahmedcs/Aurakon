@@ -18,5 +18,8 @@ CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  is_verified BOOLEAN NOT NULL DEFAULT false,
+  email_verification_token_hash CHAR(64) NULL,
+  email_verification_expires DATETIME NULL
 );
