@@ -107,4 +107,48 @@ router.post(
   }),
 );
 
+router.get(
+  "/verify-email",
+  asyncHandler(async (req, res) => {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ error: "token is required" });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const [result] = await pool.query(
+      `UPDATE users
+       SET is_verified = true,
+           email_verification_token_hash = NULL,
+           email_verification_expires = NULL
+       WHERE email_verification_token_hash = ?
+         AND email_verification_expires > UTC_TIMESTAMP()`,
+      [tokenHash],
+    );
+
+    if (result.affectedRows === 0) {
+      const [rows] = await pool.query(
+        "SELECT email_verification_expires FROM users WHERE email_verification_token_hash = ?",
+        [tokenHash],
+      );
+
+      if (rows.length === 0) {
+        console.log(
+          `[verify-email] invalid token attempt: hash=${tokenHash.slice(0, 8)}...`,
+        );
+        return res.status(400).json({ error: "invalid token" });
+      }
+
+      console.log(
+        `[verify-email] expired token attempt: expired_at=${rows[0].email_verification_expires}`,
+      );
+      return res.status(400).json({ error: "expired token" });
+    }
+
+    res.status(200).json({ message: "email verified successfully" });
+  }),
+);
+
 module.exports = router;
