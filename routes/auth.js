@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const asyncHandler = require("../utils/asyncHandler");
 const { isPasswordValid } = require("../utils/passwordPolicy");
+const hashToken = require("../utils/hashToken");
 const pool = require("../db");
 const rateLimit = require("express-rate-limit");
 const userModel = require("../models/userModel");
@@ -97,10 +98,7 @@ router.post(
 
     // Generate verification token
     const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
+    const tokenHash = hashToken(rawToken);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     // if user had an unfinished sign up
@@ -158,8 +156,7 @@ router.get(
       return res.status(400).json({ error: "token is required" });
     }
 
-    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-
+    const tokenHash = hashToken(token);
     const [result] = await pool.query(
       `UPDATE users
        SET is_verified = true,
@@ -196,10 +193,9 @@ router.post(
     const normalizedEmail = email.toLowerCase().trim();
 
     const [rows] = await pool.query(
-      "SELECT id, is_verified FROM users WHERE email = ?",
+      "SELECT id, is_verified, email_verification_expires FROM users WHERE email = ?",
       [normalizedEmail],
     );
-
     if (rows.length === 0 || rows[0].is_verified) {
       return res.status(200).json(GENERIC_RESPONSE);
     }
@@ -220,10 +216,7 @@ router.post(
     }
 
     const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
+    const tokenHash = hashToken(rawToken);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     await pool.query(
@@ -313,10 +306,7 @@ router.post(
     const user = rows[0];
 
     const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
+    const tokenHash = hashToken(rawToken);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await pool.query(
@@ -353,8 +343,7 @@ router.post(
       });
     }
 
-    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-
+    const tokenHash = hashToken(token);
     const [rows] = await pool.query(
       `SELECT id FROM users
        WHERE reset_token_hash = ?
