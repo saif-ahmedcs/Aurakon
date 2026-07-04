@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const asyncHandler = require("../utils/asyncHandler");
 const { isPasswordValid } = require("../utils/passwordPolicy");
 const pool = require("../db");
@@ -30,6 +31,16 @@ const resendVerificationLimiter = rateLimit({
   message: {
     error: "too many resend attempts, please try again later",
   },
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => {
+    const email = (req.body?.email ?? "").toLowerCase().trim();
+    return `${req.ip}:${email}`;
+  },
+  message: { error: "too many login attempts, please try again later" },
 });
 
 router.post(
@@ -214,6 +225,51 @@ router.post(
     console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
 
     return res.status(200).json(GENERIC_RESPONSE);
+  }),
+);
+
+router.post(
+  "/login",
+  loginLimiter,
+  asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "email and password are required" });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const [rows] = await pool.query(
+      "SELECT id, email, username, password_hash, is_verified FROM users WHERE email = ?",
+      [normalizedEmail],
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ error: "invalid credentials" });
+    }
+
+    const user = rows[0];
+
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "invalid credentials" });
+    }
+
+    if (!user.is_verified) {
+      return res
+        .status(403)
+        .json({ error: "please verify your email before logging in" });
+    }
+
+    const accessToken = jwt.sign(
+      { sub: user.id, email: user.email, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m", algorithm: "HS256" },
+    );
+
+    res.status(200).json({ accessToken });
   }),
 );
 
