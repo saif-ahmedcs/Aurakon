@@ -264,6 +264,8 @@ router.post(
       return res.status(401).json({ error: "invalid credentials" });
     }
 
+    await userModel.clearOwnExpiredResetToken(user.id);
+
     if (!user.is_verified) {
       return res
         .status(403)
@@ -371,6 +373,7 @@ router.post(
     );
 
     if (rows.length === 0) {
+      await userModel.clearExpiredResetToken(tokenHash);
       return res.status(400).json({ error: "invalid or expired token" });
     }
 

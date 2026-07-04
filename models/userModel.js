@@ -12,4 +12,33 @@ async function clearExpiredVerificationToken(tokenHash) {
   return result.affectedRows;
 }
 
-module.exports = { clearExpiredVerificationToken };
+async function clearExpiredResetToken(tokenHash) {
+  const [result] = await pool.query(
+    `UPDATE users
+     SET reset_token_hash = NULL,
+         reset_token_expires = NULL
+     WHERE reset_token_hash = ?
+       AND reset_token_expires <= UTC_TIMESTAMP()`,
+    [tokenHash],
+  );
+  return result.affectedRows;
+}
+
+async function clearOwnExpiredResetToken(userId) {
+  const [result] = await pool.query(
+    `UPDATE users
+     SET reset_token_hash = NULL,
+         reset_token_expires = NULL
+     WHERE id = ?
+       AND reset_token_expires <= UTC_TIMESTAMP()
+       AND reset_token_hash IS NOT NULL`,
+    [userId],
+  );
+  return result.affectedRows;
+}
+
+module.exports = {
+  clearExpiredVerificationToken,
+  clearExpiredResetToken,
+  clearOwnExpiredResetToken,
+};
