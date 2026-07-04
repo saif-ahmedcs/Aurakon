@@ -43,6 +43,18 @@ const loginLimiter = rateLimit({
   message: { error: "too many login attempts, please try again later" },
 });
 
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => {
+    const email = (req.body?.email ?? "").toLowerCase().trim();
+    return `${req.ip}:${email}`;
+  },
+  message: {
+    error: "too many requests, please try again later",
+  },
+});
+
 router.post(
   "/register",
   registerLimiter,
@@ -270,6 +282,56 @@ router.post(
     );
 
     res.status(200).json({ accessToken });
+  }),
+);
+
+router.post(
+  "/forgot-password",
+  forgotPasswordLimiter,
+  asyncHandler(async (req, res) => {
+    const GENERIC_RESPONSE = {
+      message: "If an account exists, a password reset email has been sent.",
+    };
+
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(200).json(GENERIC_RESPONSE);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const [rows] = await pool.query(
+      "SELECT id, is_verified FROM users WHERE email = ?",
+      [normalizedEmail],
+    );
+
+    if (rows.length === 0 || !rows[0].is_verified) {
+      return res.status(200).json(GENERIC_RESPONSE);
+    }
+
+    const user = rows[0];
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await pool.query(
+      `UPDATE users
+       SET reset_token_hash = ?,
+           reset_token_expires = ?
+       WHERE id = ?`,
+      [tokenHash, expiresAt, user.id],
+    );
+
+    console.log(
+      `Reset password: POST /api/auth/reset-password with token=${rawToken}`,
+    );
+
+    return res.status(200).json(GENERIC_RESPONSE);
   }),
 );
 
