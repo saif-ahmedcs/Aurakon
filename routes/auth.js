@@ -390,4 +390,51 @@ router.post(
   }),
 );
 
+router.post(
+  "/refresh",
+  asyncHandler(async (req, res) => {
+    if (req.headers["content-type"] !== "application/json") {
+      return res
+        .status(415)
+        .json({ error: "content-type must be application/json" });
+    }
+
+    const rawRefreshToken = req.cookies.refreshToken;
+
+    if (!rawRefreshToken) {
+      return res.status(401).json({ error: "missing refresh token" });
+    }
+
+    const tokenHash = hashToken(rawRefreshToken);
+    const stored = await refreshTokenModel.findByTokenHash(tokenHash);
+
+    if (!stored) {
+      return res.status(401).json({ error: "invalid refresh token" });
+    }
+
+    if (new Date(stored.expires_at) <= new Date()) {
+      return res.status(401).json({ error: "refresh token expired" });
+    }
+
+    const [rows] = await pool.query(
+      "SELECT id, email, username FROM users WHERE id = ?",
+      [stored.user_id],
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ error: "user not found" });
+    }
+
+    const user = rows[0];
+
+    const accessToken = jwt.sign(
+      { sub: user.id, email: user.email, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m", algorithm: "HS256" },
+    );
+
+    res.status(200).json({ accessToken });
+  }),
+);
+
 module.exports = router;
