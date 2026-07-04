@@ -14,6 +14,24 @@ const registerLimiter = rateLimit({
   message: { error: "too many registration attempts, please try again later" },
 });
 
+const verifyEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "too many verification attempts, please try again later" },
+});
+
+const resendVerificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => {
+    const email = (req.body?.email ?? "").toLowerCase().trim();
+    return `${req.ip}:${email}`;
+  },
+  message: {
+    error: "too many resend attempts, please try again later",
+  },
+});
+
 router.post(
   "/register",
   registerLimiter,
@@ -109,6 +127,7 @@ router.post(
 
 router.get(
   "/verify-email",
+  verifyEmailLimiter,
   asyncHandler(async (req, res) => {
     const { token } = req.query;
 
@@ -153,6 +172,7 @@ router.get(
 
 router.post(
   "/resend-verification",
+  resendVerificationLimiter,
   asyncHandler(async (req, res) => {
     const { email } = req.body;
 
@@ -176,6 +196,19 @@ router.post(
     }
 
     const user = rows[0];
+
+    // cooldown (block if < 2 min ago)
+    if (user.email_verification_expires) {
+      const issuedAt =
+        new Date(user.email_verification_expires).getTime() -
+        24 * 60 * 60 * 1000;
+      const cooldownMs = 2 * 60 * 1000;
+      if (Date.now() - issuedAt < cooldownMs) {
+        return res.status(429).json({
+          error: "Please wait before requesting another verification email.",
+        });
+      }
+    }
 
     const rawToken = crypto.randomBytes(32).toString("hex");
     const tokenHash = crypto
