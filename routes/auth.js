@@ -335,4 +335,51 @@ router.post(
   }),
 );
 
+router.post(
+  "/reset-password",
+  asyncHandler(async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: "token and newPassword are required" });
+    }
+
+    if (!isPasswordValid(newPassword)) {
+      return res.status(400).json({
+        error:
+          "password must be at least 8 characters and contain at least one letter and one number",
+      });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const [rows] = await pool.query(
+      `SELECT id FROM users
+       WHERE reset_token_hash = ?
+         AND reset_token_expires > UTC_TIMESTAMP()`,
+      [tokenHash],
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: "invalid or expired token" });
+    }
+
+    const user = rows[0];
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await pool.query(
+      `UPDATE users
+       SET password_hash = ?,
+           reset_token_hash = NULL,
+           reset_token_expires = NULL
+       WHERE id = ?`,
+      [passwordHash, user.id],
+    );
+
+    res.status(200).json({ message: "password reset successfully" });
+  }),
+);
+
 module.exports = router;
