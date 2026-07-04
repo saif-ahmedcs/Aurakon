@@ -151,4 +151,51 @@ router.get(
   }),
 );
 
+router.post(
+  "/resend-verification",
+  asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    const GENERIC_RESPONSE = {
+      message: "If an account exists, a verification email has been sent.",
+    };
+
+    if (!email) {
+      return res.status(200).json(GENERIC_RESPONSE);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const [rows] = await pool.query(
+      "SELECT id, is_verified FROM users WHERE email = ?",
+      [normalizedEmail],
+    );
+
+    if (rows.length === 0 || rows[0].is_verified) {
+      return res.status(200).json(GENERIC_RESPONSE);
+    }
+
+    const user = rows[0];
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await pool.query(
+      `UPDATE users
+       SET email_verification_token_hash = ?,
+           email_verification_expires = ?
+       WHERE id = ?`,
+      [tokenHash, expiresAt, user.id],
+    );
+
+    console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
+
+    return res.status(200).json(GENERIC_RESPONSE);
+  }),
+);
+
 module.exports = router;
