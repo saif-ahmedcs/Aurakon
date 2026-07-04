@@ -5,7 +5,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const { isPasswordValid } = require("../utils/passwordPolicy");
 const pool = require("../db");
 const rateLimit = require("express-rate-limit");
-
+const userModel = require("../models/userModel");
 const router = express.Router();
 
 const registerLimiter = rateLimit({
@@ -148,22 +148,8 @@ router.get(
     );
 
     if (result.affectedRows === 0) {
-      const [rows] = await pool.query(
-        "SELECT email_verification_expires FROM users WHERE email_verification_token_hash = ?",
-        [tokenHash],
-      );
-
-      if (rows.length === 0) {
-        console.log(
-          `[verify-email] invalid token attempt: hash=${tokenHash.slice(0, 8)}...`,
-        );
-        return res.status(400).json({ error: "invalid token" });
-      }
-
-      console.log(
-        `[verify-email] expired token attempt: expired_at=${rows[0].email_verification_expires}`,
-      );
-      return res.status(400).json({ error: "expired token" });
+      await userModel.clearExpiredVerificationToken(tokenHash);
+      return res.status(400).json({ error: "invalid or expired token" });
     }
 
     res.status(200).json({ message: "email verified successfully" });
