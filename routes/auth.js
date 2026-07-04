@@ -5,6 +5,8 @@ const jwt = require("jsonwebtoken");
 const asyncHandler = require("../utils/asyncHandler");
 const { isPasswordValid } = require("../utils/passwordPolicy");
 const hashToken = require("../utils/hashToken");
+const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
+const refreshTokenModel = require("../models/refreshTokenModel");
 const pool = require("../db");
 const rateLimit = require("express-rate-limit");
 const userModel = require("../models/userModel");
@@ -273,6 +275,23 @@ router.post(
       process.env.JWT_SECRET,
       { expiresIn: "15m", algorithm: "HS256" },
     );
+
+    const rawRefreshToken = crypto.randomBytes(40).toString("hex");
+    const refreshTokenHash = hashToken(rawRefreshToken);
+    const refreshTokenExpiresAt = new Date(
+      Date.now() + 50 * 24 * 60 * 60 * 1000,
+    );
+
+    await refreshTokenModel.insert(
+      user.id,
+      refreshTokenHash,
+      refreshTokenExpiresAt,
+    );
+
+    res.cookie("refreshToken", rawRefreshToken, {
+      ...REFRESH_COOKIE_OPTIONS,
+      maxAge: 50 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(200).json({ accessToken });
   }),
