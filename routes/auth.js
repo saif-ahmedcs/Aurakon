@@ -437,4 +437,25 @@ router.post(
   }),
 );
 
+router.post(
+  "/logout",
+  asyncHandler(async (req, res) => {
+    if (req.headers["content-type"] !== "application/json") {
+      return res
+        .status(415)
+        .json({ error: "content-type must be application/json" });
+    }
+
+    const rawRefreshToken = req.cookies.refreshToken;
+
+    if (rawRefreshToken) {
+      const tokenHash = hashToken(rawRefreshToken);
+      await refreshTokenModel.deleteByTokenHash(tokenHash);
+    }
+
+    res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
+    res.status(200).json({ message: "logged out successfully" });
+  }),
+);
+
 module.exports = router;
