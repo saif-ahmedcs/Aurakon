@@ -458,4 +458,35 @@ router.post(
   }),
 );
 
+router.post(
+  "/logout-all",
+  asyncHandler(async (req, res) => {
+    if (req.headers["content-type"] !== "application/json") {
+      return res
+        .status(415)
+        .json({ error: "content-type must be application/json" });
+    }
+
+    const rawRefreshToken = req.cookies.refreshToken;
+
+    if (!rawRefreshToken) {
+      return res.status(401).json({ error: "missing refresh token" });
+    }
+
+    const tokenHash = hashToken(rawRefreshToken);
+    const stored = await refreshTokenModel.findByTokenHash(tokenHash);
+
+    if (!stored || new Date(stored.expires_at) <= new Date()) {
+      return res
+        .status(401)
+        .json({ error: "invalid or expired refresh token" });
+    }
+
+    await refreshTokenModel.deleteAllByUserId(stored.user_id);
+
+    res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
+    res.status(200).json({ message: "logged out from all devices" });
+  }),
+);
+
 module.exports = router;
