@@ -54,6 +54,22 @@ async function findPending() {
   return rows;
 }
 
+async function findPendingForUser(userId) {
+  const [rows] = await pool.query(
+    `SELECT habit_logs.id,
+            habit_logs.habit_id,
+            habits.title AS habit_name,
+            habit_logs.log_date AS missed_date,
+            habit_logs.created_at
+     FROM habit_logs
+     JOIN habits ON habit_logs.habit_id = habits.id
+     WHERE habit_logs.status = 'pending_review'
+       AND habits.user_id = ?`,
+    [userId],
+  );
+  return rows;
+}
+
 async function findPendingByHabitAndDate(habitId, logDate) {
   const [rows] = await pool.query(
     `SELECT habit_logs.id,
@@ -106,4 +122,5 @@ module.exports = {
   findPendingByHabit,
   findPendingByHabitAndDate,
   resolveDecision,
+  findPendingForUser,
 };

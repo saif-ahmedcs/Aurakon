@@ -4,16 +4,38 @@ const pool = require("../db");
 const calculateStreaks = require("../utils/streak");
 const pendingReviewService = require("../services/pendingReviewService");
 const habitLogModel = require("../models/habitLogModel");
+const auth = require("../middleware/authenticate");
 
 const router = express.Router();
+router.use(auth);
+
+async function ownershipCheck(req, res, next) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "invalid id" });
+  }
+  const [rows] = await pool.query(
+    "SELECT * FROM habits WHERE id = ? AND user_id = ?",
+    [id, req.user.id],
+  );
+  if (rows.length === 0) {
+    return res.status(404).json({ error: "habit not found" });
+  }
+  req.habit = rows[0];
+  next();
+}
+
+router.use("/:id", asyncHandler(ownershipCheck));
 
 router.get(
   "/",
   asyncHandler(async (req, res) => {
-    await pendingReviewService.evaluatePendingReviews();
+    await pendingReviewService.evaluatePendingReviews(req.user.id);
 
-    const [rows] = await pool.query("SELECT * FROM habits");
-    const pendingRows = await habitLogModel.findPending();
+    const [rows] = await pool.query("SELECT * FROM habits WHERE user_id = ?", [
+      req.user.id,
+    ]);
+    const pendingRows = await habitLogModel.findPendingForUser(req.user.id);
     const pendingByHabitId = new Map(
       pendingRows.map((row) => [row.habit_id, row]),
     );
@@ -41,10 +63,10 @@ router.post(
       return res.status(400).json({ error: "title is required" });
     }
 
-    const [result] = await pool.query("INSERT INTO habits (title) VALUES (?)", [
-      title,
-    ]);
-
+    const [result] = await pool.query(
+      "INSERT INTO habits (title, user_id) VALUES (?, ?)",
+      [title, req.user.id],
+    );
     const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [
       result.insertId,
     ]);
@@ -56,17 +78,7 @@ router.post(
 router.get(
   "/:id",
   asyncHandler(async (req, res) => {
-    const id = Number(req.params.id);
-
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "invalid id" });
-    }
-
-    const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [id]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "habit not found" });
-    }
+    const id = req.habit.id;
 
     const [logRows] = await pool.query(
       "SELECT log_date, status FROM habit_logs WHERE habit_id = ?",
@@ -80,14 +92,14 @@ router.get(
     const asOfDate = new Date().toISOString().slice(0, 10);
     const { currentStreak, longestStreak } = calculateStreaks(logs, asOfDate);
 
-    await pendingReviewService.evaluatePendingReviews();
+    await pendingReviewService.evaluatePendingReviews(req.user.id);
     const pending = await habitLogModel.findPendingByHabit(id);
     const pendingReview = pending
       ? { missedDate: pending.missed_date, createdAt: pending.created_at }
       : null;
 
     res.status(200).json({
-      ...rows[0],
+      ...req.habit,
       currentStreak,
       longestStreak,
       pendingReview,
@@ -98,19 +110,7 @@ router.get(
 router.patch(
   "/:id",
   asyncHandler(async (req, res) => {
-    const id = Number(req.params.id);
-
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "invalid id" });
-    }
-
-    const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [id]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "habit not found" });
-    }
-
-    const habit = rows[0];
+    const habit = req.habit;
     const { title, target_days } = req.body;
 
     if (title !== undefined && title.trim() === "") {
@@ -136,12 +136,12 @@ router.patch(
 
     await pool.query(
       "UPDATE habits SET title = ?, target_days = ? WHERE id = ?",
-      [updatedTitle, updatedTargetDays, id],
+      [updatedTitle, updatedTargetDays, habit.id],
     );
 
     const [updatedRows] = await pool.query(
       "SELECT * FROM habits WHERE id = ?",
-      [id],
+      [habit.id],
     );
 
     res.status(200).json(updatedRows[0]);
@@ -151,33 +151,16 @@ router.patch(
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    const id = Number(req.params.id);
+    await pool.query("DELETE FROM habits WHERE id = ?", [req.habit.id]);
 
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "invalid id" });
-    }
-
-    const [result] = await pool.query("DELETE FROM habits WHERE id = ?", [id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "habit not found" });
-    }
-
-    return res.status(200).json({
-      message: "Habit deleted successfully",
-    });
+    return res.status(200).json({ message: "Habit deleted successfully" });
   }),
 );
 
 router.post(
   "/:id/logs",
   asyncHandler(async (req, res) => {
-    const habitId = Number(req.params.id);
-
-    if (!Number.isInteger(habitId) || habitId <= 0) {
-      return res.status(400).json({ error: "invalid id" });
-    }
-
+    const habitId = req.habit.id;
     const { date } = req.body;
 
     if (!date) {
@@ -249,23 +232,9 @@ router.post(
 router.get(
   "/:id/logs",
   asyncHandler(async (req, res) => {
-    const habitId = Number(req.params.id);
-
-    if (!Number.isInteger(habitId) || habitId <= 0) {
-      return res.status(400).json({ error: "invalid id" });
-    }
-
-    const [habitRows] = await pool.query("SELECT * FROM habits WHERE id = ?", [
-      habitId,
-    ]);
-
-    if (habitRows.length === 0) {
-      return res.status(404).json({ error: "habit not found" });
-    }
-
     const [logRows] = await pool.query(
       "SELECT * FROM habit_logs WHERE habit_id = ? ORDER BY log_date ASC",
-      [habitId],
+      [req.habit.id],
     );
 
     res.status(200).json(logRows);
