@@ -32,8 +32,10 @@ router.get(
   asyncHandler(async (req, res) => {
     await pendingReviewService.evaluatePendingReviews();
 
-    const [rows] = await pool.query("SELECT * FROM habits");
-    const pendingRows = await habitLogModel.findPending();
+    const [rows] = await pool.query("SELECT * FROM habits WHERE user_id = ?", [
+      req.user.id,
+    ]);
+    const pendingRows = await habitLogModel.findPendingForUser(req.user.id);
     const pendingByHabitId = new Map(
       pendingRows.map((row) => [row.habit_id, row]),
     );
@@ -61,10 +63,10 @@ router.post(
       return res.status(400).json({ error: "title is required" });
     }
 
-    const [result] = await pool.query("INSERT INTO habits (title) VALUES (?)", [
-      title,
-    ]);
-
+    const [result] = await pool.query(
+      "INSERT INTO habits (title, user_id) VALUES (?, ?)",
+      [title, req.user.id],
+    );
     const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [
       result.insertId,
     ]);
