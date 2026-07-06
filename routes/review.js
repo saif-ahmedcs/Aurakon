@@ -1,22 +1,21 @@
 const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
-const pool = require("../db");
 const pendingReviewService = require("../services/pendingReviewService");
 const habitLogModel = require("../models/habitLogModel");
+const habitModel = require("../models/habitModel");
+const auth = require("../middleware/authenticate");
 
 const router = express.Router();
+router.use(auth);
 
 router.get(
   "/pending",
   asyncHandler(async (req, res) => {
-    await pendingReviewService.evaluatePendingReviews();
+    await pendingReviewService.evaluatePendingReviews(req.user.id);
 
-    const [habitCountRows] = await pool.query(
-      "SELECT COUNT(*) AS count FROM habits",
-    );
-    const totalHabits = habitCountRows[0].count;
+    const totalHabits = await habitModel.countByUser(req.user.id);
+    const pendingRows = await habitLogModel.findPendingForUser(req.user.id);
 
-    const pendingRows = await habitLogModel.findPending();
     const pending = pendingRows.map((row) => ({
       habitId: row.habit_id,
       habitName: row.habit_name,
@@ -67,6 +66,13 @@ router.post(
       );
 
       if (!pending) {
+        results.push({ habitId, missedDate, result: "not_found" });
+        continue;
+      }
+
+      // Ownership: confirm this pending row belongs to the calling user
+      const habit = await habitModel.findById(habitId, req.user.id);
+      if (!habit) {
         results.push({ habitId, missedDate, result: "not_found" });
         continue;
       }

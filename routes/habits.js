@@ -1,9 +1,9 @@
 const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
-const pool = require("../db");
 const calculateStreaks = require("../utils/streak");
 const pendingReviewService = require("../services/pendingReviewService");
 const habitLogModel = require("../models/habitLogModel");
+const habitModel = require("../models/habitModel");
 const auth = require("../middleware/authenticate");
 
 const router = express.Router();
@@ -14,14 +14,11 @@ async function ownershipCheck(req, res, next) {
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "invalid id" });
   }
-  const [rows] = await pool.query(
-    "SELECT * FROM habits WHERE id = ? AND user_id = ?",
-    [id, req.user.id],
-  );
-  if (rows.length === 0) {
+  const habit = await habitModel.findById(id, req.user.id);
+  if (!habit) {
     return res.status(404).json({ error: "habit not found" });
   }
-  req.habit = rows[0];
+  req.habit = habit;
   next();
 }
 
@@ -32,9 +29,7 @@ router.get(
   asyncHandler(async (req, res) => {
     await pendingReviewService.evaluatePendingReviews(req.user.id);
 
-    const [rows] = await pool.query("SELECT * FROM habits WHERE user_id = ?", [
-      req.user.id,
-    ]);
+    const rows = await habitModel.findAllByUser(req.user.id);
     const pendingRows = await habitLogModel.findPendingForUser(req.user.id);
     const pendingByHabitId = new Map(
       pendingRows.map((row) => [row.habit_id, row]),
@@ -63,15 +58,8 @@ router.post(
       return res.status(400).json({ error: "title is required" });
     }
 
-    const [result] = await pool.query(
-      "INSERT INTO habits (title, user_id) VALUES (?, ?)",
-      [title, req.user.id],
-    );
-    const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [
-      result.insertId,
-    ]);
-
-    res.status(201).json(rows[0]);
+    const habit = await habitModel.create(title, req.user.id);
+    res.status(201).json(habit);
   }),
 );
 
@@ -80,15 +68,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const id = req.habit.id;
 
-    const [logRows] = await pool.query(
-      "SELECT log_date, status FROM habit_logs WHERE habit_id = ?",
-      [id],
-    );
-
+    const logRows = await habitLogModel.getLogsForHabit(id);
     const logs = logRows.map((row) => ({
       date: row.log_date,
       status: row.status,
     }));
+
     const asOfDate = new Date().toISOString().slice(0, 10);
     const { currentStreak, longestStreak } = calculateStreaks(logs, asOfDate);
 
@@ -134,25 +119,19 @@ router.patch(
       return res.status(200).json(habit);
     }
 
-    await pool.query(
-      "UPDATE habits SET title = ?, target_days = ? WHERE id = ?",
-      [updatedTitle, updatedTargetDays, habit.id],
+    const updated = await habitModel.update(
+      habit.id,
+      updatedTitle,
+      updatedTargetDays,
     );
-
-    const [updatedRows] = await pool.query(
-      "SELECT * FROM habits WHERE id = ?",
-      [habit.id],
-    );
-
-    res.status(200).json(updatedRows[0]);
+    res.status(200).json(updated);
   }),
 );
 
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    await pool.query("DELETE FROM habits WHERE id = ?", [req.habit.id]);
-
+    await habitModel.remove(req.habit.id);
     return res.status(200).json({ message: "Habit deleted successfully" });
   }),
 );
@@ -196,25 +175,13 @@ router.post(
     if (pending) {
       await habitLogModel.resolveDecision(pending.id, "recovered");
 
-      const [resolvedRows] = await pool.query(
-        "SELECT * FROM habit_logs WHERE id = ?",
-        [pending.id],
-      );
-
-      return res.status(200).json(resolvedRows[0]);
+      const resolvedLog = await habitLogModel.findById(pending.id);
+      return res.status(200).json(resolvedLog);
     }
 
     try {
-      const [result] = await pool.query(
-        "INSERT INTO habit_logs (habit_id, log_date) VALUES (?, ?)",
-        [habitId, date],
-      );
-
-      const [rows] = await pool.query("SELECT * FROM habit_logs WHERE id = ?", [
-        result.insertId,
-      ]);
-
-      res.status(201).json(rows[0]);
+      const log = await habitLogModel.insertLog(habitId, date);
+      res.status(201).json(log);
     } catch (err) {
       if (err.code === "ER_DUP_ENTRY") {
         return res
@@ -232,12 +199,8 @@ router.post(
 router.get(
   "/:id/logs",
   asyncHandler(async (req, res) => {
-    const [logRows] = await pool.query(
-      "SELECT * FROM habit_logs WHERE habit_id = ? ORDER BY log_date ASC",
-      [req.habit.id],
-    );
-
-    res.status(200).json(logRows);
+    const logs = await habitLogModel.findAllByHabit(req.habit.id);
+    res.status(200).json(logs);
   }),
 );
 

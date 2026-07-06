@@ -1,29 +1,26 @@
 const habitLogModel = require("../models/habitLogModel");
+const habitModel = require("../models/habitModel");
 const { getPreviousUtcDate } = require("../utils/reviewWindow");
 const calculateStreaks = require("../utils/streak");
 
-async function evaluatePendingReviews() {
-  // Expire first
-  await habitLogModel.expireStaleReviews();
+async function evaluatePendingReviews(userId) {
+  // (a) Expire first — scope to this user
+  await habitLogModel.expireStaleReviewsForUser(userId);
 
-  // Detect second
+  // (b) Detect second — only habits owned by this user
   const yesterday = getPreviousUtcDate();
-  const candidates = await habitLogModel.getHabitsMissingLogForDate(yesterday);
+  const candidates = await habitLogModel.getHabitsMissingLogForDate(
+    userId,
+    yesterday,
+  );
 
   for (const habit of candidates) {
-    const existingPending = await habitLogModel.findPendingByHabit(habit.id);
-    if (existingPending) {
-      continue;
-    }
-
     const rawLogs = await habitLogModel.getLogsForHabit(habit.id);
     const logs = rawLogs.map((log) => ({
       date: log.log_date,
       status: log.status,
     }));
 
-    // Check whether a streak was alive going into the missed day (as of
-    // the day before the gap), not as of yesterday itself
     const dayBeforeGap = getPreviousUtcDate(new Date(`${yesterday}T00:00:00Z`));
     const { currentStreak } = calculateStreaks(logs, dayBeforeGap);
 
