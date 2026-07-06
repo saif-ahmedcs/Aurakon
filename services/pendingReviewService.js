@@ -1,10 +1,9 @@
 const habitLogModel = require("../models/habitLogModel");
-const habitModel = require("../models/habitModel");
 const { getPreviousUtcDate } = require("../utils/reviewWindow");
 const calculateStreaks = require("../utils/streak");
 
 async function evaluatePendingReviews(userId) {
-  // (a) Expire first — scope to this user
+  // (a) Expire first — scoped to this user
   await habitLogModel.expireStaleReviewsForUser(userId);
 
   // (b) Detect second — only habits owned by this user

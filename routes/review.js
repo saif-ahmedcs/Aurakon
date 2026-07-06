@@ -70,7 +70,6 @@ router.post(
         continue;
       }
 
-      // Ownership: confirm this pending row belongs to the calling user
       const habit = await habitModel.findById(habitId, req.user.id);
       if (!habit) {
         results.push({ habitId, missedDate, result: "not_found" });

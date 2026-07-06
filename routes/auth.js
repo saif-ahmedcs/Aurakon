@@ -90,10 +90,8 @@ router.post(
       });
     }
 
-    const [existing] = await pool.query(
-      "SELECT id, is_verified FROM users WHERE email = ?",
-      [normalizedEmail],
-    );
+    const existing =
+      await userModel.findByEmailForRegistration(normalizedEmail);
 
     // Password encryption
     const passwordHash = await bcrypt.hash(password, 12);
@@ -104,31 +102,39 @@ router.post(
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     // if user had an unfinished sign up
-    if (existing.length > 0) {
-      const user = existing[0];
-
-      if (user.is_verified) {
+    if (existing) {
+      if (existing.is_verified) {
         return res.status(409).json({ error: "email already registered" });
       }
 
-      await pool.query(
-        `UPDATE users
-       SET password_hash = ?,
-       username = ?,
-       email_verification_token_hash = ?,
-       email_verification_expires = ?
-       WHERE id = ?`,
-        [passwordHash, trimmedUsername, tokenHash, expiresAt, user.id],
+      await userModel.reclaimUnverified(
+        existing.id,
+        passwordHash,
+        trimmedUsername,
+        tokenHash,
+        expiresAt,
       );
       // log the verification link
       console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
 
-      const [rows] = await pool.query(
-        "SELECT id, email, username FROM users WHERE id = ?",
-        [user.id],
-      );
-      return res.status(201).json(rows[0]);
+      const user = await userModel.findById(existing.id);
+      return res.status(201).json(user);
     }
+
+    // Fresh registration
+    const newUserId = await userModel.createUser(
+      normalizedEmail,
+      passwordHash,
+      trimmedUsername,
+      tokenHash,
+      expiresAt,
+    );
+
+    console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
+
+    const user = await userModel.findById(newUserId);
+
+    res.status(201).json(user);
 
     // Fresh registration
     const [result] = await pool.query(
@@ -159,17 +165,9 @@ router.get(
     }
 
     const tokenHash = hashToken(token);
-    const [result] = await pool.query(
-      `UPDATE users
-       SET is_verified = true,
-           email_verification_token_hash = NULL,
-           email_verification_expires = NULL
-       WHERE email_verification_token_hash = ?
-         AND email_verification_expires > UTC_TIMESTAMP()`,
-      [tokenHash],
-    );
+    const affectedRows = await userModel.verifyEmail(tokenHash);
 
-    if (result.affectedRows === 0) {
+    if (affectedRows === 0) {
       await userModel.clearExpiredVerificationToken(tokenHash);
       return res.status(400).json({ error: "invalid or expired token" });
     }
@@ -194,15 +192,10 @@ router.post(
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const [rows] = await pool.query(
-      "SELECT id, is_verified, email_verification_expires FROM users WHERE email = ?",
-      [normalizedEmail],
-    );
-    if (rows.length === 0 || rows[0].is_verified) {
+    const user = await userModel.findForResend(normalizedEmail);
+    if (!user || user.is_verified) {
       return res.status(200).json(GENERIC_RESPONSE);
     }
-
-    const user = rows[0];
 
     // cooldown (block if < 2 min ago)
     if (user.email_verification_expires) {
@@ -221,13 +214,7 @@ router.post(
     const tokenHash = hashToken(rawToken);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await pool.query(
-      `UPDATE users
-       SET email_verification_token_hash = ?,
-           email_verification_expires = ?
-       WHERE id = ?`,
-      [tokenHash, expiresAt, user.id],
-    );
+    await userModel.setVerificationToken(user.id, tokenHash, expiresAt);
 
     console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
 
@@ -247,17 +234,11 @@ router.post(
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const [rows] = await pool.query(
-      "SELECT id, email, username, password_hash, is_verified FROM users WHERE email = ?",
-      [normalizedEmail],
-    );
+    const user = await userModel.findForLogin(normalizedEmail);
 
-    if (rows.length === 0) {
+    if (!user) {
       return res.status(401).json({ error: "invalid credentials" });
     }
-
-    const user = rows[0];
-
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!passwordMatch) {
