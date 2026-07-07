@@ -63,15 +63,10 @@ router.post(
       const pending = await habitLogModel.findPendingByHabitAndDate(
         habitId,
         missedDate,
+        req.user.id,
       );
 
       if (!pending) {
-        results.push({ habitId, missedDate, result: "not_found" });
-        continue;
-      }
-
-      const habit = await habitModel.findById(habitId, req.user.id);
-      if (!habit) {
         results.push({ habitId, missedDate, result: "not_found" });
         continue;
       }

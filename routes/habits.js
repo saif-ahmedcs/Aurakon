@@ -158,6 +158,7 @@ router.post(
     const pending = await habitLogModel.findPendingByHabitAndDate(
       habitId,
       date,
+      req.user.id,
     );
 
     if (pending) {
