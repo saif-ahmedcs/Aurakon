@@ -5,24 +5,12 @@ const pendingReviewService = require("../services/pendingReviewService");
 const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const auth = require("../middleware/authenticate");
+const ownershipCheck = require("../middleware/ownership");
 
 const router = express.Router();
 router.use(auth);
 
-async function ownershipCheck(req, res, next) {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).json({ error: "invalid id" });
-  }
-  const habit = await habitModel.findById(id, req.user.id);
-  if (!habit) {
-    return res.status(404).json({ error: "habit not found" });
-  }
-  req.habit = habit;
-  next();
-}
-
-router.use("/:id", asyncHandler(ownershipCheck));
+router.use("/:id", ownershipCheck);
 
 router.get(
   "/",

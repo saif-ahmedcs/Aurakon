@@ -7,7 +7,6 @@ const { isPasswordValid } = require("../utils/passwordPolicy");
 const hashToken = require("../utils/hashToken");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const refreshTokenModel = require("../models/refreshTokenModel");
-const pool = require("../db");
 const rateLimit = require("express-rate-limit");
 const userModel = require("../models/userModel");
 const router = express.Router();
