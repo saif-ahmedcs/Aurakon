@@ -4,13 +4,13 @@ const asyncHandler = require("../utils/asyncHandler");
 const hashToken = require("../utils/hashToken");
 const {
   generateAccessToken,
-  generateRefreshToken,
   generateEmailVerificationToken,
   generatePasswordResetToken,
 } = require("../utils/tokenUtils");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const userModel = require("../models/userModel");
+const authService = require("../services/authService");
 const validate = require("../middleware/validate");
 const {
   registerSchema,
@@ -153,38 +153,10 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
-    const normalizedEmail = email.toLowerCase();
-    const user = await userModel.findForLogin(normalizedEmail);
-
-    if (!user) {
-      return res.status(401).json({ error: "invalid credentials" });
-    }
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-    if (!passwordMatch) {
-      return res.status(401).json({ error: "invalid credentials" });
-    }
-
-    await userModel.clearOwnExpiredResetToken(user.id);
-
-    if (!user.is_verified) {
-      return res
-        .status(403)
-        .json({ error: "please verify your email before logging in" });
-    }
-
-    const accessToken = generateAccessToken(user);
-
-    const { rawRefreshToken, refreshTokenHash, refreshTokenExpiresAt } =
-      generateRefreshToken();
-
-    await refreshTokenModel.insert(
-      user.id,
-      refreshTokenHash,
-      refreshTokenExpiresAt,
+    const { accessToken, rawRefreshToken } = await authService.login(
+      email,
+      password,
     );
-
-    await refreshTokenModel.deleteExpiredForUser(user.id);
 
     res.cookie("refreshToken", rawRefreshToken, {
       ...REFRESH_COOKIE_OPTIONS,
@@ -248,12 +220,6 @@ router.post(
 router.post(
   "/refresh",
   asyncHandler(async (req, res) => {
-    if (req.headers["content-type"] !== "application/json") {
-      return res
-        .status(415)
-        .json({ error: "content-type must be application/json" });
-    }
-
     const rawRefreshToken = req.cookies.refreshToken;
 
     if (!rawRefreshToken) {
@@ -286,12 +252,6 @@ router.post(
 router.post(
   "/logout",
   asyncHandler(async (req, res) => {
-    if (req.headers["content-type"] !== "application/json") {
-      return res
-        .status(415)
-        .json({ error: "content-type must be application/json" });
-    }
-
     const rawRefreshToken = req.cookies.refreshToken;
 
     if (rawRefreshToken) {
@@ -307,18 +267,11 @@ router.post(
 router.post(
   "/logout-all",
   asyncHandler(async (req, res) => {
-    if (req.headers["content-type"] !== "application/json") {
-      return res
-        .status(415)
-        .json({ error: "content-type must be application/json" });
-    }
-
     const rawRefreshToken = req.cookies.refreshToken;
 
     if (!rawRefreshToken) {
       return res.status(401).json({ error: "missing refresh token" });
     }
-
     const tokenHash = hashToken(rawRefreshToken);
     const stored = await refreshTokenModel.findByTokenHash(tokenHash);
 
