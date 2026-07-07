@@ -36,50 +36,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email, password, username } = req.body;
 
-    const normalizedEmail = email.toLowerCase();
-    const trimmedUsername = username;
-
-    const existing =
-      await userModel.findByEmailForRegistration(normalizedEmail);
-
-    // Password encryption
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    // Generate verification token
-    const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
-
-    // if user had an unfinished sign up
-    if (existing) {
-      if (existing.is_verified) {
-        return res.status(409).json({ error: "email already registered" });
-      }
-
-      await userModel.reclaimUnverified(
-        existing.id,
-        passwordHash,
-        trimmedUsername,
-        tokenHash,
-        expiresAt,
-      );
-      // log the verification link
-      console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
-
-      const user = await userModel.findById(existing.id);
-      return res.status(201).json(user);
-    }
-
-    // Fresh registration
-    const newUserId = await userModel.createUser(
-      normalizedEmail,
-      passwordHash,
-      trimmedUsername,
-      tokenHash,
-      expiresAt,
-    );
-
-    console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
-
-    const user = await userModel.findById(newUserId);
+    const user = await authService.register(email, password, username);
 
     res.status(201).json(user);
   }),
