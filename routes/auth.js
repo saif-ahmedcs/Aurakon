@@ -1,9 +1,13 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
 const asyncHandler = require("../utils/asyncHandler");
 const hashToken = require("../utils/hashToken");
+const {
+  generateAccessToken,
+  generateRefreshToken,
+  generateEmailVerificationToken,
+  generatePasswordResetToken,
+} = require("../utils/tokenUtils");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const userModel = require("../models/userModel");
@@ -42,9 +46,7 @@ router.post(
     const passwordHash = await bcrypt.hash(password, 12);
 
     // Generate verification token
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
     // if user had an unfinished sign up
     if (existing) {
@@ -135,12 +137,9 @@ router.post(
       }
     }
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
     await userModel.setVerificationToken(user.id, tokenHash, expiresAt);
-
     console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
 
     return res.status(200).json(GENERIC_RESPONSE);
@@ -174,17 +173,10 @@ router.post(
         .json({ error: "please verify your email before logging in" });
     }
 
-    const accessToken = jwt.sign(
-      { sub: user.id, email: user.email, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: "15m", algorithm: "HS256" },
-    );
+    const accessToken = generateAccessToken(user);
 
-    const rawRefreshToken = crypto.randomBytes(40).toString("hex");
-    const refreshTokenHash = hashToken(rawRefreshToken);
-    const refreshTokenExpiresAt = new Date(
-      Date.now() + 50 * 24 * 60 * 60 * 1000,
-    );
+    const { rawRefreshToken, refreshTokenHash, refreshTokenExpiresAt } =
+      generateRefreshToken();
 
     await refreshTokenModel.insert(
       user.id,
@@ -221,9 +213,7 @@ router.post(
       return res.status(200).json(GENERIC_RESPONSE);
     }
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
 
     await userModel.setResetToken(user.id, tokenHash, expiresAt);
     console.log(
@@ -287,11 +277,7 @@ router.post(
       return res.status(401).json({ error: "user not found" });
     }
 
-    const accessToken = jwt.sign(
-      { sub: user.id, email: user.email, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: "15m", algorithm: "HS256" },
-    );
+    const accessToken = generateAccessToken(user);
 
     res.status(200).json({ accessToken });
   }),
