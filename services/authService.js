@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const hashToken = require("../utils/hashToken");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const {
@@ -96,4 +97,24 @@ async function register(email, password, username) {
   return await userModel.findById(newUserId);
 }
 
-module.exports = { login, register };
+async function verifyEmail(token) {
+  if (!token) {
+    const err = new Error("token is required");
+    err.status = 400;
+    throw err;
+  }
+
+  const tokenHash = hashToken(token);
+  const affectedRows = await userModel.verifyEmail(tokenHash);
+
+  if (affectedRows === 0) {
+    await userModel.clearExpiredVerificationToken(tokenHash);
+    const err = new Error("invalid or expired token");
+    err.status = 400;
+    throw err;
+  }
+
+  return { message: "email verified successfully" };
+}
+
+module.exports = { login, register, verifyEmail };

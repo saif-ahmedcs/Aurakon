@@ -48,19 +48,9 @@ router.get(
   asyncHandler(async (req, res) => {
     const { token } = req.query;
 
-    if (!token) {
-      return res.status(400).json({ error: "token is required" });
-    }
+    const result = await authService.verifyEmail(token);
 
-    const tokenHash = hashToken(token);
-    const affectedRows = await userModel.verifyEmail(tokenHash);
-
-    if (affectedRows === 0) {
-      await userModel.clearExpiredVerificationToken(tokenHash);
-      return res.status(400).json({ error: "invalid or expired token" });
-    }
-
-    res.status(200).json({ message: "email verified successfully" });
+    res.status(200).json(result);
   }),
 );
 
