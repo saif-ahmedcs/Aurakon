@@ -6,6 +6,12 @@ const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const auth = require("../middleware/authenticate");
 const ownershipCheck = require("../middleware/ownership");
+const validate = require("../middleware/validate");
+const {
+  createHabitSchema,
+  updateHabitSchema,
+  logSchema,
+} = require("../middleware/schemas/habitSchemas");
 
 const router = express.Router();
 router.use(auth);
@@ -39,12 +45,9 @@ router.get(
 
 router.post(
   "/",
+  validate(createHabitSchema),
   asyncHandler(async (req, res) => {
     const { title } = req.body;
-
-    if (!title || title.trim() === "") {
-      return res.status(400).json({ error: "title is required" });
-    }
 
     const habit = await habitModel.create(title, req.user.id);
     res.status(201).json(habit);
@@ -82,19 +85,10 @@ router.get(
 
 router.patch(
   "/:id",
+  validate(updateHabitSchema),
   asyncHandler(async (req, res) => {
     const habit = req.habit;
     const { title, target_days } = req.body;
-
-    if (title !== undefined && title.trim() === "") {
-      return res.status(400).json({ error: "title is required" });
-    }
-
-    if (target_days !== undefined && target_days <= 0) {
-      return res
-        .status(400)
-        .json({ error: "target_days must be greater than 0" });
-    }
 
     const updatedTitle = title !== undefined ? title : habit.title;
     const updatedTargetDays =
@@ -126,34 +120,10 @@ router.delete(
 
 router.post(
   "/:id/logs",
+  validate(logSchema),
   asyncHandler(async (req, res) => {
     const habitId = req.habit.id;
     const { date } = req.body;
-
-    if (!date) {
-      return res.status(400).json({ error: "date is required" });
-    }
-
-    const dateFormatMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-
-    if (!dateFormatMatch) {
-      return res.status(400).json({ error: "invalid date format" });
-    }
-
-    const [, yearStr, monthStr, dayStr] = dateFormatMatch;
-    const year = Number(yearStr);
-    const month = Number(monthStr);
-    const day = Number(dayStr);
-
-    const asUTC = new Date(Date.UTC(year, month - 1, day));
-    const isRealCalendarDate =
-      asUTC.getUTCFullYear() === year &&
-      asUTC.getUTCMonth() === month - 1 &&
-      asUTC.getUTCDate() === day;
-
-    if (!isRealCalendarDate) {
-      return res.status(400).json({ error: "invalid date format" });
-    }
 
     const pending = await habitLogModel.findPendingByHabitAndDate(
       habitId,
