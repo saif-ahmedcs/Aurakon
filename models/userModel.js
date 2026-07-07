@@ -74,6 +74,45 @@ async function setVerificationToken(userId, tokenHash, expiresAt) {
   );
 }
 
+async function findForPasswordReset(email) {
+  const [rows] = await pool.query(
+    "SELECT id, is_verified FROM users WHERE email = ?",
+    [email],
+  );
+  return rows[0] || null;
+}
+
+async function setResetToken(userId, tokenHash, expiresAt) {
+  await pool.query(
+    `UPDATE users
+     SET reset_token_hash = ?,
+         reset_token_expires = ?
+     WHERE id = ?`,
+    [tokenHash, expiresAt, userId],
+  );
+}
+
+async function findByValidResetToken(tokenHash) {
+  const [rows] = await pool.query(
+    `SELECT id FROM users
+     WHERE reset_token_hash = ?
+       AND reset_token_expires > UTC_TIMESTAMP()`,
+    [tokenHash],
+  );
+  return rows[0] || null;
+}
+
+async function updatePasswordAndClearResetToken(userId, passwordHash) {
+  await pool.query(
+    `UPDATE users
+     SET password_hash = ?,
+         reset_token_hash = NULL,
+         reset_token_expires = NULL
+     WHERE id = ?`,
+    [passwordHash, userId],
+  );
+}
+
 async function findForLogin(email) {
   const [rows] = await pool.query(
     "SELECT id, email, username, password_hash, is_verified FROM users WHERE email = ?",
@@ -131,4 +170,6 @@ module.exports = {
   clearExpiredVerificationToken,
   clearExpiredResetToken,
   clearOwnExpiredResetToken,
+  findForPasswordReset,
+  setResetToken,
 };
