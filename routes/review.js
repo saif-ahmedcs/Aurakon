@@ -4,7 +4,10 @@ const pendingReviewService = require("../services/pendingReviewService");
 const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const auth = require("../middleware/authenticate");
-
+const validate = require("../middleware/validate");
+const {
+  reviewDecisionsSchema,
+} = require("../middleware/schemas/reviewSchemas");
 const router = express.Router();
 router.use(auth);
 
@@ -41,24 +44,14 @@ router.get(
 
 router.post(
   "/decisions",
+  validate(reviewDecisionsSchema),
   asyncHandler(async (req, res) => {
     const { decisions } = req.body;
-
-    if (!Array.isArray(decisions) || decisions.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "decisions must be a non-empty array" });
-    }
 
     const results = [];
 
     for (const item of decisions) {
-      const { habitId, missedDate, decision } = item || {};
-
-      if (decision !== "completed" && decision !== "missed") {
-        results.push({ habitId, missedDate, result: "invalid_decision" });
-        continue;
-      }
+      const { habitId, missedDate, decision } = item;
 
       const pending = await habitLogModel.findPendingByHabitAndDate(
         habitId,
