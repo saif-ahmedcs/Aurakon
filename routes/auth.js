@@ -6,7 +6,6 @@ const asyncHandler = require("../utils/asyncHandler");
 const hashToken = require("../utils/hashToken");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const refreshTokenModel = require("../models/refreshTokenModel");
-const rateLimit = require("express-rate-limit");
 const userModel = require("../models/userModel");
 const validate = require("../middleware/validate");
 const {
@@ -16,54 +15,15 @@ const {
   resetPasswordSchema,
   resendVerificationSchema,
 } = require("../middleware/schemas/authSchemas");
+const {
+  registerLimiter,
+  verifyEmailLimiter,
+  resendVerificationLimiter,
+  loginLimiter,
+  forgotPasswordLimiter,
+} = require("../middleware/rateLimiters");
 
 const router = express.Router();
-
-const registerLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: { error: "too many registration attempts, please try again later" },
-});
-
-const verifyEmailLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: "too many verification attempts, please try again later" },
-});
-
-const resendVerificationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  keyGenerator: (req) => {
-    const email = (req.body?.email ?? "").toLowerCase().trim();
-    return `${req.ip}:${email}`;
-  },
-  message: {
-    error: "too many resend attempts, please try again later",
-  },
-});
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  keyGenerator: (req) => {
-    const email = (req.body?.email ?? "").toLowerCase().trim();
-    return `${req.ip}:${email}`;
-  },
-  message: { error: "too many login attempts, please try again later" },
-});
-
-const forgotPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  keyGenerator: (req) => {
-    const email = (req.body?.email ?? "").toLowerCase().trim();
-    return `${req.ip}:${email}`;
-  },
-  message: {
-    error: "too many requests, please try again later",
-  },
-});
 
 router.post(
   "/register",
