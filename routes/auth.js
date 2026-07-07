@@ -3,12 +3,20 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const asyncHandler = require("../utils/asyncHandler");
-const { isPasswordValid } = require("../utils/passwordPolicy");
 const hashToken = require("../utils/hashToken");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const rateLimit = require("express-rate-limit");
 const userModel = require("../models/userModel");
+const validate = require("../middleware/validate");
+const {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  resendVerificationSchema,
+} = require("../middleware/schemas/authSchemas");
+
 const router = express.Router();
 
 const registerLimiter = rateLimit({
@@ -60,34 +68,12 @@ const forgotPasswordLimiter = rateLimit({
 router.post(
   "/register",
   registerLimiter,
+  validate(registerSchema),
   asyncHandler(async (req, res) => {
     const { email, password, username } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "email and password are required" });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    if (!isPasswordValid(password)) {
-      return res.status(400).json({
-        error:
-          "password must be at least 8 characters and contain at least one letter and one number",
-      });
-    }
-
-    // username validation
-    const trimmedUsername = String(username ?? "").trim();
-
-    if (!trimmedUsername) {
-      return res.status(400).json({ error: "username is required" });
-    }
-
-    if (trimmedUsername.length < 3 || trimmedUsername.length > 20) {
-      return res.status(400).json({
-        error: "username must be between 3 and 20 characters",
-      });
-    }
+    const normalizedEmail = email.toLowerCase();
+    const trimmedUsername = username;
 
     const existing =
       await userModel.findByEmailForRegistration(normalizedEmail);
@@ -162,6 +148,7 @@ router.get(
 router.post(
   "/resend-verification",
   resendVerificationLimiter,
+  validate(resendVerificationSchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body;
 
@@ -169,12 +156,7 @@ router.post(
       message: "If an account exists, a verification email has been sent.",
     };
 
-    if (!email) {
-      return res.status(200).json(GENERIC_RESPONSE);
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
+    const normalizedEmail = email.toLowerCase();
     const user = await userModel.findForResend(normalizedEmail);
     if (!user || user.is_verified) {
       return res.status(200).json(GENERIC_RESPONSE);
@@ -208,15 +190,11 @@ router.post(
 router.post(
   "/login",
   loginLimiter,
+  validate(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "email and password are required" });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
+    const normalizedEmail = email.toLowerCase();
     const user = await userModel.findForLogin(normalizedEmail);
 
     if (!user) {
@@ -266,6 +244,7 @@ router.post(
 router.post(
   "/forgot-password",
   forgotPasswordLimiter,
+  validate(forgotPasswordSchema),
   asyncHandler(async (req, res) => {
     const GENERIC_RESPONSE = {
       message: "If an account exists, a password reset email has been sent.",
@@ -273,12 +252,7 @@ router.post(
 
     const { email } = req.body;
 
-    if (!email) {
-      return res.status(200).json(GENERIC_RESPONSE);
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
+    const normalizedEmail = email.toLowerCase();
     const user = await userModel.findForPasswordReset(normalizedEmail);
 
     if (!user || !user.is_verified) {
@@ -300,21 +274,9 @@ router.post(
 
 router.post(
   "/reset-password",
+  validate(resetPasswordSchema),
   asyncHandler(async (req, res) => {
     const { token, newPassword } = req.body;
-
-    if (!token || !newPassword) {
-      return res
-        .status(400)
-        .json({ error: "token and newPassword are required" });
-    }
-
-    if (!isPasswordValid(newPassword)) {
-      return res.status(400).json({
-        error:
-          "password must be at least 8 characters and contain at least one letter and one number",
-      });
-    }
 
     const tokenHash = hashToken(token);
     const user = await userModel.findByValidResetToken(tokenHash);
