@@ -232,6 +232,8 @@ router.post(
       refreshTokenExpiresAt,
     );
 
+    await refreshTokenModel.deleteExpiredForUser(user.id);
+
     res.cookie("refreshToken", rawRefreshToken, {
       ...REFRESH_COOKIE_OPTIONS,
       maxAge: 50 * 24 * 60 * 60 * 1000,
