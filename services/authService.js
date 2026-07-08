@@ -3,6 +3,7 @@ const { runInTransaction } = require("../db");
 const hashToken = require("../utils/hashToken");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
+const authEvents = require("../events/authEvents");
 const {
   BCRYPT_SALT_ROUNDS,
   VERIFICATION_COOLDOWN_MS,
@@ -30,7 +31,7 @@ async function register(email, password, username) {
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
-  const resultUser = await pool.runInTransaction(async (tx) => {
+  const resultUser = await runInTransaction(async (tx) => {
     const existing = await userModel.findByEmailForRegistration(
       normalizedEmail,
       tx,
@@ -65,7 +66,7 @@ async function register(email, password, username) {
     return await userModel.findById(newUserId, tx);
   });
 
-  console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
+  authEvents.emit("USER_REGISTERED", { email: normalizedEmail, rawToken });
 
   return resultUser;
 }
@@ -113,7 +114,7 @@ async function resendVerification(email) {
 
   await userModel.setVerificationToken(user.id, tokenHash, expiresAt);
 
-  console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
+  authEvents.emit("VERIFICATION_RESENT", { email: normalizedEmail, rawToken });
 
   return GENERIC_RESEND_RESPONSE;
 }
@@ -176,9 +177,10 @@ async function forgotPassword(email) {
   const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
 
   await userModel.setResetToken(user.id, tokenHash, expiresAt);
-  console.log(
-    `Reset password: POST /api/auth/reset-password with token=${rawToken}`,
-  );
+  authEvents.emit("PASSWORD_RESET_REQUESTED", {
+    email: normalizedEmail,
+    rawToken,
+  });
 
   return GENERIC_FORGOT_PASSWORD_RESPONSE;
 }
