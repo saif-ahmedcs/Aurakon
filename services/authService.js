@@ -192,6 +192,41 @@ async function resetPassword(token, newPassword) {
   return { message: "password reset successfully" };
 }
 
+async function refresh(rawRefreshToken) {
+  if (!rawRefreshToken) {
+    const err = new Error("missing refresh token");
+    err.status = 401;
+    throw err;
+  }
+
+  const tokenHash = hashToken(rawRefreshToken);
+  const stored = await refreshTokenModel.findByTokenHash(tokenHash);
+
+  if (!stored) {
+    const err = new Error("invalid refresh token");
+    err.status = 401;
+    throw err;
+  }
+
+  if (new Date(stored.expires_at) <= new Date()) {
+    const err = new Error("refresh token expired");
+    err.status = 401;
+    throw err;
+  }
+
+  const user = await userModel.findById(stored.user_id);
+
+  if (!user) {
+    const err = new Error("user not found");
+    err.status = 401;
+    throw err;
+  }
+
+  const accessToken = generateAccessToken(user);
+
+  return { accessToken };
+}
+
 module.exports = {
   login,
   register,
@@ -199,4 +234,5 @@ module.exports = {
   resendVerification,
   forgotPassword,
   resetPassword,
+  refresh,
 };

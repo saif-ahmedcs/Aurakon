@@ -1,7 +1,6 @@
 const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const hashToken = require("../utils/hashToken");
-const { generateAccessToken } = require("../utils/tokenUtils");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const userModel = require("../models/userModel");
@@ -113,30 +112,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
-    if (!rawRefreshToken) {
-      return res.status(401).json({ error: "missing refresh token" });
-    }
+    const result = await authService.refresh(rawRefreshToken);
 
-    const tokenHash = hashToken(rawRefreshToken);
-    const stored = await refreshTokenModel.findByTokenHash(tokenHash);
-
-    if (!stored) {
-      return res.status(401).json({ error: "invalid refresh token" });
-    }
-
-    if (new Date(stored.expires_at) <= new Date()) {
-      return res.status(401).json({ error: "refresh token expired" });
-    }
-
-    const user = await userModel.findById(stored.user_id);
-
-    if (!user) {
-      return res.status(401).json({ error: "user not found" });
-    }
-
-    const accessToken = generateAccessToken(user);
-
-    res.status(200).json({ accessToken });
+    res.status(200).json(result);
   }),
 );
 
