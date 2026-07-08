@@ -6,6 +6,7 @@ const refreshTokenModel = require("../models/refreshTokenModel");
 const {
   BCRYPT_SALT_ROUNDS,
   VERIFICATION_COOLDOWN_MS,
+  MAX_ACTIVE_SESSIONS,
 } = require("../utils/constants");
 const {
   BadRequestError,
@@ -147,6 +148,12 @@ async function login(email, password) {
     generateRefreshToken();
 
   await refreshTokenModel.deleteExpiredForUser(user.id);
+
+  let activeCount = await refreshTokenModel.countActiveByUserId(user.id);
+  while (activeCount >= MAX_ACTIVE_SESSIONS) {
+    await refreshTokenModel.deleteOldestByUserId(user.id);
+    activeCount--;
+  }
 
   await refreshTokenModel.insert(
     user.id,
