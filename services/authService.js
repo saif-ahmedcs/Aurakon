@@ -9,61 +9,17 @@ const {
   generatePasswordResetToken,
 } = require("../utils/tokenUtils");
 
-async function login(email, password) {
-  const normalizedEmail = email.toLowerCase();
-  const user = await userModel.findForLogin(normalizedEmail);
-
-  if (!user) {
-    const err = new Error("invalid credentials");
-    err.status = 401;
-    throw err;
-  }
-
-  const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-  if (!passwordMatch) {
-    const err = new Error("invalid credentials");
-    err.status = 401;
-    throw err;
-  }
-
-  await userModel.clearOwnExpiredResetToken(user.id);
-
-  if (!user.is_verified) {
-    const err = new Error("please verify your email before logging in");
-    err.status = 403;
-    throw err;
-  }
-
-  const accessToken = generateAccessToken(user);
-
-  const { rawRefreshToken, refreshTokenHash, refreshTokenExpiresAt } =
-    generateRefreshToken();
-
-  await refreshTokenModel.insert(
-    user.id,
-    refreshTokenHash,
-    refreshTokenExpiresAt,
-  );
-
-  await refreshTokenModel.deleteExpiredForUser(user.id);
-
-  return { accessToken, rawRefreshToken };
-}
-
+// ------------- REGISTER --------------
 async function register(email, password, username) {
   const normalizedEmail = email.toLowerCase();
   const trimmedUsername = username;
 
   const existing = await userModel.findByEmailForRegistration(normalizedEmail);
 
-  // Password encryption
   const passwordHash = await bcrypt.hash(password, 12);
 
-  // Generate verification token
   const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
-  // if user had an unfinished sign up
   if (existing) {
     if (existing.is_verified) {
       const err = new Error("email already registered");
@@ -78,13 +34,11 @@ async function register(email, password, username) {
       tokenHash,
       expiresAt,
     );
-    // log the verification link
     console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
 
     return await userModel.findById(existing.id);
   }
 
-  // Fresh registration
   const newUserId = await userModel.createUser(
     normalizedEmail,
     passwordHash,
@@ -98,6 +52,7 @@ async function register(email, password, username) {
   return await userModel.findById(newUserId);
 }
 
+// ------------- VERIFY EMAIL --------------
 async function verifyEmail(token) {
   if (!token) {
     const err = new Error("token is required");
@@ -122,6 +77,7 @@ const GENERIC_RESEND_RESPONSE = {
   message: "If an account exists, a verification email has been sent.",
 };
 
+// ------------- RESEND VERIFICATION --------------
 async function resendVerification(email) {
   const normalizedEmail = email.toLowerCase();
   const user = await userModel.findForResend(normalizedEmail);
@@ -129,7 +85,6 @@ async function resendVerification(email) {
     return GENERIC_RESEND_RESPONSE;
   }
 
-  // cooldown (block if < 2 min ago)
   if (user.email_verification_expires) {
     const issuedAt =
       new Date(user.email_verification_expires).getTime() - 24 * 60 * 60 * 1000;
@@ -156,6 +111,49 @@ const GENERIC_FORGOT_PASSWORD_RESPONSE = {
   message: "If an account exists, a password reset email has been sent.",
 };
 
+// ------------- LOGIN --------------
+async function login(email, password) {
+  const normalizedEmail = email.toLowerCase();
+  const user = await userModel.findForLogin(normalizedEmail);
+
+  if (!user) {
+    const err = new Error("invalid credentials");
+    err.status = 401;
+    throw err;
+  }
+
+  const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+  if (!passwordMatch) {
+    const err = new Error("invalid credentials");
+    err.status = 401;
+    throw err;
+  }
+
+  if (!user.is_verified) {
+    const err = new Error("please verify your email before logging in");
+    err.status = 403;
+    throw err;
+  }
+  await userModel.clearOwnExpiredResetToken(user.id);
+
+  const accessToken = generateAccessToken(user);
+
+  const { rawRefreshToken, refreshTokenHash, refreshTokenExpiresAt } =
+    generateRefreshToken();
+
+  await refreshTokenModel.deleteExpiredForUser(user.id);
+
+  await refreshTokenModel.insert(
+    user.id,
+    refreshTokenHash,
+    refreshTokenExpiresAt,
+  );
+
+  return { accessToken, rawRefreshToken };
+}
+
+// ------------- FORGOT PASSWORD --------------
 async function forgotPassword(email) {
   const normalizedEmail = email.toLowerCase();
   const user = await userModel.findForPasswordReset(normalizedEmail);
@@ -174,6 +172,7 @@ async function forgotPassword(email) {
   return GENERIC_FORGOT_PASSWORD_RESPONSE;
 }
 
+// ------------- RESET PASSWORD --------------
 async function resetPassword(token, newPassword) {
   const tokenHash = hashToken(token);
   const user = await userModel.findByValidResetToken(tokenHash);
@@ -192,6 +191,7 @@ async function resetPassword(token, newPassword) {
   return { message: "password reset successfully" };
 }
 
+// ------------- REFRESH --------------
 async function refresh(rawRefreshToken) {
   if (!rawRefreshToken) {
     const err = new Error("missing refresh token");
@@ -227,11 +227,32 @@ async function refresh(rawRefreshToken) {
   return { accessToken };
 }
 
+// ------------- LOGOUT --------------
 async function logout(rawRefreshToken) {
   if (rawRefreshToken) {
     const tokenHash = hashToken(rawRefreshToken);
     await refreshTokenModel.deleteByTokenHash(tokenHash);
   }
+}
+
+// ------------- LOGOUT ALL --------------
+async function logoutAll(rawRefreshToken) {
+  if (!rawRefreshToken) {
+    const err = new Error("missing refresh token");
+    err.status = 401;
+    throw err;
+  }
+
+  const tokenHash = hashToken(rawRefreshToken);
+  const stored = await refreshTokenModel.findByTokenHash(tokenHash);
+
+  if (!stored || new Date(stored.expires_at) <= new Date()) {
+    const err = new Error("invalid or expired refresh token");
+    err.status = 401;
+    throw err;
+  }
+
+  await refreshTokenModel.deleteAllByUserId(stored.user_id);
 }
 
 module.exports = {
@@ -243,4 +264,5 @@ module.exports = {
   resetPassword,
   refresh,
   logout,
+  logoutAll,
 };

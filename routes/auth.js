@@ -1,9 +1,6 @@
 const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
-const hashToken = require("../utils/hashToken");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
-const refreshTokenModel = require("../models/refreshTokenModel");
-const userModel = require("../models/userModel");
 const authService = require("../services/authService");
 const validate = require("../middleware/validate");
 const {
@@ -135,19 +132,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
-    if (!rawRefreshToken) {
-      return res.status(401).json({ error: "missing refresh token" });
-    }
-    const tokenHash = hashToken(rawRefreshToken);
-    const stored = await refreshTokenModel.findByTokenHash(tokenHash);
-
-    if (!stored || new Date(stored.expires_at) <= new Date()) {
-      return res
-        .status(401)
-        .json({ error: "invalid or expired refresh token" });
-    }
-
-    await refreshTokenModel.deleteAllByUserId(stored.user_id);
+    await authService.logoutAll(rawRefreshToken);
 
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json({ message: "logged out from all devices" });
