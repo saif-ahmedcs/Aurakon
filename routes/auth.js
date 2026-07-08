@@ -123,10 +123,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
-    if (rawRefreshToken) {
-      const tokenHash = hashToken(rawRefreshToken);
-      await refreshTokenModel.deleteByTokenHash(tokenHash);
-    }
+    await authService.logout(rawRefreshToken);
 
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json({ message: "logged out successfully" });

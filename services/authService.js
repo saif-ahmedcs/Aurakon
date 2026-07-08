@@ -227,6 +227,13 @@ async function refresh(rawRefreshToken) {
   return { accessToken };
 }
 
+async function logout(rawRefreshToken) {
+  if (rawRefreshToken) {
+    const tokenHash = hashToken(rawRefreshToken);
+    await refreshTokenModel.deleteByTokenHash(tokenHash);
+  }
+}
+
 module.exports = {
   login,
   register,
@@ -235,4 +242,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   refresh,
+  logout,
 };
