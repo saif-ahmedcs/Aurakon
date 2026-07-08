@@ -3,6 +3,13 @@ const hashToken = require("../utils/hashToken");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const {
+  BadRequestError,
+  UnauthorizedError,
+  ForbiddenError,
+  ConflictError,
+  TooManyRequestsError,
+} = require("../utils/AppErrors");
+const {
   generateAccessToken,
   generateRefreshToken,
   generateEmailVerificationToken,
@@ -22,9 +29,7 @@ async function register(email, password, username) {
 
   if (existing) {
     if (existing.is_verified) {
-      const err = new Error("email already registered");
-      err.status = 409;
-      throw err;
+      throw new ConflictError("email already registered");
     }
 
     await userModel.reclaimUnverified(
@@ -55,9 +60,7 @@ async function register(email, password, username) {
 // ------------- VERIFY EMAIL --------------
 async function verifyEmail(token) {
   if (!token) {
-    const err = new Error("token is required");
-    err.status = 400;
-    throw err;
+    throw new BadRequestError("token is required");
   }
 
   const tokenHash = hashToken(token);
@@ -65,9 +68,7 @@ async function verifyEmail(token) {
 
   if (affectedRows === 0) {
     await userModel.clearExpiredVerificationToken(tokenHash);
-    const err = new Error("invalid or expired token");
-    err.status = 400;
-    throw err;
+    throw new BadRequestError("invalid or expired token");
   }
 
   return { message: "email verified successfully" };
@@ -90,11 +91,9 @@ async function resendVerification(email) {
       new Date(user.email_verification_expires).getTime() - 24 * 60 * 60 * 1000;
     const cooldownMs = 2 * 60 * 1000;
     if (Date.now() - issuedAt < cooldownMs) {
-      const err = new Error(
+      throw new TooManyRequestsError(
         "Please wait before requesting another verification email.",
       );
-      err.status = 429;
-      throw err;
     }
   }
 
@@ -117,24 +116,18 @@ async function login(email, password) {
   const user = await userModel.findForLogin(normalizedEmail);
 
   if (!user) {
-    const err = new Error("invalid credentials");
-    err.status = 401;
-    throw err;
+    throw new UnauthorizedError("invalid credentials");
   }
-
   const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
   if (!passwordMatch) {
-    const err = new Error("invalid credentials");
-    err.status = 401;
-    throw err;
+    throw new UnauthorizedError("invalid credentials");
   }
 
   if (!user.is_verified) {
-    const err = new Error("please verify your email before logging in");
-    err.status = 403;
-    throw err;
+    throw new ForbiddenError("please verify your email before logging in");
   }
+
   await userModel.clearOwnExpiredResetToken(user.id);
 
   const accessToken = generateAccessToken(user);
@@ -179,9 +172,7 @@ async function resetPassword(token, newPassword) {
 
   if (!user) {
     await userModel.clearExpiredResetToken(tokenHash);
-    const err = new Error("invalid or expired token");
-    err.status = 400;
-    throw err;
+    throw new BadRequestError("invalid or expired token");
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
@@ -194,32 +185,24 @@ async function resetPassword(token, newPassword) {
 // ------------- REFRESH --------------
 async function refresh(rawRefreshToken) {
   if (!rawRefreshToken) {
-    const err = new Error("missing refresh token");
-    err.status = 401;
-    throw err;
+    throw new UnauthorizedError("missing refresh token");
   }
 
   const tokenHash = hashToken(rawRefreshToken);
   const stored = await refreshTokenModel.findByTokenHash(tokenHash);
 
   if (!stored) {
-    const err = new Error("invalid refresh token");
-    err.status = 401;
-    throw err;
+    throw new UnauthorizedError("invalid refresh token");
   }
 
   if (new Date(stored.expires_at) <= new Date()) {
-    const err = new Error("refresh token expired");
-    err.status = 401;
-    throw err;
+    throw new UnauthorizedError("refresh token expired");
   }
 
   const user = await userModel.findById(stored.user_id);
 
   if (!user) {
-    const err = new Error("user not found");
-    err.status = 401;
-    throw err;
+    throw new UnauthorizedError("user not found");
   }
 
   const accessToken = generateAccessToken(user);
@@ -238,20 +221,15 @@ async function logout(rawRefreshToken) {
 // ------------- LOGOUT ALL --------------
 async function logoutAll(rawRefreshToken) {
   if (!rawRefreshToken) {
-    const err = new Error("missing refresh token");
-    err.status = 401;
-    throw err;
+    throw new UnauthorizedError("missing refresh token");
   }
 
   const tokenHash = hashToken(rawRefreshToken);
   const stored = await refreshTokenModel.findByTokenHash(tokenHash);
 
   if (!stored || new Date(stored.expires_at) <= new Date()) {
-    const err = new Error("invalid or expired refresh token");
-    err.status = 401;
-    throw err;
+    throw new UnauthorizedError("invalid or expired refresh token");
   }
-
   await refreshTokenModel.deleteAllByUserId(stored.user_id);
 }
 
