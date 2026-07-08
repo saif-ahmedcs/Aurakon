@@ -6,6 +6,7 @@ const {
   generateAccessToken,
   generateRefreshToken,
   generateEmailVerificationToken,
+  generatePasswordResetToken,
 } = require("../utils/tokenUtils");
 
 async function login(email, password) {
@@ -151,4 +152,32 @@ async function resendVerification(email) {
   return GENERIC_RESEND_RESPONSE;
 }
 
-module.exports = { login, register, verifyEmail, resendVerification };
+const GENERIC_FORGOT_PASSWORD_RESPONSE = {
+  message: "If an account exists, a password reset email has been sent.",
+};
+
+async function forgotPassword(email) {
+  const normalizedEmail = email.toLowerCase();
+  const user = await userModel.findForPasswordReset(normalizedEmail);
+
+  if (!user || !user.is_verified) {
+    return GENERIC_FORGOT_PASSWORD_RESPONSE;
+  }
+
+  const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
+
+  await userModel.setResetToken(user.id, tokenHash, expiresAt);
+  console.log(
+    `Reset password: POST /api/auth/reset-password with token=${rawToken}`,
+  );
+
+  return GENERIC_FORGOT_PASSWORD_RESPONSE;
+}
+
+module.exports = {
+  login,
+  register,
+  verifyEmail,
+  resendVerification,
+  forgotPassword,
+};

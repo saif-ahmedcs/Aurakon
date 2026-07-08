@@ -2,10 +2,7 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const asyncHandler = require("../utils/asyncHandler");
 const hashToken = require("../utils/hashToken");
-const {
-  generateAccessToken,
-  generatePasswordResetToken,
-} = require("../utils/tokenUtils");
+const { generateAccessToken } = require("../utils/tokenUtils");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const userModel = require("../models/userModel");
@@ -92,27 +89,11 @@ router.post(
   forgotPasswordLimiter,
   validate(forgotPasswordSchema),
   asyncHandler(async (req, res) => {
-    const GENERIC_RESPONSE = {
-      message: "If an account exists, a password reset email has been sent.",
-    };
-
     const { email } = req.body;
 
-    const normalizedEmail = email.toLowerCase();
-    const user = await userModel.findForPasswordReset(normalizedEmail);
+    const result = await authService.forgotPassword(email);
 
-    if (!user || !user.is_verified) {
-      return res.status(200).json(GENERIC_RESPONSE);
-    }
-
-    const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
-
-    await userModel.setResetToken(user.id, tokenHash, expiresAt);
-    console.log(
-      `Reset password: POST /api/auth/reset-password with token=${rawToken}`,
-    );
-
-    return res.status(200).json(GENERIC_RESPONSE);
+    res.status(200).json(result);
   }),
 );
 
