@@ -1,6 +1,7 @@
 const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
+const { REFRESH_TOKEN_MAX_AGE_MS } = require("../utils/constants");
 const authService = require("../services/authService");
 const validate = require("../middleware/validate");
 const {
@@ -72,7 +73,7 @@ router.post(
 
     res.cookie("refreshToken", rawRefreshToken, {
       ...REFRESH_COOKIE_OPTIONS,
-      maxAge: 50 * 24 * 60 * 60 * 1000,
+      maxAge: REFRESH_TOKEN_MAX_AGE_MS,
     });
 
     res.status(200).json({ accessToken });

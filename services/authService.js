@@ -3,6 +3,10 @@ const hashToken = require("../utils/hashToken");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const {
+  BCRYPT_SALT_ROUNDS,
+  VERIFICATION_COOLDOWN_MS,
+} = require("../utils/constants");
+const {
   BadRequestError,
   UnauthorizedError,
   ForbiddenError,
@@ -23,7 +27,7 @@ async function register(email, password, username) {
 
   const existing = await userModel.findByEmailForRegistration(normalizedEmail);
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
   const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
@@ -89,8 +93,7 @@ async function resendVerification(email) {
   if (user.email_verification_expires) {
     const issuedAt =
       new Date(user.email_verification_expires).getTime() - 24 * 60 * 60 * 1000;
-    const cooldownMs = 2 * 60 * 1000;
-    if (Date.now() - issuedAt < cooldownMs) {
+    if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
       throw new TooManyRequestsError(
         "Please wait before requesting another verification email.",
       );
@@ -175,7 +178,7 @@ async function resetPassword(token, newPassword) {
     throw new BadRequestError("invalid or expired token");
   }
 
-  const passwordHash = await bcrypt.hash(newPassword, 12);
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
   await userModel.updatePasswordAndClearResetToken(user.id, passwordHash);
 
