@@ -4,7 +4,6 @@ const asyncHandler = require("../utils/asyncHandler");
 const hashToken = require("../utils/hashToken");
 const {
   generateAccessToken,
-  generateEmailVerificationToken,
   generatePasswordResetToken,
 } = require("../utils/tokenUtils");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
@@ -61,35 +60,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    const GENERIC_RESPONSE = {
-      message: "If an account exists, a verification email has been sent.",
-    };
+    const result = await authService.resendVerification(email);
 
-    const normalizedEmail = email.toLowerCase();
-    const user = await userModel.findForResend(normalizedEmail);
-    if (!user || user.is_verified) {
-      return res.status(200).json(GENERIC_RESPONSE);
-    }
-
-    // cooldown (block if < 2 min ago)
-    if (user.email_verification_expires) {
-      const issuedAt =
-        new Date(user.email_verification_expires).getTime() -
-        24 * 60 * 60 * 1000;
-      const cooldownMs = 2 * 60 * 1000;
-      if (Date.now() - issuedAt < cooldownMs) {
-        return res.status(429).json({
-          error: "Please wait before requesting another verification email.",
-        });
-      }
-    }
-
-    const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
-
-    await userModel.setVerificationToken(user.id, tokenHash, expiresAt);
-    console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
-
-    return res.status(200).json(GENERIC_RESPONSE);
+    res.status(200).json(result);
   }),
 );
 

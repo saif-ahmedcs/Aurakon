@@ -117,4 +117,38 @@ async function verifyEmail(token) {
   return { message: "email verified successfully" };
 }
 
-module.exports = { login, register, verifyEmail };
+const GENERIC_RESEND_RESPONSE = {
+  message: "If an account exists, a verification email has been sent.",
+};
+
+async function resendVerification(email) {
+  const normalizedEmail = email.toLowerCase();
+  const user = await userModel.findForResend(normalizedEmail);
+  if (!user || user.is_verified) {
+    return GENERIC_RESEND_RESPONSE;
+  }
+
+  // cooldown (block if < 2 min ago)
+  if (user.email_verification_expires) {
+    const issuedAt =
+      new Date(user.email_verification_expires).getTime() - 24 * 60 * 60 * 1000;
+    const cooldownMs = 2 * 60 * 1000;
+    if (Date.now() - issuedAt < cooldownMs) {
+      const err = new Error(
+        "Please wait before requesting another verification email.",
+      );
+      err.status = 429;
+      throw err;
+    }
+  }
+
+  const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
+
+  await userModel.setVerificationToken(user.id, tokenHash, expiresAt);
+
+  console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
+
+  return GENERIC_RESEND_RESPONSE;
+}
+
+module.exports = { login, register, verifyEmail, resendVerification };
