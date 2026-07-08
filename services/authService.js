@@ -174,10 +174,29 @@ async function forgotPassword(email) {
   return GENERIC_FORGOT_PASSWORD_RESPONSE;
 }
 
+async function resetPassword(token, newPassword) {
+  const tokenHash = hashToken(token);
+  const user = await userModel.findByValidResetToken(tokenHash);
+
+  if (!user) {
+    await userModel.clearExpiredResetToken(tokenHash);
+    const err = new Error("invalid or expired token");
+    err.status = 400;
+    throw err;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await userModel.updatePasswordAndClearResetToken(user.id, passwordHash);
+
+  return { message: "password reset successfully" };
+}
+
 module.exports = {
   login,
   register,
   verifyEmail,
   resendVerification,
   forgotPassword,
+  resetPassword,
 };

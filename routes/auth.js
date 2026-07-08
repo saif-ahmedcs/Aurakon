@@ -1,5 +1,4 @@
 const express = require("express");
-const bcrypt = require("bcrypt");
 const asyncHandler = require("../utils/asyncHandler");
 const hashToken = require("../utils/hashToken");
 const { generateAccessToken } = require("../utils/tokenUtils");
@@ -103,18 +102,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const { token, newPassword } = req.body;
 
-    const tokenHash = hashToken(token);
-    const user = await userModel.findByValidResetToken(tokenHash);
+    const result = await authService.resetPassword(token, newPassword);
 
-    if (!user) {
-      await userModel.clearExpiredResetToken(tokenHash);
-      return res.status(400).json({ error: "invalid or expired token" });
-    }
-
-    const passwordHash = await bcrypt.hash(newPassword, 12);
-
-    await userModel.updatePasswordAndClearResetToken(user.id, passwordHash);
-    res.status(200).json({ message: "password reset successfully" });
+    res.status(200).json(result);
   }),
 );
 
