@@ -1,15 +1,22 @@
-const pool = require("../db");
+const { pool } = require("../db");
 
-async function findByEmailForRegistration(email) {
-  const [rows] = await pool.query(
+async function findByEmailForRegistration(email, db = pool) {
+  const [rows] = await db.query(
     "SELECT id, is_verified FROM users WHERE email = ?",
     [email],
   );
   return rows[0] || null;
 }
 
-async function createUser(email, passwordHash, username, tokenHash, expiresAt) {
-  const [result] = await pool.query(
+async function createUser(
+  email,
+  passwordHash,
+  username,
+  tokenHash,
+  expiresAt,
+  db = pool,
+) {
+  const [result] = await db.query(
     `INSERT INTO users (email, password_hash, username, is_verified, email_verification_token_hash, email_verification_expires)
      VALUES (?, ?, ?, false, ?, ?)`,
     [email, passwordHash, username, tokenHash, expiresAt],
@@ -23,8 +30,9 @@ async function reclaimUnverified(
   username,
   tokenHash,
   expiresAt,
+  db = pool,
 ) {
-  await pool.query(
+  await db.query(
     `UPDATE users
      SET password_hash = ?,
          username = ?,
@@ -35,8 +43,8 @@ async function reclaimUnverified(
   );
 }
 
-async function findById(id) {
-  const [rows] = await pool.query(
+async function findById(id, db = pool) {
+  const [rows] = await db.query(
     "SELECT id, email, username FROM users WHERE id = ?",
     [id],
   );

@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const { runInTransaction } = require("../db");
 const hashToken = require("../utils/hashToken");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
@@ -25,40 +26,47 @@ async function register(email, password, username) {
   const normalizedEmail = email.toLowerCase();
   const trimmedUsername = username;
 
-  const existing = await userModel.findByEmailForRegistration(normalizedEmail);
-
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-
   const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
-  if (existing) {
-    if (existing.is_verified) {
-      throw new ConflictError("email already registered");
+  const resultUser = await pool.runInTransaction(async (tx) => {
+    const existing = await userModel.findByEmailForRegistration(
+      normalizedEmail,
+      tx,
+    );
+
+    if (existing) {
+      if (existing.is_verified) {
+        throw new ConflictError("email already registered");
+      }
+
+      await userModel.reclaimUnverified(
+        existing.id,
+        passwordHash,
+        trimmedUsername,
+        tokenHash,
+        expiresAt,
+        tx,
+      );
+
+      return await userModel.findById(existing.id, tx);
     }
 
-    await userModel.reclaimUnverified(
-      existing.id,
+    const newUserId = await userModel.createUser(
+      normalizedEmail,
       passwordHash,
       trimmedUsername,
       tokenHash,
       expiresAt,
+      tx,
     );
-    console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
 
-    return await userModel.findById(existing.id);
-  }
-
-  const newUserId = await userModel.createUser(
-    normalizedEmail,
-    passwordHash,
-    trimmedUsername,
-    tokenHash,
-    expiresAt,
-  );
+    return await userModel.findById(newUserId, tx);
+  });
 
   console.log(`Verify email: GET /api/auth/verify-email?token=${rawToken}`);
 
-  return await userModel.findById(newUserId);
+  return resultUser;
 }
 
 // ------------- VERIFY EMAIL --------------

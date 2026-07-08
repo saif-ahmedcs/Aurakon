@@ -1,4 +1,4 @@
-const pool = require("../db");
+const { pool } = require("../db");
 
 async function insert(userId, tokenHash, expiresAt) {
   await pool.query(

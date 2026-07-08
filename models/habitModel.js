@@ -1,4 +1,4 @@
-const pool = require("../db");
+const { pool } = require("../db");
 
 async function findAllByUser(userId) {
   const [rows] = await pool.query("SELECT * FROM habits WHERE user_id = ?", [
