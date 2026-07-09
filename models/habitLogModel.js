@@ -112,7 +112,7 @@ async function findById(id, db = pool) {
 
 async function insertLog(habitId, logDate, db = pool) {
   const [result] = await db.query(
-    "INSERT INTO habit_logs (habit_id, log_date) VALUES (?, ?)",
+    "INSERT INTO habit_logs (habit_id, log_date, status) VALUES (?, ?, 'completed')",
     [habitId, logDate],
   );
   const [rows] = await db.query("SELECT * FROM habit_logs WHERE id = ?", [

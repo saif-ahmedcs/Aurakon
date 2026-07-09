@@ -180,4 +180,6 @@ module.exports = {
   clearOwnExpiredResetToken,
   findForPasswordReset,
   setResetToken,
+  findByValidResetToken,
+  updatePasswordAndClearResetToken,
 };

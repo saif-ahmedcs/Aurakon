@@ -11,7 +11,8 @@ const reviewDecisionsSchema = z.object({
         decision: z.enum(["completed", "missed"]),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(50, "decisions array cannot exceed 50 items"),
 });
 
 module.exports = { reviewDecisionsSchema };

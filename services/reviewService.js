@@ -1,3 +1,4 @@
+const { runInTransaction } = require("../db");
 const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const reviewSyncService = require("./reviewSyncService");
@@ -34,29 +35,32 @@ async function getPendingReviews(userId) {
 }
 
 async function applyDecisions(decisions, userId) {
-  const results = [];
+  return runInTransaction(async (tx) => {
+    const results = [];
 
-  for (const item of decisions) {
-    const { habitId, missedDate, decision } = item;
+    for (const item of decisions) {
+      const { habitId, missedDate, decision } = item;
 
-    const pending = await habitLogModel.findPendingByHabitAndDate(
-      habitId,
-      missedDate,
-      userId,
-    );
+      const pending = await habitLogModel.findPendingByHabitAndDate(
+        habitId,
+        missedDate,
+        userId,
+        tx,
+      );
 
-    if (!pending) {
-      results.push({ habitId, missedDate, result: "not_found" });
-      continue;
+      if (!pending) {
+        results.push({ habitId, missedDate, result: "not_found" });
+        continue;
+      }
+
+      const newStatus = decision === "completed" ? "recovered" : "missed";
+      await habitLogModel.resolveDecision(pending.id, newStatus, tx);
+
+      results.push({ habitId, missedDate, result: newStatus });
     }
 
-    const newStatus = decision === "completed" ? "recovered" : "missed";
-    await habitLogModel.resolveDecision(pending.id, newStatus);
-
-    results.push({ habitId, missedDate, result: newStatus });
-  }
-
-  return results;
+    return results;
+  });
 }
 
 module.exports = { getPendingReviews, applyDecisions };
