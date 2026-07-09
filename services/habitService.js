@@ -1,3 +1,4 @@
+const { runInTransaction } = require("../db");
 const habitModel = require("../models/habitModel");
 const habitLogModel = require("../models/habitLogModel");
 const reviewSyncService = require("./reviewSyncService");
@@ -84,30 +85,33 @@ async function deleteHabit(habitId, userId) {
 }
 
 async function logHabit(habitId, date, userId) {
-  const pending = await habitLogModel.findPendingByHabitAndDate(
-    habitId,
-    date,
-    userId,
-  );
+  return runInTransaction(async (tx) => {
+    const pending = await habitLogModel.findPendingByHabitAndDate(
+      habitId,
+      date,
+      userId,
+      tx,
+    );
 
-  if (pending) {
-    await habitLogModel.resolveDecision(pending.id, "recovered");
-    const resolvedLog = await habitLogModel.findById(pending.id);
-    return { log: resolvedLog, created: false };
-  }
+    if (pending) {
+      await habitLogModel.resolveDecision(pending.id, "recovered", tx);
+      const resolvedLog = await habitLogModel.findById(pending.id, tx);
+      return { log: resolvedLog, created: false };
+    }
 
-  try {
-    const log = await habitLogModel.insertLog(habitId, date);
-    return { log, created: true };
-  } catch (err) {
-    if (err.code === "ER_DUP_ENTRY") {
-      throw new ConflictError("habit already logged for this date");
+    try {
+      const log = await habitLogModel.insertLog(habitId, date, tx);
+      return { log, created: true };
+    } catch (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        throw new ConflictError("habit already logged for this date");
+      }
+      if (err.code === "ER_NO_REFERENCED_ROW_2") {
+        throw new NotFoundError("habit not found");
+      }
+      throw err;
     }
-    if (err.code === "ER_NO_REFERENCED_ROW_2") {
-      throw new NotFoundError("habit not found");
-    }
-    throw err;
-  }
+  });
 }
 
 async function listLogs(habitId) {

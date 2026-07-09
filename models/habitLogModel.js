@@ -60,8 +60,8 @@ async function findPendingForUser(userId) {
   return rows;
 }
 
-async function findPendingByHabitAndDate(habitId, logDate, userId) {
-  const [rows] = await pool.query(
+async function findPendingByHabitAndDate(habitId, logDate, userId, db = pool) {
+  const [rows] = await db.query(
     `SELECT habit_logs.id,
             habit_logs.habit_id,
             habits.title AS habit_name,
@@ -72,14 +72,15 @@ async function findPendingByHabitAndDate(habitId, logDate, userId) {
      WHERE habit_logs.status = 'pending_review'
        AND habit_logs.habit_id = ?
        AND habit_logs.log_date = ?
-       AND habits.user_id = ?`,
+       AND habits.user_id = ?
+     FOR UPDATE`,
     [habitId, logDate, userId],
   );
   return rows[0] || null;
 }
 
-async function resolveDecision(habitLogId, status) {
-  const [result] = await pool.query(
+async function resolveDecision(habitLogId, status, db = pool) {
+  const [result] = await db.query(
     `UPDATE habit_logs
      SET status = ?
      WHERE id = ? AND status = 'pending_review'`,
@@ -104,19 +105,17 @@ async function findPendingByHabit(habitId) {
   return rows[0] || null;
 }
 
-async function findById(id) {
-  const [rows] = await pool.query("SELECT * FROM habit_logs WHERE id = ?", [
-    id,
-  ]);
+async function findById(id, db = pool) {
+  const [rows] = await db.query("SELECT * FROM habit_logs WHERE id = ?", [id]);
   return rows[0] || null;
 }
 
-async function insertLog(habitId, logDate) {
-  const [result] = await pool.query(
+async function insertLog(habitId, logDate, db = pool) {
+  const [result] = await db.query(
     "INSERT INTO habit_logs (habit_id, log_date) VALUES (?, ?)",
     [habitId, logDate],
   );
-  const [rows] = await pool.query("SELECT * FROM habit_logs WHERE id = ?", [
+  const [rows] = await db.query("SELECT * FROM habit_logs WHERE id = ?", [
     result.insertId,
   ]);
   return rows[0];
