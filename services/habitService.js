@@ -1,12 +1,11 @@
 const habitModel = require("../models/habitModel");
 const habitLogModel = require("../models/habitLogModel");
-const pendingReviewService = require("./pendingReviewService");
+const reviewSyncService = require("./reviewSyncService");
 const calculateStreaks = require("../utils/streak");
 const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 
 async function listHabitsWithPending(userId) {
-  await pendingReviewService.evaluatePendingReviews(userId);
-
+  await reviewSyncService.evaluatePendingReviews(userId);
   const rows = await habitModel.findAllByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
   const pendingByHabitId = new Map(
@@ -43,7 +42,7 @@ async function getHabitDetail(habitId, userId) {
   const asOfDate = new Date().toISOString().slice(0, 10);
   const { currentStreak, longestStreak } = calculateStreaks(logs, asOfDate);
 
-  await pendingReviewService.evaluatePendingReviews(userId);
+  await reviewSyncService.evaluatePendingReviews(userId);
   const pending = await habitLogModel.findPendingByHabit(habit.id);
   const pendingReview = pending
     ? { missedDate: pending.missed_date, createdAt: pending.created_at }
