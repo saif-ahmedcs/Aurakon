@@ -10,4 +10,22 @@ const pool = mysql.createPool({
   dateStrings: true,
 });
 
-module.exports = pool;
+async function runInTransaction(callback) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const result = await callback(connection);
+    await connection.commit();
+    return result;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
+module.exports = {
+  pool,
+  runInTransaction,
+};

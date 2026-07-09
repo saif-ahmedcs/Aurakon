@@ -1,4 +1,4 @@
-const pool = require("../db");
+const { pool } = require("../db");
 
 async function insert(userId, tokenHash, expiresAt) {
   await pool.query(
@@ -34,9 +34,44 @@ async function deleteAllByUserId(userId) {
   return result.affectedRows;
 }
 
+async function deleteExpiredForUser(userId) {
+  const [result] = await pool.query(
+    `DELETE FROM refresh_tokens WHERE user_id = ? AND expires_at < UTC_TIMESTAMP()`,
+    [userId],
+  );
+  return result.affectedRows;
+}
+
+async function countActiveByUserId(userId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS count FROM refresh_tokens WHERE user_id = ? AND expires_at > UTC_TIMESTAMP()`,
+    [userId],
+  );
+  return rows[0].count;
+}
+
+async function deleteOldestByUserId(userId) {
+  const [result] = await pool.query(
+    `DELETE FROM refresh_tokens
+     WHERE id = (
+       SELECT id FROM (
+         SELECT id FROM refresh_tokens
+         WHERE user_id = ?
+         ORDER BY created_at ASC, id ASC
+         LIMIT 1
+       ) AS oldest
+     )`,
+    [userId],
+  );
+  return result.affectedRows;
+}
+
 module.exports = {
   insert,
   findByTokenHash,
   deleteByTokenHash,
   deleteAllByUserId,
+  deleteExpiredForUser,
+  countActiveByUserId,
+  deleteOldestByUserId,
 };
