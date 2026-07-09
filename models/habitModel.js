@@ -15,6 +15,14 @@ async function findById(id, userId) {
   return rows[0] || null;
 }
 
+async function existsForUser(id, userId) {
+  const [rows] = await pool.query(
+    "SELECT 1 FROM habits WHERE id = ? AND user_id = ? LIMIT 1",
+    [id, userId],
+  );
+  return rows.length > 0;
+}
+
 async function create(title, userId) {
   const [result] = await pool.query(
     "INSERT INTO habits (title, user_id) VALUES (?, ?)",
@@ -35,8 +43,12 @@ async function update(id, title, targetDays) {
   return rows[0];
 }
 
-async function remove(id) {
-  await pool.query("DELETE FROM habits WHERE id = ?", [id]);
+async function remove(id, userId) {
+  const [result] = await pool.query(
+    "DELETE FROM habits WHERE id = ? AND user_id = ?",
+    [id, userId],
+  );
+  return result.affectedRows;
 }
 
 async function countByUser(userId) {
@@ -50,6 +62,7 @@ async function countByUser(userId) {
 module.exports = {
   findAllByUser,
   findById,
+  existsForUser,
   create,
   update,
   remove,

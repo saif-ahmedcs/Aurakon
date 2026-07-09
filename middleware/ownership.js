@@ -6,11 +6,11 @@ async function ownershipCheck(req, res, next) {
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "invalid id" });
   }
-  const habit = await habitModel.findById(id, req.user.id);
-  if (!habit) {
+  const owned = await habitModel.existsForUser(id, req.user.id);
+  if (!owned) {
     return res.status(404).json({ error: "habit not found" });
   }
-  req.habit = habit;
+  req.habitId = id;
   next();
 }
 
