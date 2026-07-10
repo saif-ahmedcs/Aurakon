@@ -129,6 +129,20 @@ async function findAllByHabit(habitId) {
   return rows;
 }
 
+async function getStatusesForUserAndDate(userId, logDate) {
+  const [rows] = await pool.query(
+    `SELECT habits.id AS habit_id,
+            COALESCE(habit_logs.status, 'missing') AS status
+     FROM habits
+     LEFT JOIN habit_logs
+       ON habit_logs.habit_id = habits.id
+       AND habit_logs.log_date = ?
+     WHERE habits.user_id = ?`,
+    [logDate, userId],
+  );
+  return rows;
+}
+
 module.exports = {
   expireStaleReviewsForUser,
   getHabitsMissingLogForDate,
@@ -141,4 +155,5 @@ module.exports = {
   findById,
   insertLog,
   findAllByHabit,
+  getStatusesForUserAndDate,
 };
