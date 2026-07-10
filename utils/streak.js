@@ -63,4 +63,11 @@ function calculateStreaks(logs, asOfDate) {
   return { currentStreak, longestStreak };
 }
 
-module.exports = calculateStreaks;
+function isFullDayCompletion(habitsForDay) {
+  if (!Array.isArray(habitsForDay) || habitsForDay.length === 0) {
+    return false;
+  }
+  return habitsForDay.every((h) => PRESENT_STATUSES.has(h.status));
+}
+
+module.exports = { calculateStreaks, isFullDayCompletion };

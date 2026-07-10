@@ -2,7 +2,7 @@ const { runInTransaction } = require("../db");
 const habitModel = require("../models/habitModel");
 const habitLogModel = require("../models/habitLogModel");
 const reviewSyncService = require("./reviewSyncService");
-const calculateStreaks = require("../utils/streak");
+const { calculateStreaks } = require("../utils/streak");
 const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 
 async function listHabitsWithPending(userId) {
