@@ -2,7 +2,7 @@ CREATE TABLE habits (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   target_days INT NULL,
-  difficulty ENUM('easy','medium','hard') NOT NULL DEFAULT 'easy',
+  difficulty ENUM('easy','medium','hard') NOT NULL,
   user_id INT NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );

@@ -27,8 +27,12 @@ router.post(
   "/",
   validate(createHabitSchema),
   asyncHandler(async (req, res) => {
-    const { title } = req.body;
-    const habit = await habitService.createHabit(title, req.user.id);
+    const { title, difficulty } = req.body;
+    const habit = await habitService.createHabit(
+      title,
+      req.user.id,
+      difficulty,
+    );
     res.status(201).json(habit);
   }),
 );

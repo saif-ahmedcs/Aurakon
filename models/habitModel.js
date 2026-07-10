@@ -23,10 +23,10 @@ async function existsForUser(id, userId) {
   return rows.length > 0;
 }
 
-async function create(title, userId) {
+async function create(title, userId, difficulty) {
   const [result] = await pool.query(
-    "INSERT INTO habits (title, user_id) VALUES (?, ?)",
-    [title, userId],
+    "INSERT INTO habits (title, user_id, difficulty) VALUES (?, ?, ?)",
+    [title, userId, difficulty],
   );
   const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [
     result.insertId,
@@ -34,10 +34,10 @@ async function create(title, userId) {
   return rows[0];
 }
 
-async function update(id, title, targetDays) {
+async function update(id, title, targetDays, difficulty) {
   await pool.query(
-    "UPDATE habits SET title = ?, target_days = ? WHERE id = ?",
-    [title, targetDays, id],
+    "UPDATE habits SET title = ?, target_days = ?, difficulty = ? WHERE id = ?",
+    [title, targetDays, difficulty, id],
   );
   const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [id]);
   return rows[0];

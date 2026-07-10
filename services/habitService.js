@@ -24,8 +24,8 @@ async function listHabitsWithPending(userId) {
   });
 }
 
-async function createHabit(title, userId) {
-  return habitModel.create(title, userId);
+async function createHabit(title, userId, difficulty) {
+  return habitModel.create(title, userId, difficulty);
 }
 
 async function getHabitDetail(habitId, userId) {
@@ -74,7 +74,12 @@ async function updateHabit(habitId, userId, title, target_days) {
     return habit;
   }
 
-  return habitModel.update(habit.id, updatedTitle, updatedTargetDays);
+  return habitModel.update(
+    habit.id,
+    updatedTitle,
+    updatedTargetDays,
+    habit.difficulty,
+  );
 }
 
 async function deleteHabit(habitId, userId) {

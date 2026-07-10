@@ -3,6 +3,7 @@ const { z } = require("zod");
 const createHabitSchema = z.object({
   title: z.string().trim().min(1),
   target_days: z.number().int().positive().optional(),
+  difficulty: z.enum(["easy", "medium", "hard"]),
 });
 
 const updateHabitSchema = z
