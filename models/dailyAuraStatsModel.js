@@ -27,8 +27,27 @@ async function markFullCompletion(userId, date) {
   return result.affectedRows;
 }
 
+async function getLifetimeStats(userId) {
+  const [rows] = await pool.query(
+    `SELECT
+       SUM(CASE WHEN full_completion = true THEN 1 ELSE 0 END) AS fullyCompletedDays,
+       SUM(completed_habits) AS lifetimeCompleted,
+       SUM(total_habits) AS lifetimeTotal
+     FROM daily_aura_stats
+     WHERE user_id = ?`,
+    [userId],
+  );
+  const row = rows[0];
+  return {
+    fullyCompletedDays: Number(row.fullyCompletedDays) || 0,
+    lifetimeCompleted: Number(row.lifetimeCompleted) || 0,
+    lifetimeTotal: Number(row.lifetimeTotal) || 0,
+  };
+}
+
 module.exports = {
   getByDate,
   upsertEnergy,
   markFullCompletion,
+  getLifetimeStats,
 };
