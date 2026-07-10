@@ -1,7 +1,7 @@
 const DIFFICULTY_ENERGY = {
-  easy: 5,
-  medium: 10,
-  hard: 20,
+  easy: 10,
+  medium: 15,
+  hard: 25,
 };
 
 function difficultyToEnergy(difficulty) {
