@@ -2,7 +2,7 @@ const { pool } = require("../db");
 
 async function getProgress(userId) {
   const [rows] = await pool.query(
-    `SELECT current_level, global_daily_streak, last_full_completion_date
+    `SELECT current_level, global_daily_streak, last_full_completion_date, total_xp, shield_balance
      FROM users WHERE id = ?`,
     [userId],
   );

@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 const habitsRouter = require("./routes/habits");
 const reviewRouter = require("./routes/review");
 const authRouter = require("./routes/auth");
+const progressRouter = require("./routes/progress");
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
@@ -30,6 +31,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/habits", habitsRouter);
 app.use("/api/review", reviewRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/progress", progressRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: "not found" });
