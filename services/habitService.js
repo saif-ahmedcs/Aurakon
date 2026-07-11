@@ -2,6 +2,11 @@ const { runInTransaction } = require("../db");
 const habitModel = require("../models/habitModel");
 const habitLogModel = require("../models/habitLogModel");
 const reviewSyncService = require("./reviewSyncService");
+const xpService = require("./xpService");
+const auraEnergyService = require("./auraEnergyService");
+const streakService = require("./streakService");
+const bonusService = require("./bonusService");
+const guardianShieldService = require("./guardianShieldService");
 const { calculateStreaks } = require("../utils/streak");
 const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 
@@ -90,7 +95,7 @@ async function deleteHabit(habitId, userId) {
 }
 
 async function logHabit(habitId, date, userId) {
-  return runInTransaction(async (tx) => {
+  const { log, created } = await runInTransaction(async (tx) => {
     const pending = await habitLogModel.findPendingByHabitAndDate(
       habitId,
       date,
@@ -105,8 +110,8 @@ async function logHabit(habitId, date, userId) {
     }
 
     try {
-      const log = await habitLogModel.insertLog(habitId, date, tx);
-      return { log, created: true };
+      const insertedLog = await habitLogModel.insertLog(habitId, date, tx);
+      return { log: insertedLog, created: true };
     } catch (err) {
       if (err.code === "ER_DUP_ENTRY") {
         throw new ConflictError("habit already logged for this date");
@@ -117,6 +122,43 @@ async function logHabit(habitId, date, userId) {
       throw err;
     }
   });
+
+  const habit = await habitModel.findById(habitId, userId);
+
+  const rawLogs = await habitLogModel.getLogsForHabit(habitId);
+  const logs = rawLogs.map((row) => ({
+    date: row.log_date,
+    status: row.status,
+  }));
+  const { currentStreak: habitStreak } = calculateStreaks(logs, date);
+
+  // (1)
+  await xpService.awardCompletionXp(userId, habit.difficulty);
+
+  // (2)
+  await auraEnergyService.applyEnergyForCompletion(
+    userId,
+    habit.difficulty,
+    date,
+  );
+
+  // (3)
+  const isFullDay = await streakService.evaluateFullDayCompletion(userId, date);
+  if (isFullDay) {
+    const globalStreak = await streakService.updateGlobalStreak(userId, date);
+
+    // (4)
+    await bonusService.checkAndAwardConsistencyBonus(userId, globalStreak);
+  }
+
+  // (5)
+  await guardianShieldService.earnShieldIfEligible(
+    userId,
+    habit.difficulty,
+    habitStreak,
+  );
+
+  return { log, created };
 }
 
 async function listLogs(habitId) {
