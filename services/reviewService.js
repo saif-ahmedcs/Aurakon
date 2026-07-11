@@ -2,6 +2,7 @@ const { runInTransaction } = require("../db");
 const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const reviewSyncService = require("./reviewSyncService");
+const userProgressModel = require("../models/userProgressModel");
 
 function computeAutoPopupThreshold(totalHabits) {
   return totalHabits < 6 ? 3 : Math.floor(totalHabits / 2);
@@ -39,7 +40,7 @@ async function applyDecisions(decisions, userId) {
     const results = [];
 
     for (const item of decisions) {
-      const { habitId, missedDate, decision } = item;
+      const { habitId, missedDate, decision, useShield } = item;
 
       const pending = await habitLogModel.findPendingByHabitAndDate(
         habitId,
@@ -50,6 +51,20 @@ async function applyDecisions(decisions, userId) {
 
       if (!pending) {
         results.push({ habitId, missedDate, result: "not_found" });
+        continue;
+      }
+
+      if (decision === "missed" && useShield) {
+        const shielded =
+          await userProgressModel.decrementShieldBalanceIfAvailable(userId);
+
+        if (shielded) {
+          await habitLogModel.resolveDecision(pending.id, "shielded", tx);
+          results.push({ habitId, missedDate, result: "shielded" });
+        } else {
+          await habitLogModel.resolveDecision(pending.id, "missed", tx);
+          results.push({ habitId, missedDate, result: "missed_no_shield" });
+        }
         continue;
       }
 
