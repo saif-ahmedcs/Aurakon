@@ -2,10 +2,10 @@ const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const { computeLevel } = require("../utils/levelCalculator");
 
-async function recalculateAndPersistLevel(userId) {
-  const progress = await userProgressModel.getProgress(userId);
+async function recalculateAndPersistLevel(userId, tx) {
+  const progress = await userProgressModel.getProgress(userId, tx);
   const { fullyCompletedDays, lifetimeCompleted, lifetimeTotal } =
-    await dailyAuraStatsModel.getLifetimeStats(userId);
+    await dailyAuraStatsModel.getLifetimeStats(userId, tx);
 
   const consistencyRatio =
     lifetimeTotal > 0 ? lifetimeCompleted / lifetimeTotal : 0;
@@ -18,7 +18,7 @@ async function recalculateAndPersistLevel(userId) {
     progress.current_level,
   );
 
-  await userProgressModel.updateLevel(userId, newLevel);
+  await userProgressModel.updateLevel(userId, newLevel, tx);
 
   return newLevel;
 }

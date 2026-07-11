@@ -1,7 +1,4 @@
-const habitLogModel = require("../models/habitLogModel");
-const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const userProgressModel = require("../models/userProgressModel");
-const { isFullDayCompletion } = require("../utils/streak");
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -34,21 +31,6 @@ async function reconcileStaleStreak(userId, asOfDate) {
   return progress.global_daily_streak;
 }
 
-async function evaluateFullDayCompletion(userId, date) {
-  const habitsForDay = await habitLogModel.getStatusesForUserAndDate(
-    userId,
-    date,
-  );
-
-  const isFull = isFullDayCompletion(habitsForDay);
-
-  if (isFull) {
-    await dailyAuraStatsModel.markFullCompletion(userId, date);
-  }
-
-  return isFull;
-}
-
 async function updateGlobalStreak(userId, date) {
   const progress = await userProgressModel.getProgress(userId);
   const lastDate = progress.last_full_completion_date;
@@ -71,7 +53,6 @@ async function updateGlobalStreak(userId, date) {
 }
 
 module.exports = {
-  evaluateFullDayCompletion,
   updateGlobalStreak,
   reconcileStaleStreak,
 };

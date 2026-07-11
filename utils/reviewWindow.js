@@ -34,7 +34,17 @@ function getPreviousUtcDate(now = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-// Returns true if the habit's 24-hour review window is still open
+function addUtcDays(dateString, days) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day) + days * MS_PER_DAY);
+
+  const shiftedYear = shifted.getUTCFullYear();
+  const shiftedMonth = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const shiftedDay = String(shifted.getUTCDate()).padStart(2, "0");
+
+  return `${shiftedYear}-${shiftedMonth}-${shiftedDay}`;
+}
+
 function isWithinReviewWindow(createdAt, now = new Date()) {
   const createdAtMs = parseUtcDateTime(createdAt);
   const nowMs = now.getTime();
@@ -42,4 +52,4 @@ function isWithinReviewWindow(createdAt, now = new Date()) {
   return nowMs - createdAtMs < REVIEW_WINDOW_MS;
 }
 
-module.exports = { getPreviousUtcDate, isWithinReviewWindow };
+module.exports = { getPreviousUtcDate, addUtcDays, isWithinReviewWindow };

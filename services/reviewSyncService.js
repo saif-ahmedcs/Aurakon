@@ -1,15 +1,14 @@
 const habitLogModel = require("../models/habitLogModel");
-const { getPreviousUtcDate } = require("../utils/reviewWindow");
+const habitModel = require("../models/habitModel");
+const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
+const dailyAuraStatsService = require("./dailyAuraStatsService");
+const { getPreviousUtcDate, addUtcDays } = require("../utils/reviewWindow");
 const { calculateStreaks } = require("../utils/streak");
-async function evaluatePendingReviews(userId) {
-  // (a) Expire first — scoped to this user
-  await habitLogModel.expireStaleReviewsForUser(userId);
 
-  // (b) Detect second — only habits owned by this user
-  const yesterday = getPreviousUtcDate();
+async function finalizeDay(userId, date) {
   const candidates = await habitLogModel.getHabitsMissingLogForDate(
     userId,
-    yesterday,
+    date,
   );
 
   for (const habit of candidates) {
@@ -19,12 +18,35 @@ async function evaluatePendingReviews(userId) {
       status: log.status,
     }));
 
-    const dayBeforeGap = getPreviousUtcDate(new Date(`${yesterday}T00:00:00Z`));
+    const dayBeforeGap = addUtcDays(date, -1);
     const { currentStreak } = calculateStreaks(logs, dayBeforeGap);
 
     if (currentStreak > 0) {
-      await habitLogModel.insertPendingReview(habit.id, yesterday);
+      await habitLogModel.insertPendingReview(habit.id, date);
     }
+  }
+
+  await dailyAuraStatsService.recalculateDailyAuraStats(userId, date);
+}
+
+async function evaluatePendingReviews(userId) {
+  await habitLogModel.expireStaleReviewsForUser(userId);
+
+  const yesterday = getPreviousUtcDate();
+  const [latestStatDate, earliestHabitDate] = await Promise.all([
+    dailyAuraStatsModel.getLatestStatDate(userId),
+    habitModel.getEarliestCreatedDate(userId),
+  ]);
+
+  if (!earliestHabitDate) {
+    return;
+  }
+
+  let date = latestStatDate ? addUtcDays(latestStatDate, 1) : earliestHabitDate;
+
+  while (date <= yesterday) {
+    await finalizeDay(userId, date);
+    date = addUtcDays(date, 1);
   }
 }
 

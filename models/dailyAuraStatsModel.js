@@ -17,18 +17,35 @@ async function upsertEnergy(userId, date, delta) {
   );
 }
 
-async function markFullCompletion(userId, date) {
-  const [result] = await pool.query(
-    `UPDATE daily_aura_stats
-     SET full_completion = true
-     WHERE user_id = ? AND stat_date = ?`,
-    [userId, date],
+async function getLatestStatDate(userId, db = pool) {
+  const [rows] = await db.query(
+    `SELECT MAX(stat_date) AS latestDate FROM daily_aura_stats WHERE user_id = ?`,
+    [userId],
   );
-  return result.affectedRows;
+  return rows[0] ? rows[0].latestDate : null;
 }
 
-async function getLifetimeStats(userId) {
-  const [rows] = await pool.query(
+async function upsertCounts(
+  userId,
+  date,
+  totalHabits,
+  completedHabits,
+  fullCompletion,
+  db = pool,
+) {
+  await db.query(
+    `INSERT INTO daily_aura_stats (user_id, stat_date, aura_energy, total_habits, completed_habits, full_completion)
+     VALUES (?, ?, 0, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       total_habits = VALUES(total_habits),
+       completed_habits = VALUES(completed_habits),
+       full_completion = VALUES(full_completion)`,
+    [userId, date, totalHabits, completedHabits, fullCompletion],
+  );
+}
+
+async function getLifetimeStats(userId, db = pool) {
+  const [rows] = await db.query(
     `SELECT
        SUM(CASE WHEN full_completion = true THEN 1 ELSE 0 END) AS fullyCompletedDays,
        SUM(completed_habits) AS lifetimeCompleted,
@@ -48,6 +65,7 @@ async function getLifetimeStats(userId) {
 module.exports = {
   getByDate,
   upsertEnergy,
-  markFullCompletion,
+  getLatestStatDate,
+  upsertCounts,
   getLifetimeStats,
 };

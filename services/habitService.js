@@ -7,6 +7,7 @@ const auraEnergyService = require("./auraEnergyService");
 const streakService = require("./streakService");
 const bonusService = require("./bonusService");
 const guardianShieldService = require("./guardianShieldService");
+const dailyAuraStatsService = require("./dailyAuraStatsService");
 const { calculateStreaks } = require("../utils/streak");
 const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 
@@ -30,7 +31,10 @@ async function listHabitsWithPending(userId) {
 }
 
 async function createHabit(title, userId, difficulty) {
-  return habitModel.create(title, userId, difficulty);
+  const habit = await habitModel.create(title, userId, difficulty);
+  const today = new Date().toISOString().slice(0, 10);
+  await dailyAuraStatsService.recalculateDailyAuraStats(userId, today);
+  return habit;
 }
 
 async function getHabitDetail(habitId, userId) {
@@ -88,10 +92,12 @@ async function updateHabit(habitId, userId, title, target_days) {
 }
 
 async function deleteHabit(habitId, userId) {
-  const affectedRows = await habitModel.remove(habitId, userId);
+  const affectedRows = await habitModel.archive(habitId, userId);
   if (affectedRows === 0) {
     throw new NotFoundError("habit not found");
   }
+  const today = new Date().toISOString().slice(0, 10);
+  await dailyAuraStatsService.recalculateDailyAuraStats(userId, today);
 }
 
 async function logHabit(habitId, date, userId) {
@@ -143,7 +149,8 @@ async function logHabit(habitId, date, userId) {
   );
 
   // (3)
-  const isFullDay = await streakService.evaluateFullDayCompletion(userId, date);
+  const { fullCompletion: isFullDay } =
+    await dailyAuraStatsService.recalculateDailyAuraStats(userId, date);
   if (isFullDay) {
     const globalStreak = await streakService.updateGlobalStreak(userId, date);
 

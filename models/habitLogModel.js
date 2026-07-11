@@ -18,12 +18,14 @@ async function getHabitsMissingLogForDate(userId, logDate) {
     `SELECT habits.id, habits.title
      FROM habits
      WHERE habits.user_id = ?
+       AND DATE(habits.created_at) <= ?
+       AND (habits.archived_at IS NULL OR DATE(habits.archived_at) >= ?)
        AND NOT EXISTS (
          SELECT 1 FROM habit_logs
          WHERE habit_logs.habit_id = habits.id
            AND habit_logs.log_date = ?
        )`,
-    [userId, logDate],
+    [userId, logDate, logDate, logDate],
   );
   return rows;
 }
@@ -129,16 +131,18 @@ async function findAllByHabit(habitId) {
   return rows;
 }
 
-async function getStatusesForUserAndDate(userId, logDate) {
-  const [rows] = await pool.query(
+async function getStatusesForUserAndDate(userId, logDate, db = pool) {
+  const [rows] = await db.query(
     `SELECT habits.id AS habit_id,
             COALESCE(habit_logs.status, 'missing') AS status
      FROM habits
      LEFT JOIN habit_logs
        ON habit_logs.habit_id = habits.id
        AND habit_logs.log_date = ?
-     WHERE habits.user_id = ?`,
-    [logDate, userId],
+     WHERE habits.user_id = ?
+       AND DATE(habits.created_at) <= ?
+       AND (habits.archived_at IS NULL OR DATE(habits.archived_at) >= ?)`,
+    [logDate, userId, logDate, logDate],
   );
   return rows;
 }

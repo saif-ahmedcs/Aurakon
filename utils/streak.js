@@ -9,8 +9,6 @@ function parseToUTCDay(dateString) {
 function calculateStreaks(logs, asOfDate) {
   const asOfDay = parseToUTCDay(asOfDate);
 
-  // One status per day (UNIQUE(habit_id, log_date) guarantees at most one
-  // row per date anyway
   const statusByDay = new Map();
   for (const log of logs) {
     const day = parseToUTCDay(log.date);
@@ -70,4 +68,4 @@ function isFullDayCompletion(habitsForDay) {
   return habitsForDay.every((h) => PRESENT_STATUSES.has(h.status));
 }
 
-module.exports = { calculateStreaks, isFullDayCompletion };
+module.exports = { calculateStreaks, isFullDayCompletion, PRESENT_STATUSES };

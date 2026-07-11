@@ -1,7 +1,7 @@
 const { pool } = require("../db");
 
-async function getProgress(userId) {
-  const [rows] = await pool.query(
+async function getProgress(userId, db = pool) {
+  const [rows] = await db.query(
     `SELECT current_level, global_daily_streak, last_full_completion_date, total_xp, shield_balance
      FROM users WHERE id = ?`,
     [userId],
@@ -9,11 +9,11 @@ async function getProgress(userId) {
   return rows[0] || null;
 }
 
-async function updateLevel(userId, currentLevel) {
-  await pool.query("UPDATE users SET current_level = ? WHERE id = ?", [
-    currentLevel,
-    userId,
-  ]);
+async function updateLevel(userId, currentLevel, db = pool) {
+  await db.query(
+    "UPDATE users SET current_level = GREATEST(current_level, ?) WHERE id = ?",
+    [currentLevel, userId],
+  );
 }
 
 async function updateGlobalDailyStreak(userId, globalDailyStreak) {

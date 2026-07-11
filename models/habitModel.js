@@ -1,15 +1,16 @@
 const { pool } = require("../db");
 
 async function findAllByUser(userId) {
-  const [rows] = await pool.query("SELECT * FROM habits WHERE user_id = ?", [
-    userId,
-  ]);
+  const [rows] = await pool.query(
+    "SELECT * FROM habits WHERE user_id = ? AND archived_at IS NULL",
+    [userId],
+  );
   return rows;
 }
 
 async function findById(id, userId) {
   const [rows] = await pool.query(
-    "SELECT * FROM habits WHERE id = ? AND user_id = ?",
+    "SELECT * FROM habits WHERE id = ? AND user_id = ? AND archived_at IS NULL",
     [id, userId],
   );
   return rows[0] || null;
@@ -17,7 +18,7 @@ async function findById(id, userId) {
 
 async function existsForUser(id, userId) {
   const [rows] = await pool.query(
-    "SELECT 1 FROM habits WHERE id = ? AND user_id = ? LIMIT 1",
+    "SELECT 1 FROM habits WHERE id = ? AND user_id = ? AND archived_at IS NULL LIMIT 1",
     [id, userId],
   );
   return rows.length > 0;
@@ -43,9 +44,9 @@ async function update(id, title, targetDays, difficulty) {
   return rows[0];
 }
 
-async function remove(id, userId) {
-  const [result] = await pool.query(
-    "DELETE FROM habits WHERE id = ? AND user_id = ?",
+async function archive(id, userId, db = pool) {
+  const [result] = await db.query(
+    "UPDATE habits SET archived_at = UTC_TIMESTAMP() WHERE id = ? AND user_id = ? AND archived_at IS NULL",
     [id, userId],
   );
   return result.affectedRows;
@@ -53,10 +54,18 @@ async function remove(id, userId) {
 
 async function countByUser(userId) {
   const [rows] = await pool.query(
-    "SELECT COUNT(*) AS count FROM habits WHERE user_id = ?",
+    "SELECT COUNT(*) AS count FROM habits WHERE user_id = ? AND archived_at IS NULL",
     [userId],
   );
   return rows[0].count;
+}
+
+async function getEarliestCreatedDate(userId, db = pool) {
+  const [rows] = await db.query(
+    "SELECT DATE(MIN(created_at)) AS earliestDate FROM habits WHERE user_id = ?",
+    [userId],
+  );
+  return rows[0] ? rows[0].earliestDate : null;
 }
 
 module.exports = {
@@ -65,6 +74,7 @@ module.exports = {
   existsForUser,
   create,
   update,
-  remove,
+  archive,
   countByUser,
+  getEarliestCreatedDate,
 };

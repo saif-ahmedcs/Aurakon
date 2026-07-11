@@ -4,6 +4,8 @@ CREATE TABLE habits (
   target_days INT NULL,
   difficulty ENUM('easy','medium','hard') NOT NULL,
   user_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  archived_at DATETIME NULL,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

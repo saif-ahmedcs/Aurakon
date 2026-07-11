@@ -3,6 +3,7 @@ const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const reviewSyncService = require("./reviewSyncService");
 const userProgressModel = require("../models/userProgressModel");
+const dailyAuraStatsService = require("./dailyAuraStatsService");
 
 function computeAutoPopupThreshold(totalHabits) {
   return totalHabits < 6 ? 3 : Math.floor(totalHabits / 2);
@@ -65,11 +66,21 @@ async function applyDecisions(decisions, userId) {
           await habitLogModel.resolveDecision(pending.id, "missed", tx);
           results.push({ habitId, missedDate, result: "missed_no_shield" });
         }
+        await dailyAuraStatsService.recalculateDailyAuraStats(
+          userId,
+          missedDate,
+          tx,
+        );
         continue;
       }
 
       const newStatus = decision === "completed" ? "recovered" : "missed";
       await habitLogModel.resolveDecision(pending.id, newStatus, tx);
+      await dailyAuraStatsService.recalculateDailyAuraStats(
+        userId,
+        missedDate,
+        tx,
+      );
 
       results.push({ habitId, missedDate, result: newStatus });
     }
