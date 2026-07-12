@@ -16,8 +16,7 @@ function computeLevel(
 
   const stabilityBonus = 1 + 0.5 * safeStreakStability;
   const effectiveDays =
-    safeFullyCompletedDays * safeConsistencyRatio * stabilityBonus;
-
+    (safeFullyCompletedDays + safeConsistencyRatio * 10) * stabilityBonus;
   const computedLevel = Math.floor(Math.sqrt(effectiveDays * 3));
 
   return Math.max(computedLevel, safePreviousLevel);
