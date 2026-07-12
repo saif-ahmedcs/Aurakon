@@ -91,8 +91,8 @@ async function resolveDecision(habitLogId, status, db = pool) {
   return result.affectedRows;
 }
 
-async function findPendingByHabit(habitId) {
-  const [rows] = await pool.query(
+async function findPendingByHabit(habitId, db = pool) {
+  const [rows] = await db.query(
     `SELECT habit_logs.id,
             habit_logs.habit_id,
             habits.title AS habit_name,

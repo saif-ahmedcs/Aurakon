@@ -1,7 +1,7 @@
 const { pool } = require("../db");
 
 async function getByDate(userId, date, db = pool) {
-  const [rows] = await pool.query(
+  const [rows] = await db.query(
     "SELECT * FROM daily_aura_stats WHERE user_id = ? AND stat_date = ?",
     [userId, date],
   );
@@ -9,7 +9,7 @@ async function getByDate(userId, date, db = pool) {
 }
 
 async function upsertEnergy(userId, date, delta, db = pool) {
-  await pool.query(
+  await db.query(
     `INSERT INTO daily_aura_stats (user_id, stat_date, aura_energy, total_habits, completed_habits)
      VALUES (?, ?, ?, 0, 0)
      ON DUPLICATE KEY UPDATE aura_energy = aura_energy + VALUES(aura_energy)`,

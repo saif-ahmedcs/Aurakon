@@ -4,6 +4,8 @@ const habitModel = require("../models/habitModel");
 const reviewSyncService = require("./reviewSyncService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
+const guardianShieldService = require("./guardianShieldService");
+const { calculateStreaks } = require("../utils/streak");
 
 function computeAutoPopupThreshold(totalHabits) {
   return totalHabits < 6 ? 3 : Math.floor(totalHabits / 2);
@@ -81,6 +83,31 @@ async function applyDecisions(decisions, userId) {
         missedDate,
         tx,
       );
+
+      if (newStatus === "recovered") {
+        const stillPendingReview = await habitLogModel.findPendingByHabit(
+          habitId,
+          tx,
+        );
+        if (!stillPendingReview) {
+          const habit = await habitModel.findById(habitId, userId, tx);
+          const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+          const logs = rawLogs.map((row) => ({
+            date: row.log_date,
+            status: row.status,
+          }));
+          const { currentStreak: confirmedStreak } = calculateStreaks(
+            logs,
+            missedDate,
+          );
+          await guardianShieldService.earnShieldIfEligible(
+            userId,
+            habit.difficulty,
+            confirmedStreak,
+            tx,
+          );
+        }
+      }
 
       results.push({ habitId, missedDate, result: newStatus });
     }

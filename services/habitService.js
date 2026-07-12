@@ -174,12 +174,18 @@ async function logHabit(habitId, date, userId) {
     }
 
     // (8)
-    await guardianShieldService.earnShieldIfEligible(
-      userId,
-      habit.difficulty,
-      habitStreak,
+    const stillPendingReview = await habitLogModel.findPendingByHabit(
+      habitId,
       tx,
     );
+    if (!stillPendingReview) {
+      await guardianShieldService.earnShieldIfEligible(
+        userId,
+        habit.difficulty,
+        habitStreak,
+        tx,
+      );
+    }
 
     return { log, created };
   });

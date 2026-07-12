@@ -1,7 +1,7 @@
 const { pool } = require("../db");
 
 async function hasBonusBeenAwarded(userId, bonusType, awardedAt, db = pool) {
-  const [rows] = await pool.query(
+  const [rows] = await db.query(
     `SELECT 1 FROM xp_bonus_log
      WHERE user_id = ? AND bonus_type = ? AND awarded_at = ?
      LIMIT 1`,
@@ -11,7 +11,7 @@ async function hasBonusBeenAwarded(userId, bonusType, awardedAt, db = pool) {
 }
 
 async function insertBonusAward(userId, bonusType, awardedAt, db = pool) {
-  await pool.query(
+  await db.query(
     `INSERT INTO xp_bonus_log (user_id, bonus_type, awarded_at)
      VALUES (?, ?, ?)`,
     [userId, bonusType, awardedAt],
