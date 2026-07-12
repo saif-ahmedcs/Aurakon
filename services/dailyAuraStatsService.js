@@ -3,10 +3,6 @@ const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const levelService = require("./levelService");
 const { isFullDayCompletion, PRESENT_STATUSES } = require("../utils/streak");
 
-// Single source of truth for daily_aura_stats.total_habits / completed_habits.
-// Always recomputes from habits + habit_logs rather than incrementing/decrementing,
-// so it is safe to call repeatedly (idempotent) and after any operation that could
-// change either count.
 async function recalculateDailyAuraStats(userId, date, tx) {
   const statuses = await habitLogModel.getStatusesForUserAndDate(
     userId,

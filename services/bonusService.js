@@ -6,7 +6,7 @@ function todayUTC() {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function checkAndAwardConsistencyBonus(userId, consecutiveFullDays) {
+async function checkAndAwardConsistencyBonus(userId, consecutiveFullDays, tx) {
   const eligibility = checkBonusEligibility(consecutiveFullDays);
   const awardedAt = todayUTC();
   const results = [];
@@ -18,11 +18,12 @@ async function checkAndAwardConsistencyBonus(userId, consecutiveFullDays) {
       userId,
       bonusType,
       awardedAt,
+      tx,
     );
     if (alreadyAwarded) continue;
 
-    await xpBonusLogModel.insertBonusAward(userId, bonusType, awardedAt);
-    const result = await xpService.awardBonusXp(userId, bonusType);
+    await xpBonusLogModel.insertBonusAward(userId, bonusType, awardedAt, tx);
+    const result = await xpService.awardBonusXp(userId, bonusType, tx);
     results.push({ bonusType, ...result });
   }
 

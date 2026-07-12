@@ -11,9 +11,9 @@ function toDateOnly(date) {
   return date instanceof Date ? date.toISOString().slice(0, 10) : date;
 }
 
-async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress) {
+async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
   const progress =
-    prefetchedProgress || (await userProgressModel.getProgress(userId));
+    prefetchedProgress || (await userProgressModel.getProgress(userId, tx));
   const lastDate = progress.last_full_completion_date;
 
   if (!lastDate || progress.global_daily_streak === 0) {
@@ -25,7 +25,7 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress) {
   const diffDays = (today - lastDay) / MS_PER_DAY;
 
   if (diffDays > 1) {
-    await userProgressModel.updateGlobalDailyStreak(userId, 0);
+    await userProgressModel.updateGlobalDailyStreak(userId, 0, tx);
     progress.global_daily_streak = 0;
     return 0;
   }
@@ -33,8 +33,8 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress) {
   return progress.global_daily_streak;
 }
 
-async function updateGlobalStreak(userId, date) {
-  const progress = await userProgressModel.getProgress(userId);
+async function updateGlobalStreak(userId, date, tx) {
+  const progress = await userProgressModel.getProgress(userId, tx);
   const lastDate = progress.last_full_completion_date;
 
   let newStreak;
@@ -48,8 +48,8 @@ async function updateGlobalStreak(userId, date) {
     newStreak = 1;
   }
 
-  await userProgressModel.updateGlobalDailyStreak(userId, newStreak);
-  await userProgressModel.updateLastFullCompletionDate(userId, date);
+  await userProgressModel.updateGlobalDailyStreak(userId, newStreak, tx);
+  await userProgressModel.updateLastFullCompletionDate(userId, date, tx);
 
   return newStreak;
 }

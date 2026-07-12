@@ -8,24 +8,24 @@ const BONUS_XP = {
   "30day": 750,
 };
 
-async function applyXpDelta(userId, delta) {
-  await xpModel.incrementTotalXp(userId, delta);
-  await levelService.recalculateAndPersistLevel(userId);
+async function applyXpDelta(userId, delta, tx) {
+  await xpModel.incrementTotalXp(userId, delta, tx);
+  await levelService.recalculateAndPersistLevel(userId, tx);
 
-  const totalXp = await xpModel.getTotalXp(userId);
+  const totalXp = await xpModel.getTotalXp(userId, tx);
   const title = titleService.resolveCurrentTitle(totalXp);
 
   return { delta, totalXp, title };
 }
 
-async function awardCompletionXp(userId, difficulty) {
+async function awardCompletionXp(userId, difficulty, tx) {
   const delta = difficultyToXp(difficulty);
-  return applyXpDelta(userId, delta);
+  return applyXpDelta(userId, delta, tx);
 }
 
-async function awardBonusXp(userId, bonusType) {
+async function awardBonusXp(userId, bonusType, tx) {
   const delta = BONUS_XP[bonusType];
-  return applyXpDelta(userId, delta);
+  return applyXpDelta(userId, delta, tx);
 }
 
 module.exports = { awardCompletionXp, awardBonusXp };

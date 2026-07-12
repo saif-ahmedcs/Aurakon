@@ -8,8 +8,8 @@ async function findAllByUser(userId) {
   return rows;
 }
 
-async function findById(id, userId) {
-  const [rows] = await pool.query(
+async function findById(id, userId, db = pool) {
+  const [rows] = await db.query(
     "SELECT * FROM habits WHERE id = ? AND user_id = ? AND archived_at IS NULL",
     [id, userId],
   );

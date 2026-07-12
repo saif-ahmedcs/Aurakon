@@ -16,14 +16,14 @@ async function updateLevel(userId, currentLevel, db = pool) {
   );
 }
 
-async function updateGlobalDailyStreak(userId, globalDailyStreak) {
+async function updateGlobalDailyStreak(userId, globalDailyStreak, db = pool) {
   await pool.query("UPDATE users SET global_daily_streak = ? WHERE id = ?", [
     globalDailyStreak,
     userId,
   ]);
 }
 
-async function updateLastFullCompletionDate(userId, date) {
+async function updateLastFullCompletionDate(userId, date, db = pool) {
   await pool.query(
     "UPDATE users SET last_full_completion_date = ? WHERE id = ?",
     [date, userId],
@@ -40,7 +40,7 @@ async function getShieldBalance(userId) {
   return rows[0] ? rows[0].shield_balance : null;
 }
 
-async function incrementShieldBalance(userId) {
+async function incrementShieldBalance(userId, db = pool) {
   await pool.query(
     "UPDATE users SET shield_balance = shield_balance + 1 WHERE id = ?",
     [userId],

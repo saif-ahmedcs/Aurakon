@@ -6,17 +6,17 @@ const {
 
 const MAX_ENERGY = 100;
 
-async function applyEnergyForCompletion(userId, difficulty, date) {
+async function applyEnergyForCompletion(userId, difficulty, date, tx) {
   const rawDelta = difficultyToEnergy(difficulty);
 
-  const existing = await dailyAuraStatsModel.getByDate(userId, date);
+  const existing = await dailyAuraStatsModel.getByDate(userId, date, tx);
   const current = existing ? existing.aura_energy : 0;
 
   const cappedNew = capEnergy(current, rawDelta, MAX_ENERGY);
   const appliedDelta = cappedNew - current;
 
   if (appliedDelta > 0) {
-    await dailyAuraStatsModel.upsertEnergy(userId, date, appliedDelta);
+    await dailyAuraStatsModel.upsertEnergy(userId, date, appliedDelta, tx);
   }
 
   return cappedNew;

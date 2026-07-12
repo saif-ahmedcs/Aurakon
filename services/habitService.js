@@ -101,7 +101,11 @@ async function deleteHabit(habitId, userId) {
 }
 
 async function logHabit(habitId, date, userId) {
-  const { log, created } = await runInTransaction(async (tx) => {
+  return await runInTransaction(async (tx) => {
+    let log;
+    let created;
+
+    // (1)
     const pending = await habitLogModel.findPendingByHabitAndDate(
       habitId,
       date,
@@ -111,61 +115,74 @@ async function logHabit(habitId, date, userId) {
 
     if (pending) {
       await habitLogModel.resolveDecision(pending.id, "recovered", tx);
-      const resolvedLog = await habitLogModel.findById(pending.id, tx);
-      return { log: resolvedLog, created: false };
+      log = await habitLogModel.findById(pending.id, tx);
+      created = false;
+    } else {
+      try {
+        log = await habitLogModel.insertLog(habitId, date, tx);
+        created = true;
+      } catch (err) {
+        if (err.code === "ER_DUP_ENTRY") {
+          throw new ConflictError("habit already logged for this date");
+        }
+        if (err.code === "ER_NO_REFERENCED_ROW_2") {
+          throw new NotFoundError("habit not found");
+        }
+        throw err;
+      }
     }
 
-    try {
-      const insertedLog = await habitLogModel.insertLog(habitId, date, tx);
-      return { log: insertedLog, created: true };
-    } catch (err) {
-      if (err.code === "ER_DUP_ENTRY") {
-        throw new ConflictError("habit already logged for this date");
-      }
-      if (err.code === "ER_NO_REFERENCED_ROW_2") {
-        throw new NotFoundError("habit not found");
-      }
-      throw err;
-    }
-  });
+    // (2)
+    const habit = await habitModel.findById(habitId, userId, tx);
 
-  const habit = await habitModel.findById(habitId, userId);
+    const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+    const logs = rawLogs.map((row) => ({
+      date: row.log_date,
+      status: row.status,
+    }));
+    const { currentStreak: habitStreak } = calculateStreaks(logs, date);
 
-  const rawLogs = await habitLogModel.getLogsForHabit(habitId);
-  const logs = rawLogs.map((row) => ({
-    date: row.log_date,
-    status: row.status,
-  }));
-  const { currentStreak: habitStreak } = calculateStreaks(logs, date);
-
-  // (1)
-  await xpService.awardCompletionXp(userId, habit.difficulty);
-
-  // (2)
-  await auraEnergyService.applyEnergyForCompletion(
-    userId,
-    habit.difficulty,
-    date,
-  );
-
-  // (3)
-  const { fullCompletion: isFullDay } =
-    await dailyAuraStatsService.recalculateDailyAuraStats(userId, date);
-  if (isFullDay) {
-    const globalStreak = await streakService.updateGlobalStreak(userId, date);
+    // (3)
+    await xpService.awardCompletionXp(userId, habit.difficulty, tx);
 
     // (4)
-    await bonusService.checkAndAwardConsistencyBonus(userId, globalStreak);
-  }
+    await auraEnergyService.applyEnergyForCompletion(
+      userId,
+      habit.difficulty,
+      date,
+      tx,
+    );
 
-  // (5)
-  await guardianShieldService.earnShieldIfEligible(
-    userId,
-    habit.difficulty,
-    habitStreak,
-  );
+    // (5)
+    const { fullCompletion: isFullDay } =
+      await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
 
-  return { log, created };
+    if (isFullDay) {
+      // (6)
+      const globalStreak = await streakService.updateGlobalStreak(
+        userId,
+        date,
+        tx,
+      );
+
+      // (7)
+      await bonusService.checkAndAwardConsistencyBonus(
+        userId,
+        globalStreak,
+        tx,
+      );
+    }
+
+    // (8)
+    await guardianShieldService.earnShieldIfEligible(
+      userId,
+      habit.difficulty,
+      habitStreak,
+      tx,
+    );
+
+    return { log, created };
+  });
 }
 
 async function listLogs(habitId) {

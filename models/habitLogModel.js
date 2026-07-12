@@ -30,8 +30,8 @@ async function getHabitsMissingLogForDate(userId, logDate) {
   return rows;
 }
 
-async function getLogsForHabit(habitId) {
-  const [rows] = await pool.query(
+async function getLogsForHabit(habitId, db = pool) {
+  const [rows] = await db.query(
     `SELECT log_date, status FROM habit_logs WHERE habit_id = ?`,
     [habitId],
   );
