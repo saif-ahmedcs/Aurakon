@@ -33,7 +33,10 @@ const logSchema = z.object({
         );
       },
       { message: "invalid date" },
-    ),
+    )
+    .refine((value) => value <= new Date().toISOString().slice(0, 10), {
+      message: "date cannot be in the future",
+    }),
 });
 
 module.exports = { createHabitSchema, updateHabitSchema, logSchema };
