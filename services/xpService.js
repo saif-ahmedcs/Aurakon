@@ -1,5 +1,4 @@
 const xpModel = require("../models/xpModel");
-const levelService = require("../services/levelService");
 const titleService = require("../services/titleService");
 const { difficultyToXp } = require("../utils/xpCalculator");
 
@@ -10,7 +9,6 @@ const BONUS_XP = {
 
 async function applyXpDelta(userId, delta, tx) {
   await xpModel.incrementTotalXp(userId, delta, tx);
-  await levelService.recalculateAndPersistLevel(userId, tx);
 
   const totalXp = await xpModel.getTotalXp(userId, tx);
   const title = titleService.resolveCurrentTitle(totalXp);

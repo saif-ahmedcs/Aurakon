@@ -2,6 +2,7 @@ const { runInTransaction } = require("../db");
 const habitModel = require("../models/habitModel");
 const habitLogModel = require("../models/habitLogModel");
 const reviewSyncService = require("./reviewSyncService");
+const levelService = require("./levelService");
 const xpService = require("./xpService");
 const auraEnergyService = require("./auraEnergyService");
 const streakService = require("./streakService");
@@ -34,6 +35,7 @@ async function createHabit(title, userId, difficulty) {
   const habit = await habitModel.create(title, userId, difficulty);
   const today = new Date().toISOString().slice(0, 10);
   await dailyAuraStatsService.recalculateDailyAuraStats(userId, today);
+  await levelService.recalculateAndPersistLevel(userId);
   return habit;
 }
 
@@ -98,6 +100,7 @@ async function deleteHabit(habitId, userId) {
   }
   const today = new Date().toISOString().slice(0, 10);
   await dailyAuraStatsService.recalculateDailyAuraStats(userId, today);
+  await levelService.recalculateAndPersistLevel(userId);
 }
 
 async function logHabit(habitId, date, userId) {
@@ -186,6 +189,8 @@ async function logHabit(habitId, date, userId) {
         tx,
       );
     }
+    // (9)
+    await levelService.recalculateAndPersistLevel(userId, tx);
 
     return { log, created };
   });

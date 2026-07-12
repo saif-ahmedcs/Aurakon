@@ -1,6 +1,7 @@
 const { runInTransaction } = require("../db");
 const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
+const levelService = require("./levelService");
 const reviewSyncService = require("./reviewSyncService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
@@ -111,6 +112,7 @@ async function applyDecisions(decisions, userId) {
 
       results.push({ habitId, missedDate, result: newStatus });
     }
+    await levelService.recalculateAndPersistLevel(userId, tx);
 
     return results;
   });

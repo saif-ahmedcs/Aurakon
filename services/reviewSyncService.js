@@ -2,6 +2,7 @@ const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
+const levelService = require("./levelService");
 const { getPreviousUtcDate, addUtcDays } = require("../utils/reviewWindow");
 const { calculateStreaks } = require("../utils/streak");
 
@@ -48,6 +49,7 @@ async function evaluatePendingReviews(userId) {
     await finalizeDay(userId, date);
     date = addUtcDays(date, 1);
   }
+  await levelService.recalculateAndPersistLevel(userId);
 }
 
 module.exports = { evaluatePendingReviews };

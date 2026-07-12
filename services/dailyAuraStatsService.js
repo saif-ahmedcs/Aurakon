@@ -1,6 +1,5 @@
 const habitLogModel = require("../models/habitLogModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
-const levelService = require("./levelService");
 const { isFullDayCompletion, PRESENT_STATUSES } = require("../utils/streak");
 
 async function recalculateDailyAuraStats(userId, date, tx) {
@@ -24,8 +23,6 @@ async function recalculateDailyAuraStats(userId, date, tx) {
     fullCompletion,
     tx,
   );
-
-  await levelService.recalculateAndPersistLevel(userId, tx);
 
   return { totalHabits, completedHabits, fullCompletion };
 }
