@@ -2,6 +2,7 @@ const { runInTransaction } = require("../db");
 const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const levelService = require("./levelService");
+const completionRewardService = require("./completionRewardService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const guardianShieldService = require("./guardianShieldService");
@@ -83,27 +84,37 @@ async function applyDecisions(decisions, userId) {
       );
 
       if (newStatus === "recovered") {
-        const stillPendingReview = await habitLogModel.findPendingByHabit(
-          habitId,
-          tx,
-        );
-        if (!stillPendingReview) {
-          const habit = await habitModel.findById(habitId, userId, tx);
-          const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-          const logs = rawLogs.map((row) => ({
-            date: row.log_date,
-            status: row.status,
-          }));
-          const { currentStreak: confirmedStreak } = calculateHabitStreaks(
-            logs,
-            missedDate,
-          );
-          await guardianShieldService.earnShieldIfEligible(
+        const habit = await habitModel.findById(habitId, userId, tx);
+
+        if (habit) {
+          await completionRewardService.awardRecoveryRewards(
             userId,
-            habit.difficulty,
-            confirmedStreak,
+            habit,
+            missedDate,
             tx,
           );
+
+          const stillPendingReview = await habitLogModel.findPendingByHabit(
+            habitId,
+            tx,
+          );
+          if (!stillPendingReview) {
+            const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+            const logs = rawLogs.map((row) => ({
+              date: row.log_date,
+              status: row.status,
+            }));
+            const { currentStreak: confirmedStreak } = calculateHabitStreaks(
+              logs,
+              missedDate,
+            );
+            await guardianShieldService.earnShieldIfEligible(
+              userId,
+              habit.difficulty,
+              confirmedStreak,
+              tx,
+            );
+          }
         }
       }
 

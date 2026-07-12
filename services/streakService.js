@@ -41,21 +41,34 @@ async function updateGlobalStreak(userId, date, tx) {
   const progress = await userProgressModel.getProgress(userId, tx);
   const lastDate = progress.last_full_completion_date;
 
-  let newStreak;
-  if (lastDate) {
-    const lastDay = parseToUTCDay(toDateOnly(lastDate));
-    const currentDay = parseToUTCDay(date);
-    const diffDays = (currentDay - lastDay) / MS_PER_DAY;
-
-    newStreak = diffDays === 1 ? progress.global_daily_streak + 1 : 1;
-  } else {
-    newStreak = 1;
+  if (!lastDate) {
+    await userProgressModel.updateGlobalDailyStreak(userId, 1, tx);
+    await userProgressModel.updateLastFullCompletionDate(userId, date, tx);
+    return 1;
   }
 
-  await userProgressModel.updateGlobalDailyStreak(userId, newStreak, tx);
-  await userProgressModel.updateLastFullCompletionDate(userId, date, tx);
+  const lastDay = parseToUTCDay(toDateOnly(lastDate));
+  const currentDay = parseToUTCDay(date);
+  const diffDays = (currentDay - lastDay) / MS_PER_DAY;
 
-  return newStreak;
+  if (diffDays === 1) {
+    const newStreak = progress.global_daily_streak + 1;
+    await userProgressModel.updateGlobalDailyStreak(userId, newStreak, tx);
+    await userProgressModel.updateLastFullCompletionDate(userId, date, tx);
+    return newStreak;
+  }
+
+  if (diffDays === 0) {
+    return progress.global_daily_streak;
+  }
+
+  if (diffDays < 0) {
+    return progress.global_daily_streak;
+  }
+
+  await userProgressModel.updateGlobalDailyStreak(userId, 1, tx);
+  await userProgressModel.updateLastFullCompletionDate(userId, date, tx);
+  return 1;
 }
 
 module.exports = {

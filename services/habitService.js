@@ -2,10 +2,7 @@ const { runInTransaction } = require("../db");
 const habitModel = require("../models/habitModel");
 const habitLogModel = require("../models/habitLogModel");
 const levelService = require("./levelService");
-const xpService = require("./xpService");
-const auraEnergyService = require("./auraEnergyService");
-const streakService = require("./streakService");
-const bonusService = require("./bonusService");
+const completionRewardService = require("./completionRewardService");
 const guardianShieldService = require("./guardianShieldService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const { calculateHabitStreaks } = require("../utils/streak");
@@ -144,36 +141,14 @@ async function logHabit(habitId, date, userId) {
     }));
     const { currentStreak: habitStreak } = calculateHabitStreaks(logs, date);
 
-    // (3)
-    await xpService.awardCompletionXp(userId, habit.difficulty, tx);
-
-    // (4)
-    await auraEnergyService.applyEnergyForCompletion(
+    // (3)-(7): award XP, Aura Energy, and if the day is now fully
+    // complete — advance the global streak and check consistency bonuses
+    await completionRewardService.awardCompletionRewards(
       userId,
-      habit.difficulty,
+      habit,
       date,
       tx,
     );
-
-    // (5)
-    const { fullCompletion: isFullDay } =
-      await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
-
-    if (isFullDay) {
-      // (6)
-      const globalStreak = await streakService.updateGlobalStreak(
-        userId,
-        date,
-        tx,
-      );
-
-      // (7)
-      await bonusService.checkAndAwardConsistencyBonus(
-        userId,
-        globalStreak,
-        tx,
-      );
-    }
 
     // (8)
     const stillPendingReview = await habitLogModel.findPendingByHabit(
