@@ -4,9 +4,14 @@ const {
   isShieldEligibleDifficulty,
 } = require("../utils/guardianShieldRules");
 
-async function earnShieldIfEligible(userId, difficulty, consecutiveDays, tx) {
+async function earnShieldIfEligible(
+  userId,
+  difficulty,
+  consecutiveHabitDays,
+  tx,
+) {
   if (
-    isShieldMilestone(consecutiveDays) &&
+    isShieldMilestone(consecutiveHabitDays) &&
     isShieldEligibleDifficulty(difficulty)
   ) {
     await userProgressModel.incrementShieldBalance(userId, tx);

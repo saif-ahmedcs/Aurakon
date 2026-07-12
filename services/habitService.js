@@ -9,7 +9,7 @@ const streakService = require("./streakService");
 const bonusService = require("./bonusService");
 const guardianShieldService = require("./guardianShieldService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
-const { calculateStreaks } = require("../utils/streak");
+const { calculateHabitStreaks } = require("../utils/streak");
 const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 
 async function listHabitsWithPending(userId) {
@@ -52,8 +52,10 @@ async function getHabitDetail(habitId, userId) {
   }));
 
   const asOfDate = new Date().toISOString().slice(0, 10);
-  const { currentStreak, longestStreak } = calculateStreaks(logs, asOfDate);
-
+  const { currentStreak, longestStreak } = calculateHabitStreaks(
+    logs,
+    asOfDate,
+  );
   await reviewSyncService.evaluatePendingReviews(userId);
   const pending = await habitLogModel.findPendingByHabit(habit.id);
   const pendingReview = pending
@@ -143,7 +145,7 @@ async function logHabit(habitId, date, userId) {
       date: row.log_date,
       status: row.status,
     }));
-    const { currentStreak: habitStreak } = calculateStreaks(logs, date);
+    const { currentStreak: habitStreak } = calculateHabitStreaks(logs, date);
 
     // (3)
     await xpService.awardCompletionXp(userId, habit.difficulty, tx);

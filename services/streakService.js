@@ -1,11 +1,15 @@
+/**
+ * Tracks the user's global daily streak.
+ *
+ * The streak only continues when every habit is completed each day.
+ * Missing a day resets it.
+ *
+ * This is separate from the per-habit streak in utils/streak.js and
+ * is used for consistency bonuses.
+ */
+
 const userProgressModel = require("../models/userProgressModel");
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function parseToUTCDay(dateString) {
-  const [year, month, day] = dateString.split("-").map(Number);
-  return Date.UTC(year, month - 1, day);
-}
+const { MS_PER_DAY, parseToUTCDay } = require("../utils/dateUtils");
 
 function toDateOnly(date) {
   return date instanceof Date ? date.toISOString().slice(0, 10) : date;

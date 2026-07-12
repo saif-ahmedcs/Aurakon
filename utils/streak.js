@@ -1,12 +1,16 @@
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/**
+ * Calculates the streak for one habit.
+ *
+ * The streak can continue if a skipped day is still pending review.
+ * This is only used for Guardian Shield rewards and is different from
+ * the global daily streak in services/streakService.js.
+ *
+ */
+
+const { MS_PER_DAY, parseToUTCDay } = require("./dateUtils");
 const PRESENT_STATUSES = new Set(["completed", "recovered", "shielded"]);
 
-function parseToUTCDay(dateString) {
-  const [year, month, day] = dateString.split("-").map(Number);
-  return Date.UTC(year, month - 1, day);
-}
-
-function calculateStreaks(logs, asOfDate) {
+function calculateHabitStreaks(logs, asOfDate) {
   const asOfDay = parseToUTCDay(asOfDate);
 
   const statusByDay = new Map();
@@ -68,4 +72,8 @@ function isFullDayCompletion(habitsForDay) {
   return habitsForDay.every((h) => PRESENT_STATUSES.has(h.status));
 }
 
-module.exports = { calculateStreaks, isFullDayCompletion, PRESENT_STATUSES };
+module.exports = {
+  calculateHabitStreaks,
+  isFullDayCompletion,
+  PRESENT_STATUSES,
+};

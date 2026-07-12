@@ -6,7 +6,7 @@ const reviewSyncService = require("./reviewSyncService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const guardianShieldService = require("./guardianShieldService");
-const { calculateStreaks } = require("../utils/streak");
+const { calculateHabitStreaks } = require("../utils/streak");
 
 function computeAutoPopupThreshold(totalHabits) {
   return totalHabits < 6 ? 3 : Math.floor(totalHabits / 2);
@@ -97,7 +97,7 @@ async function applyDecisions(decisions, userId) {
             date: row.log_date,
             status: row.status,
           }));
-          const { currentStreak: confirmedStreak } = calculateStreaks(
+          const { currentStreak: confirmedStreak } = calculateHabitStreaks(
             logs,
             missedDate,
           );
