@@ -2,6 +2,7 @@ const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const auth = require("../middleware/authenticate");
 const titleService = require("../services/titleService");
+const streakService = require("../services/streakService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 
@@ -18,14 +19,19 @@ router.get(
       userProgressModel.getProgress(userId),
       dailyAuraStatsModel.getByDate(userId, today),
     ]);
-    const title = titleService.resolveCurrentTitle(progress.total_xp);
 
+    const reconciledStreak = await streakService.reconcileStaleStreak(
+      userId,
+      today,
+      progress,
+    );
+    const title = titleService.resolveCurrentTitle(progress.total_xp);
     res.status(200).json({
       totalXp: progress.total_xp,
       title,
       level: progress.current_level,
       auraEnergyToday: todayStats ? todayStats.aura_energy : 0,
-      globalDailyStreak: progress.global_daily_streak,
+      globalDailyStreak: reconciledStreak,
       shieldBalance: progress.shield_balance,
     });
   }),

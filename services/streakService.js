@@ -11,8 +11,9 @@ function toDateOnly(date) {
   return date instanceof Date ? date.toISOString().slice(0, 10) : date;
 }
 
-async function reconcileStaleStreak(userId, asOfDate) {
-  const progress = await userProgressModel.getProgress(userId);
+async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress) {
+  const progress =
+    prefetchedProgress || (await userProgressModel.getProgress(userId));
   const lastDate = progress.last_full_completion_date;
 
   if (!lastDate || progress.global_daily_streak === 0) {
@@ -25,6 +26,7 @@ async function reconcileStaleStreak(userId, asOfDate) {
 
   if (diffDays > 1) {
     await userProgressModel.updateGlobalDailyStreak(userId, 0);
+    progress.global_daily_streak = 0;
     return 0;
   }
 
