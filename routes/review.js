@@ -2,12 +2,14 @@ const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const reviewService = require("../services/reviewService");
 const auth = require("../middleware/authenticate");
+const finalizeReviews = require("../middleware/finalizeReviews");
 const validate = require("../middleware/validate");
 const {
   reviewDecisionsSchema,
 } = require("../middleware/schemas/reviewSchemas");
 const router = express.Router();
 router.use(auth);
+router.use(finalizeReviews);
 
 router.get(
   "/pending",

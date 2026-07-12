@@ -2,7 +2,6 @@ const { runInTransaction } = require("../db");
 const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const levelService = require("./levelService");
-const reviewSyncService = require("./reviewSyncService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const guardianShieldService = require("./guardianShieldService");
@@ -13,8 +12,6 @@ function computeAutoPopupThreshold(totalHabits) {
 }
 
 async function getPendingReviews(userId) {
-  await reviewSyncService.evaluatePendingReviews(userId);
-
   const totalHabits = await habitModel.countByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const auth = require("../middleware/authenticate");
+const finalizeReviews = require("../middleware/finalizeReviews");
 const titleService = require("../services/titleService");
 const streakService = require("../services/streakService");
 const userProgressModel = require("../models/userProgressModel");
@@ -8,6 +9,7 @@ const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 
 const router = express.Router();
 router.use(auth);
+router.use(finalizeReviews);
 
 router.get(
   "/",

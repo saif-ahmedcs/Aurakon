@@ -1,7 +1,6 @@
 const { runInTransaction } = require("../db");
 const habitModel = require("../models/habitModel");
 const habitLogModel = require("../models/habitLogModel");
-const reviewSyncService = require("./reviewSyncService");
 const levelService = require("./levelService");
 const xpService = require("./xpService");
 const auraEnergyService = require("./auraEnergyService");
@@ -13,7 +12,6 @@ const { calculateHabitStreaks } = require("../utils/streak");
 const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 
 async function listHabitsWithPending(userId) {
-  await reviewSyncService.evaluatePendingReviews(userId);
   const rows = await habitModel.findAllByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
   const pendingByHabitId = new Map(
@@ -56,7 +54,6 @@ async function getHabitDetail(habitId, userId) {
     logs,
     asOfDate,
   );
-  await reviewSyncService.evaluatePendingReviews(userId);
   const pending = await habitLogModel.findPendingByHabit(habit.id);
   const pendingReview = pending
     ? { missedDate: pending.missed_date, createdAt: pending.created_at }
