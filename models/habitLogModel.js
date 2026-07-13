@@ -56,7 +56,8 @@ async function findPendingForUser(userId) {
      FROM habit_logs
      JOIN habits ON habit_logs.habit_id = habits.id
      WHERE habit_logs.status = 'pending_review'
-       AND habits.user_id = ?`,
+       AND habits.user_id = ?
+       AND habits.archived_at IS NULL`,
     [userId],
   );
   return rows;
@@ -75,6 +76,7 @@ async function findPendingByHabitAndDate(habitId, logDate, userId, db = pool) {
        AND habit_logs.habit_id = ?
        AND habit_logs.log_date = ?
        AND habits.user_id = ?
+       AND habits.archived_at IS NULL
      FOR UPDATE`,
     [habitId, logDate, userId],
   );
@@ -101,10 +103,21 @@ async function findPendingByHabit(habitId, db = pool) {
      FROM habit_logs
      JOIN habits ON habit_logs.habit_id = habits.id
      WHERE habit_logs.status = 'pending_review'
-       AND habit_logs.habit_id = ?`,
+       AND habit_logs.habit_id = ?
+       AND habits.archived_at IS NULL`,
     [habitId],
   );
   return rows[0] || null;
+}
+
+async function resolvePendingReviewsForHabit(habitId, db = pool) {
+  const [result] = await db.query(
+    `UPDATE habit_logs
+     SET status = 'missed'
+     WHERE habit_id = ? AND status = 'pending_review'`,
+    [habitId],
+  );
+  return result.affectedRows;
 }
 
 async function findById(id, db = pool) {
@@ -156,6 +169,7 @@ module.exports = {
   findPendingByHabit,
   findPendingByHabitAndDate,
   resolveDecision,
+  resolvePendingReviewsForHabit,
   findById,
   insertLog,
   findAllByHabit,

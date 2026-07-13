@@ -90,13 +90,18 @@ async function updateHabit(habitId, userId, title, target_days) {
 }
 
 async function deleteHabit(habitId, userId) {
-  const affectedRows = await habitModel.archive(habitId, userId);
-  if (affectedRows === 0) {
-    throw new NotFoundError("habit not found");
-  }
-  const today = new Date().toISOString().slice(0, 10);
-  await dailyAuraStatsService.recalculateDailyAuraStats(userId, today);
-  await levelService.recalculateAndPersistLevel(userId);
+  return runInTransaction(async (tx) => {
+    const affectedRows = await habitModel.archive(habitId, userId, tx);
+    if (affectedRows === 0) {
+      throw new NotFoundError("habit not found");
+    }
+
+    await habitLogModel.resolvePendingReviewsForHabit(habitId, tx);
+
+    const today = new Date().toISOString().slice(0, 10);
+    await dailyAuraStatsService.recalculateDailyAuraStats(userId, today, tx);
+    await levelService.recalculateAndPersistLevel(userId, tx);
+  });
 }
 
 async function logHabit(habitId, date, userId) {
