@@ -8,15 +8,6 @@ async function getByDate(userId, date, db = pool) {
   return rows[0] || null;
 }
 
-async function upsertEnergy(userId, date, delta, db = pool) {
-  await db.query(
-    `INSERT INTO daily_aura_stats (user_id, stat_date, aura_energy, total_habits, completed_habits)
-     VALUES (?, ?, ?, 0, 0)
-     ON DUPLICATE KEY UPDATE aura_energy = aura_energy + VALUES(aura_energy)`,
-    [userId, date, delta],
-  );
-}
-
 async function getLatestStatDate(userId, db = pool) {
   const [rows] = await db.query(
     `SELECT MAX(stat_date) AS latestDate FROM daily_aura_stats WHERE user_id = ?`,
@@ -31,19 +22,20 @@ async function upsertCounts(
   totalHabits,
   completedHabits,
   fullCompletion,
+  auraEnergy,
   db = pool,
 ) {
   await db.query(
     `INSERT INTO daily_aura_stats (user_id, stat_date, aura_energy, total_habits, completed_habits, full_completion)
-     VALUES (?, ?, 0, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
+       aura_energy = VALUES(aura_energy),
        total_habits = VALUES(total_habits),
        completed_habits = VALUES(completed_habits),
        full_completion = VALUES(full_completion)`,
-    [userId, date, totalHabits, completedHabits, fullCompletion],
+    [userId, date, auraEnergy, totalHabits, completedHabits, fullCompletion],
   );
 }
-
 async function getFullCompletionDates(userId, db = pool) {
   const [rows] = await db.query(
     `SELECT stat_date FROM daily_aura_stats
@@ -74,7 +66,6 @@ async function getLifetimeStats(userId, db = pool) {
 
 module.exports = {
   getByDate,
-  upsertEnergy,
   getLatestStatDate,
   upsertCounts,
   getLifetimeStats,

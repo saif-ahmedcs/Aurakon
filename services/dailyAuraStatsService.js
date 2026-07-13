@@ -2,6 +2,7 @@ const habitLogModel = require("../models/habitLogModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const streakService = require("./streakService");
 const bonusService = require("./bonusService");
+const auraEnergyService = require("./auraEnergyService");
 const { isFullDayCompletion, PRESENT_STATUSES } = require("../utils/streak");
 
 async function recalculateDailyAuraStats(userId, date, tx) {
@@ -16,6 +17,7 @@ async function recalculateDailyAuraStats(userId, date, tx) {
     PRESENT_STATUSES.has(row.status),
   ).length;
   const fullCompletion = isFullDayCompletion(statuses);
+  const auraEnergy = auraEnergyService.computeEnergyForDay(statuses);
 
   await dailyAuraStatsModel.upsertCounts(
     userId,
@@ -23,6 +25,7 @@ async function recalculateDailyAuraStats(userId, date, tx) {
     totalHabits,
     completedHabits,
     fullCompletion,
+    auraEnergy,
     tx,
   );
   const globalStreak = await streakService.recalculateGlobalStreak(userId, tx);

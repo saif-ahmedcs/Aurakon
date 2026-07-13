@@ -147,6 +147,7 @@ async function findAllByHabit(habitId) {
 async function getStatusesForUserAndDate(userId, logDate, db = pool) {
   const [rows] = await db.query(
     `SELECT habits.id AS habit_id,
+            habits.difficulty AS difficulty,
             COALESCE(habit_logs.status, 'missing') AS status
      FROM habits
      LEFT JOIN habit_logs

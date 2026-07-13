@@ -1,25 +1,14 @@
-const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
-const {
-  difficultyToEnergy,
-  capEnergy,
-} = require("../utils/auraEnergyCalculator");
+const { difficultyToEnergy } = require("../utils/auraEnergyCalculator");
+const { PRESENT_STATUSES } = require("../utils/streak");
 
 const MAX_ENERGY = 100;
 
-async function applyEnergyForCompletion(userId, difficulty, date, tx) {
-  const rawDelta = difficultyToEnergy(difficulty);
+function computeEnergyForDay(statusesWithDifficulty) {
+  const rawTotal = statusesWithDifficulty
+    .filter((row) => PRESENT_STATUSES.has(row.status))
+    .reduce((sum, row) => sum + difficultyToEnergy(row.difficulty), 0);
 
-  const existing = await dailyAuraStatsModel.getByDate(userId, date, tx);
-  const current = existing ? existing.aura_energy : 0;
-
-  const cappedNew = capEnergy(current, rawDelta, MAX_ENERGY);
-  const appliedDelta = cappedNew - current;
-
-  if (appliedDelta > 0) {
-    await dailyAuraStatsModel.upsertEnergy(userId, date, appliedDelta, tx);
-  }
-
-  return cappedNew;
+  return Math.min(rawTotal, MAX_ENERGY);
 }
 
-module.exports = { applyEnergyForCompletion };
+module.exports = { computeEnergyForDay, MAX_ENERGY };
