@@ -1,5 +1,7 @@
 const habitLogModel = require("../models/habitLogModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
+const streakService = require("./streakService");
+const bonusService = require("./bonusService");
 const { isFullDayCompletion, PRESENT_STATUSES } = require("../utils/streak");
 
 async function recalculateDailyAuraStats(userId, date, tx) {
@@ -23,6 +25,15 @@ async function recalculateDailyAuraStats(userId, date, tx) {
     fullCompletion,
     tx,
   );
+
+  if (fullCompletion) {
+    const globalStreak = await streakService.updateGlobalStreak(
+      userId,
+      date,
+      tx,
+    );
+    await bonusService.checkAndAwardConsistencyBonus(userId, globalStreak, tx);
+  }
 
   return { totalHabits, completedHabits, fullCompletion };
 }
