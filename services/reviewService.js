@@ -58,7 +58,7 @@ async function applyDecisions(decisions, userId) {
 
       if (decision === "missed" && useShield) {
         const shielded =
-          await userProgressModel.decrementShieldBalanceIfAvailable(userId);
+          await userProgressModel.decrementShieldBalanceIfAvailable(userId, tx);
 
         if (shielded) {
           await habitLogModel.resolveDecision(pending.id, "shielded", tx);

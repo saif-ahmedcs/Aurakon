@@ -47,8 +47,8 @@ async function incrementShieldBalance(userId, db = pool) {
   );
 }
 
-async function decrementShieldBalanceIfAvailable(userId) {
-  const [result] = await pool.query(
+async function decrementShieldBalanceIfAvailable(userId, db = pool) {
+  const [result] = await db.query(
     "UPDATE users SET shield_balance = shield_balance - 1 WHERE id = ? AND shield_balance > 0",
     [userId],
   );
