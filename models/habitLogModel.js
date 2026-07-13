@@ -125,6 +125,22 @@ async function findById(id, db = pool) {
   return rows[0] || null;
 }
 
+async function findByHabitAndDate(habitId, logDate, db = pool) {
+  const [rows] = await db.query(
+    "SELECT * FROM habit_logs WHERE habit_id = ? AND log_date = ? FOR UPDATE",
+    [habitId, logDate],
+  );
+  return rows[0] || null;
+}
+
+async function deleteCompletedLog(habitLogId, db = pool) {
+  const [result] = await db.query(
+    "DELETE FROM habit_logs WHERE id = ? AND status = 'completed'",
+    [habitLogId],
+  );
+  return result.affectedRows;
+}
+
 async function insertLog(habitId, logDate, db = pool) {
   const [result] = await db.query(
     "INSERT INTO habit_logs (habit_id, log_date, status) VALUES (?, ?, 'completed')",
@@ -172,6 +188,8 @@ module.exports = {
   resolveDecision,
   resolvePendingReviewsForHabit,
   findById,
+  findByHabitAndDate,
+  deleteCompletedLog,
   insertLog,
   findAllByHabit,
   getStatusesForUserAndDate,

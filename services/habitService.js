@@ -2,6 +2,7 @@ const { runInTransaction } = require("../db");
 const habitModel = require("../models/habitModel");
 const habitLogModel = require("../models/habitLogModel");
 const levelService = require("./levelService");
+const xpService = require("./xpService");
 const completionRewardService = require("./completionRewardService");
 const guardianShieldService = require("./guardianShieldService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
@@ -175,6 +176,29 @@ async function logHabit(habitId, date, userId) {
   });
 }
 
+async function undoLog(habitId, date, userId) {
+  return await runInTransaction(async (tx) => {
+    const habit = await habitModel.findById(habitId, userId, tx);
+    if (!habit) {
+      throw new NotFoundError("habit not found");
+    }
+
+    const log = await habitLogModel.findByHabitAndDate(habitId, date, tx);
+    if (!log || log.status !== "completed") {
+      throw new ConflictError("only completed logs can be undone");
+    }
+
+    const affectedRows = await habitLogModel.deleteCompletedLog(log.id, tx);
+    if (affectedRows === 0) {
+      throw new ConflictError("only completed logs can be undone");
+    }
+
+    await xpService.reverseCompletionXp(userId, habit.difficulty, tx);
+    await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
+    await levelService.recalculateAndPersistLevel(userId, tx);
+  });
+}
+
 async function listLogs(habitId) {
   return habitLogModel.findAllByHabit(habitId);
 }
@@ -186,5 +210,6 @@ module.exports = {
   updateHabit,
   deleteHabit,
   logHabit,
+  undoLog,
   listLogs,
 };

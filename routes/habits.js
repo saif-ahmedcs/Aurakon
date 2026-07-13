@@ -9,6 +9,7 @@ const {
   createHabitSchema,
   updateHabitSchema,
   logSchema,
+  logDateParamSchema,
 } = require("../middleware/schemas/habitSchemas");
 
 const router = express.Router();
@@ -88,6 +89,16 @@ router.get(
   asyncHandler(async (req, res) => {
     const logs = await habitService.listLogs(req.habitId);
     res.status(200).json(logs);
+  }),
+);
+
+router.delete(
+  "/:id/logs/:date",
+  validate(logDateParamSchema, "params"),
+  asyncHandler(async (req, res) => {
+    const { date } = req.params;
+    await habitService.undoLog(req.habitId, date, req.user.id);
+    res.status(200).json({ message: "Log undone successfully" });
   }),
 );
 
