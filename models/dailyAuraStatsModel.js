@@ -44,6 +44,16 @@ async function upsertCounts(
   );
 }
 
+async function getFullCompletionDates(userId, db = pool) {
+  const [rows] = await db.query(
+    `SELECT stat_date FROM daily_aura_stats
+     WHERE user_id = ? AND full_completion = true
+     ORDER BY stat_date ASC`,
+    [userId],
+  );
+  return rows;
+}
+
 async function getLifetimeStats(userId, db = pool) {
   const [rows] = await db.query(
     `SELECT
@@ -68,4 +78,5 @@ module.exports = {
   getLatestStatDate,
   upsertCounts,
   getLifetimeStats,
+  getFullCompletionDates,
 };

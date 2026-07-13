@@ -9,7 +9,12 @@
  */
 
 const userProgressModel = require("../models/userProgressModel");
-const { MS_PER_DAY, parseToUTCDay } = require("../utils/dateUtils");
+const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
+const {
+  MS_PER_DAY,
+  parseToUTCDay,
+  formatUTCDay,
+} = require("../utils/dateUtils");
 
 function toDateOnly(date) {
   return date instanceof Date ? date.toISOString().slice(0, 10) : date;
@@ -37,41 +42,40 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
   return progress.global_daily_streak;
 }
 
-async function updateGlobalStreak(userId, date, tx) {
-  const progress = await userProgressModel.getProgress(userId, tx);
-  const lastDate = progress.last_full_completion_date;
+async function recalculateGlobalStreak(userId, tx) {
+  const rows = await dailyAuraStatsModel.getFullCompletionDates(userId, tx);
+  const trueDays = [
+    ...new Set(rows.map((row) => parseToUTCDay(toDateOnly(row.stat_date)))),
+  ].sort((a, b) => a - b);
 
-  if (!lastDate) {
-    await userProgressModel.updateGlobalDailyStreak(userId, 1, tx);
-    await userProgressModel.updateLastFullCompletionDate(userId, date, tx);
-    return 1;
+  if (trueDays.length === 0) {
+    await userProgressModel.updateGlobalDailyStreak(userId, 0, tx);
+    return 0;
   }
 
-  const lastDay = parseToUTCDay(toDateOnly(lastDate));
-  const currentDay = parseToUTCDay(date);
-  const diffDays = (currentDay - lastDay) / MS_PER_DAY;
-
-  if (diffDays === 1) {
-    const newStreak = progress.global_daily_streak + 1;
-    await userProgressModel.updateGlobalDailyStreak(userId, newStreak, tx);
-    await userProgressModel.updateLastFullCompletionDate(userId, date, tx);
-    return newStreak;
+  let runLength = 1;
+  for (let i = 1; i < trueDays.length; i++) {
+    if (trueDays[i] - trueDays[i - 1] === MS_PER_DAY) {
+      runLength += 1;
+    } else {
+      runLength = 1;
+    }
   }
 
-  if (diffDays === 0) {
-    return progress.global_daily_streak;
-  }
+  const lastDay = trueDays[trueDays.length - 1];
+  const lastDateString = formatUTCDay(lastDay);
 
-  if (diffDays < 0) {
-    return progress.global_daily_streak;
-  }
+  await userProgressModel.updateGlobalDailyStreak(userId, runLength, tx);
+  await userProgressModel.updateLastFullCompletionDate(
+    userId,
+    lastDateString,
+    tx,
+  );
 
-  await userProgressModel.updateGlobalDailyStreak(userId, 1, tx);
-  await userProgressModel.updateLastFullCompletionDate(userId, date, tx);
-  return 1;
+  return runLength;
 }
 
 module.exports = {
-  updateGlobalStreak,
+  recalculateGlobalStreak,
   reconcileStaleStreak,
 };
