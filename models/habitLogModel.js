@@ -64,7 +64,8 @@ async function findPendingForUser(userId) {
      JOIN habits ON habit_logs.habit_id = habits.id
      WHERE habit_logs.status = 'pending_review'
        AND habits.user_id = ?
-       AND habits.archived_at IS NULL`,
+       AND habits.archived_at IS NULL
+     ORDER BY habit_logs.habit_id ASC, habit_logs.log_date ASC`,
     [userId],
   );
   return rows;

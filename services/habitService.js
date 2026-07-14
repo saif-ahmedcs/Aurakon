@@ -12,19 +12,18 @@ const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 async function listHabitsWithPending(userId) {
   const rows = await habitModel.findAllByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
-  const pendingByHabitId = new Map(
-    pendingRows.map((row) => [row.habit_id, row]),
-  );
+  const pendingByHabitId = new Map();
 
-  return rows.map((habit) => {
-    const pending = pendingByHabitId.get(habit.id);
-    return {
-      ...habit,
-      pendingReview: pending
-        ? { missedDate: pending.missed_date, createdAt: pending.created_at }
-        : null,
-    };
-  });
+  for (const row of pendingRows) {
+    const list = pendingByHabitId.get(row.habit_id) || [];
+    list.push({ missedDate: row.missed_date, createdAt: row.created_at });
+    pendingByHabitId.set(row.habit_id, list);
+  }
+
+  return rows.map((habit) => ({
+    ...habit,
+    pendingReviews: pendingByHabitId.get(habit.id) || [],
+  }));
 }
 
 async function createHabit(title, userId, difficulty) {
