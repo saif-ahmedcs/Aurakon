@@ -7,7 +7,7 @@ async function expireStaleReviewsForUser(userId) {
      SET habit_logs.status = 'missed'
      WHERE habit_logs.status = 'pending_review'
        AND habits.user_id = ?
-       AND UTC_TIMESTAMP() > DATE_ADD(habit_logs.log_date, INTERVAL 48 HOUR)`,
+       AND UTC_TIMESTAMP() > DATE_ADD(habit_logs.log_date, INTERVAL 72 HOUR)`,
     [userId],
   );
   return result.affectedRows;
