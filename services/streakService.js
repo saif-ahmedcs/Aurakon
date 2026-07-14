@@ -75,7 +75,36 @@ async function recalculateGlobalStreak(userId, tx) {
   return runLength;
 }
 
+async function getStreakAsOfDate(userId, date, tx) {
+  const rows = await dailyAuraStatsModel.getFullCompletionDatesUpTo(
+    userId,
+    date,
+    tx,
+  );
+  const trueDays = [
+    ...new Set(rows.map((row) => parseToUTCDay(toDateOnly(row.stat_date)))),
+  ].sort((a, b) => a - b);
+
+  if (trueDays.length === 0) return 0;
+
+  const targetDay = parseToUTCDay(toDateOnly(date));
+  if (trueDays[trueDays.length - 1] !== targetDay) {
+    return 0;
+  }
+
+  let runLength = 1;
+  for (let i = trueDays.length - 1; i > 0; i--) {
+    if (trueDays[i] - trueDays[i - 1] === MS_PER_DAY) {
+      runLength += 1;
+    } else {
+      break;
+    }
+  }
+  return runLength;
+}
+
 module.exports = {
   recalculateGlobalStreak,
   reconcileStaleStreak,
+  getStreakAsOfDate,
 };

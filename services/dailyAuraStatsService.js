@@ -28,17 +28,21 @@ async function recalculateDailyAuraStats(userId, date, tx) {
     auraEnergy,
     tx,
   );
-  const globalStreak = await streakService.recalculateGlobalStreak(userId, tx);
+  await streakService.recalculateGlobalStreak(userId, tx);
 
   if (fullCompletion) {
+    const streakAtDate = await streakService.getStreakAsOfDate(
+      userId,
+      date,
+      tx,
+    );
     await bonusService.checkAndAwardConsistencyBonus(
       userId,
-      globalStreak,
+      streakAtDate,
       date,
       tx,
     );
   }
-
   return { totalHabits, completedHabits, fullCompletion };
 }
 
