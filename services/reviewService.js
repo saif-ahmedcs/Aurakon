@@ -40,6 +40,7 @@ async function getPendingReviews(userId) {
 async function applyDecisions(decisions, userId) {
   return runInTransaction(async (tx) => {
     const results = [];
+    const recoveredHabitDates = new Map();
 
     for (const item of decisions) {
       const { habitId, missedDate, decision, useShield } = item;
@@ -94,34 +95,46 @@ async function applyDecisions(decisions, userId) {
             tx,
           );
 
-          const stillPendingReview = await habitLogModel.findPendingByHabit(
-            habitId,
-            tx,
-          );
-          if (!stillPendingReview) {
-            const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-            const logs = rawLogs.map((row) => ({
-              date: row.log_date,
-              status: row.status,
-            }));
-            const { currentStreak: confirmedStreak } = calculateHabitStreaks(
-              logs,
-              missedDate,
-            );
-            await guardianShieldService.earnShieldIfEligible(
-              userId,
-              habitId,
-              habit.difficulty,
-              confirmedStreak,
-              missedDate,
-              tx,
-            );
-          }
+          const dates = recoveredHabitDates.get(habitId) || [];
+          dates.push(missedDate);
+          recoveredHabitDates.set(habitId, dates);
         }
       }
 
       results.push({ habitId, missedDate, result: newStatus });
     }
+
+    for (const [habitId, dates] of recoveredHabitDates) {
+      const stillPendingReview = await habitLogModel.findPendingByHabit(
+        habitId,
+        tx,
+      );
+      if (stillPendingReview) continue;
+
+      const habit = await habitModel.findById(habitId, userId, tx);
+      if (!habit) continue;
+
+      const latestConfirmedDate = dates.reduce((a, b) => (b > a ? b : a));
+
+      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+      const logs = rawLogs.map((row) => ({
+        date: row.log_date,
+        status: row.status,
+      }));
+      const { currentStreak: confirmedStreak } = calculateHabitStreaks(
+        logs,
+        latestConfirmedDate,
+      );
+      await guardianShieldService.earnShieldIfEligible(
+        userId,
+        habitId,
+        habit.difficulty,
+        confirmedStreak,
+        latestConfirmedDate,
+        tx,
+      );
+    }
+
     await levelService.recalculateAndPersistLevel(userId, tx);
 
     return results;
