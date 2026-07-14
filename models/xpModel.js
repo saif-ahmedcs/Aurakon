@@ -1,10 +1,10 @@
 const { pool } = require("../db");
 
 async function incrementTotalXp(userId, amount, db = pool) {
-  await db.query("UPDATE users SET total_xp = total_xp + ? WHERE id = ?", [
-    amount,
-    userId,
-  ]);
+  await db.query(
+    "UPDATE users SET total_xp = GREATEST(total_xp + ?, 0) WHERE id = ?",
+    [amount, userId],
+  );
 }
 
 async function getTotalXp(userId, db = pool) {

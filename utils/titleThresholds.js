@@ -11,8 +11,11 @@ const TITLE_THRESHOLDS = [
 ];
 
 function resolveTitleTier(totalXp) {
-  const tier = TITLE_THRESHOLDS.find((t) => totalXp >= t.minXp);
-  return tier.title;
+  const safeXp = Number.isFinite(totalXp) ? totalXp : 0;
+  const tier = TITLE_THRESHOLDS.find((t) => safeXp >= t.minXp);
+  return tier
+    ? tier.title
+    : TITLE_THRESHOLDS[TITLE_THRESHOLDS.length - 1].title;
 }
 
 module.exports = { TITLE_THRESHOLDS, resolveTitleTier };
