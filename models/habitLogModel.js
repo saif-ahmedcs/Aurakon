@@ -7,7 +7,7 @@ async function expireStaleReviewsForUser(userId) {
      SET habit_logs.status = 'missed'
      WHERE habit_logs.status = 'pending_review'
        AND habits.user_id = ?
-       AND UTC_TIMESTAMP() > DATE_ADD(habit_logs.log_date, INTERVAL 72 HOUR)`,
+       AND UTC_TIMESTAMP() > DATE_ADD(habit_logs.log_date, INTERVAL 48 HOUR)`,
     [userId],
   );
   return result.affectedRows;
@@ -41,8 +41,15 @@ async function getLogsForHabit(habitId, db = pool) {
 async function insertPendingReview(habitId, logDate) {
   await pool.query(
     `INSERT IGNORE INTO habit_logs (habit_id, log_date, status, created_at)
-     VALUES (?, ?, 'pending_review', UTC_TIMESTAMP())`,
-    [habitId, logDate],
+     VALUES (
+       ?, ?,
+       CASE
+         WHEN UTC_TIMESTAMP() > DATE_ADD(?, INTERVAL 48 HOUR) THEN 'missed'
+         ELSE 'pending_review'
+       END,
+       UTC_TIMESTAMP()
+     )`,
+    [habitId, logDate, logDate],
   );
 }
 
