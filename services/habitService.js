@@ -165,8 +165,10 @@ async function logHabit(habitId, date, userId) {
     if (!stillPendingReview) {
       await guardianShieldService.earnShieldIfEligible(
         userId,
+        habitId,
         habit.difficulty,
         habitStreak,
+        date,
         tx,
       );
     }

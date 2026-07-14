@@ -110,8 +110,10 @@ async function applyDecisions(decisions, userId) {
             );
             await guardianShieldService.earnShieldIfEligible(
               userId,
+              habitId,
               habit.difficulty,
               confirmedStreak,
+              missedDate,
               tx,
             );
           }

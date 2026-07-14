@@ -67,3 +67,14 @@ CREATE TABLE xp_bonus_log (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   UNIQUE KEY unique_user_bonus_awarded (user_id, bonus_type, awarded_at)
 );
+
+CREATE TABLE guardian_shield_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  habit_id INT NOT NULL,
+  milestone INT NOT NULL,
+  awarded_at DATE NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_habit_milestone (habit_id, milestone)
+);
