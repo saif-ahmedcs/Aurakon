@@ -1,5 +1,6 @@
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
+const streakService = require("./streakService");
 const { computeLevel } = require("../utils/levelCalculator");
 
 async function recalculateAndPersistLevel(userId, tx) {
@@ -13,7 +14,13 @@ async function recalculateAndPersistLevel(userId, tx) {
   const consistencyRatio =
     lifetimeTotal > 0 ? lifetimeCompleted / lifetimeTotal : 0;
 
-  const currentStreak = progress.global_daily_streak || 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const currentStreak = await streakService.reconcileStaleStreak(
+    userId,
+    today,
+    progress,
+    tx,
+  );
   const streakStability = Math.min(currentStreak / 30, 1.0);
 
   const newLevel = computeLevel(
