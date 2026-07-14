@@ -3,13 +3,14 @@ const xpService = require("../services/xpService");
 const { checkBonusEligibility } = require("../utils/consistencyBonusRules");
 const { ConflictError } = require("../utils/AppErrors");
 
-function todayUTC() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-async function checkAndAwardConsistencyBonus(userId, consecutiveFullDays, tx) {
+async function checkAndAwardConsistencyBonus(
+  userId,
+  consecutiveFullDays,
+  milestoneDate,
+  tx,
+) {
   const eligibility = checkBonusEligibility(consecutiveFullDays);
-  const awardedAt = todayUTC();
+  const awardedAt = milestoneDate;
   const results = [];
 
   for (const bonusType of Object.keys(eligibility)) {

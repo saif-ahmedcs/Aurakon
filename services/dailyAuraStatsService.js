@@ -31,7 +31,12 @@ async function recalculateDailyAuraStats(userId, date, tx) {
   const globalStreak = await streakService.recalculateGlobalStreak(userId, tx);
 
   if (fullCompletion) {
-    await bonusService.checkAndAwardConsistencyBonus(userId, globalStreak, tx);
+    await bonusService.checkAndAwardConsistencyBonus(
+      userId,
+      globalStreak,
+      date,
+      tx,
+    );
   }
 
   return { totalHabits, completedHabits, fullCompletion };
