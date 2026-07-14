@@ -28,11 +28,13 @@ async function listHabitsWithPending(userId) {
 }
 
 async function createHabit(title, userId, difficulty) {
-  const habit = await habitModel.create(title, userId, difficulty);
-  const today = new Date().toISOString().slice(0, 10);
-  await dailyAuraStatsService.recalculateDailyAuraStats(userId, today);
-  await levelService.recalculateAndPersistLevel(userId);
-  return habit;
+  return runInTransaction(async (tx) => {
+    const habit = await habitModel.create(title, userId, difficulty, tx);
+    const today = new Date().toISOString().slice(0, 10);
+    await dailyAuraStatsService.recalculateDailyAuraStats(userId, today, tx);
+    await levelService.recalculateAndPersistLevel(userId, tx);
+    return habit;
+  });
 }
 
 async function getHabitDetail(habitId, userId) {

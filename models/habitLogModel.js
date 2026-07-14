@@ -1,7 +1,7 @@
 const { pool } = require("../db");
 
-async function expireStaleReviewsForUser(userId) {
-  const [result] = await pool.query(
+async function expireStaleReviewsForUser(userId, db = pool) {
+  const [result] = await db.query(
     `UPDATE habit_logs
      JOIN habits ON habit_logs.habit_id = habits.id
      SET habit_logs.status = 'missed'
@@ -13,8 +13,8 @@ async function expireStaleReviewsForUser(userId) {
   return result.affectedRows;
 }
 
-async function getHabitsMissingLogForDate(userId, logDate) {
-  const [rows] = await pool.query(
+async function getHabitsMissingLogForDate(userId, logDate, db = pool) {
+  const [rows] = await db.query(
     `SELECT habits.id, habits.title
      FROM habits
      WHERE habits.user_id = ?
@@ -38,8 +38,8 @@ async function getLogsForHabit(habitId, db = pool) {
   return rows;
 }
 
-async function insertPendingReview(habitId, logDate) {
-  await pool.query(
+async function insertPendingReview(habitId, logDate, db = pool) {
+  await db.query(
     `INSERT IGNORE INTO habit_logs (habit_id, log_date, status, created_at)
      VALUES (
        ?, ?,

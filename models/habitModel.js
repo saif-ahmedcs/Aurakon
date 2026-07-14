@@ -24,12 +24,12 @@ async function existsForUser(id, userId) {
   return rows.length > 0;
 }
 
-async function create(title, userId, difficulty) {
-  const [result] = await pool.query(
+async function create(title, userId, difficulty, db = pool) {
+  const [result] = await db.query(
     "INSERT INTO habits (title, user_id, difficulty) VALUES (?, ?, ?)",
     [title, userId, difficulty],
   );
-  const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [
+  const [rows] = await db.query("SELECT * FROM habits WHERE id = ?", [
     result.insertId,
   ]);
   return rows[0];
