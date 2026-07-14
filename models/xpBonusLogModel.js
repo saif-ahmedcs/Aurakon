@@ -18,7 +18,26 @@ async function insertBonusAward(userId, bonusType, awardedAt, db = pool) {
   );
 }
 
+async function findAwardsFromDate(userId, fromDate, db = pool) {
+  const [rows] = await db.query(
+    `SELECT bonus_type, awarded_at FROM xp_bonus_log
+     WHERE user_id = ? AND awarded_at >= ?`,
+    [userId, fromDate],
+  );
+  return rows;
+}
+
+async function deleteAward(userId, bonusType, awardedAt, db = pool) {
+  const [result] = await db.query(
+    `DELETE FROM xp_bonus_log WHERE user_id = ? AND bonus_type = ? AND awarded_at = ?`,
+    [userId, bonusType, awardedAt],
+  );
+  return result.affectedRows;
+}
+
 module.exports = {
   hasBonusBeenAwarded,
   insertBonusAward,
+  findAwardsFromDate,
+  deleteAward,
 };

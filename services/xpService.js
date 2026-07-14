@@ -31,4 +31,14 @@ async function awardBonusXp(userId, bonusType, tx) {
   return applyXpDelta(userId, delta, tx);
 }
 
-module.exports = { awardCompletionXp, reverseCompletionXp, awardBonusXp };
+async function reverseBonusXp(userId, bonusType, tx) {
+  const delta = -BONUS_XP[bonusType];
+  return applyXpDelta(userId, delta, tx);
+}
+
+module.exports = {
+  awardCompletionXp,
+  reverseCompletionXp,
+  awardBonusXp,
+  reverseBonusXp,
+};

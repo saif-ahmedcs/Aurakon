@@ -4,6 +4,7 @@ const {
   isShieldMilestone,
   isShieldEligibleDifficulty,
 } = require("../utils/guardianShieldRules");
+const { calculateHabitStreaks } = require("../utils/streak");
 
 async function earnShieldIfEligible(
   userId,
@@ -48,4 +49,21 @@ async function earnShieldIfEligible(
   return true;
 }
 
-module.exports = { earnShieldIfEligible };
+async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
+  const awards = await guardianShieldLogModel.findAwardsFromDate(
+    habitId,
+    fromDate,
+    tx,
+  );
+
+  for (const award of awards) {
+    const { currentStreak } = calculateHabitStreaks(logs, award.awarded_at);
+
+    if (currentStreak !== award.milestone) {
+      await guardianShieldLogModel.deleteAward(habitId, award.milestone, tx);
+      await userProgressModel.decrementShieldBalanceFloor(userId, tx);
+    }
+  }
+}
+
+module.exports = { earnShieldIfEligible, reconcileShieldsFromDate };

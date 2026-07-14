@@ -1,5 +1,6 @@
 const xpBonusLogModel = require("../models/xpBonusLogModel");
 const xpService = require("../services/xpService");
+const streakService = require("./streakService");
 const { checkBonusEligibility } = require("../utils/consistencyBonusRules");
 const { ConflictError } = require("../utils/AppErrors");
 
@@ -40,4 +41,27 @@ async function checkAndAwardConsistencyBonus(
   return results;
 }
 
-module.exports = { checkAndAwardConsistencyBonus };
+async function reconcileBonusesFromDate(userId, fromDate, tx) {
+  const awards = await xpBonusLogModel.findAwardsFromDate(userId, fromDate, tx);
+
+  for (const award of awards) {
+    const streakAtDate = await streakService.getStreakAsOfDate(
+      userId,
+      award.awarded_at,
+      tx,
+    );
+    const eligibility = checkBonusEligibility(streakAtDate);
+
+    if (!eligibility[award.bonus_type]) {
+      await xpBonusLogModel.deleteAward(
+        userId,
+        award.bonus_type,
+        award.awarded_at,
+        tx,
+      );
+      await xpService.reverseBonusXp(userId, award.bonus_type, tx);
+    }
+  }
+}
+
+module.exports = { checkAndAwardConsistencyBonus, reconcileBonusesFromDate };

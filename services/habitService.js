@@ -4,6 +4,7 @@ const habitLogModel = require("../models/habitLogModel");
 const levelService = require("./levelService");
 const xpService = require("./xpService");
 const completionRewardService = require("./completionRewardService");
+const bonusService = require("./bonusService");
 const guardianShieldService = require("./guardianShieldService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const { calculateHabitStreaks } = require("../utils/streak");
@@ -198,6 +199,21 @@ async function undoLog(habitId, date, userId) {
 
     await xpService.reverseCompletionXp(userId, habit.difficulty, tx);
     await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
+    await bonusService.reconcileBonusesFromDate(userId, date, tx);
+
+    const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+    const logs = rawLogs.map((row) => ({
+      date: row.log_date,
+      status: row.status,
+    }));
+    await guardianShieldService.reconcileShieldsFromDate(
+      userId,
+      habitId,
+      logs,
+      date,
+      tx,
+    );
+
     await levelService.recalculateAndPersistLevel(userId, tx);
   });
 }
