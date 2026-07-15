@@ -1,13 +1,14 @@
 const userProgressModel = require("../models/userProgressModel");
 const guardianShieldLogModel = require("../models/guardianShieldLogModel");
 const habitLogModel = require("../models/habitLogModel");
+const habitModel = require("../models/habitModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const bonusService = require("./bonusService");
 const {
   isShieldMilestone,
   isShieldEligibleDifficulty,
 } = require("../utils/guardianShieldRules");
-const { calculateHabitStreaks } = require("../utils/streak");
+const { calculateHabitStreaks, PRESENT_STATUSES } = require("../utils/streak");
 
 async function recalculateShieldBalance(userId, tx) {
   const available = await guardianShieldLogModel.countAvailable(userId, tx);
@@ -119,6 +120,35 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
 
     await guardianShieldLogModel.deleteAward(habitId, award.milestone, tx);
     await recalculateShieldBalance(userId, tx);
+  }
+
+  const habit = await habitModel.findById(habitId, userId, tx);
+  if (!habit || !isShieldEligibleDifficulty(habit.difficulty)) {
+    return;
+  }
+
+  const presentDatesFromDate = [
+    ...new Set(
+      currentLogs
+        .filter(
+          (log) => PRESENT_STATUSES.has(log.status) && log.date >= fromDate,
+        )
+        .map((log) => log.date),
+    ),
+  ].sort();
+
+  for (const date of presentDatesFromDate) {
+    const { currentStreak } = calculateHabitStreaks(currentLogs, date);
+    if (isShieldMilestone(currentStreak)) {
+      await earnShieldIfEligible(
+        userId,
+        habitId,
+        habit.difficulty,
+        currentStreak,
+        date,
+        tx,
+      );
+    }
   }
 }
 
