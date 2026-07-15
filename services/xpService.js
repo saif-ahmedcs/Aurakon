@@ -1,4 +1,5 @@
 const xpModel = require("../models/xpModel");
+const xpCompletionLogModel = require("../models/xpCompletionLogModel");
 const titleService = require("../services/titleService");
 const { difficultyToXp } = require("../utils/xpCalculator");
 
@@ -16,14 +17,44 @@ async function applyXpDelta(userId, delta, tx) {
   return { delta, totalXp, title };
 }
 
-async function awardCompletionXp(userId, difficulty, tx) {
+async function noopXpResult(userId, tx) {
+  const totalXp = await xpModel.getTotalXp(userId, tx);
+  const title = titleService.resolveCurrentTitle(totalXp);
+  return { delta: 0, totalXp, title };
+}
+
+async function awardCompletionXp(userId, habitId, date, difficulty, tx) {
+  const alreadyAwarded = await xpCompletionLogModel.findAward(
+    habitId,
+    date,
+    tx,
+  );
+  if (alreadyAwarded) {
+    return noopXpResult(userId, tx);
+  }
+
   const delta = difficultyToXp(difficulty);
+
+  try {
+    await xpCompletionLogModel.insertAward(userId, habitId, date, delta, tx);
+  } catch (err) {
+    if (err.code === "ER_DUP_ENTRY") {
+      return noopXpResult(userId, tx);
+    }
+    throw err;
+  }
+
   return applyXpDelta(userId, delta, tx);
 }
 
-async function reverseCompletionXp(userId, difficulty, tx) {
-  const delta = -difficultyToXp(difficulty);
-  return applyXpDelta(userId, delta, tx);
+async function reverseCompletionXp(userId, habitId, date, tx) {
+  const award = await xpCompletionLogModel.findAward(habitId, date, tx);
+  if (!award) {
+    return noopXpResult(userId, tx);
+  }
+
+  await xpCompletionLogModel.deleteAward(habitId, date, tx);
+  return applyXpDelta(userId, -award.xp_amount, tx);
 }
 
 async function awardBonusXp(userId, bonusType, tx) {

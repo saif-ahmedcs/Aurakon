@@ -72,29 +72,17 @@ async function getHabitDetail(habitId, userId) {
   };
 }
 
-async function updateHabit(habitId, userId, title, target_days) {
+async function updateHabit(habitId, userId, title) {
   const habit = await habitModel.findById(habitId, userId);
   if (!habit) {
     throw new NotFoundError("habit not found");
   }
 
-  const updatedTitle = title !== undefined ? title : habit.title;
-  const updatedTargetDays =
-    target_days !== undefined ? target_days : habit.target_days;
-
-  const isNoOp =
-    updatedTitle === habit.title && updatedTargetDays === habit.target_days;
-
-  if (isNoOp) {
+  if (title === habit.title) {
     return habit;
   }
 
-  return habitModel.update(
-    habit.id,
-    updatedTitle,
-    updatedTargetDays,
-    habit.difficulty,
-  );
+  return habitModel.update(habit.id, title, habit.difficulty);
 }
 
 async function deleteHabit(habitId, userId) {
@@ -207,7 +195,7 @@ async function undoLog(habitId, date, userId) {
       throw new ConflictError("only completed logs can be undone");
     }
 
-    await xpService.reverseCompletionXp(userId, habit.difficulty, tx);
+    await xpService.reverseCompletionXp(userId, habit.id, date, tx);
     await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
     await bonusService.reconcileBonusesFromDate(userId, date, tx);
 
