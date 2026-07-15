@@ -12,6 +12,40 @@ function computeAutoPopupThreshold(totalHabits) {
   return totalHabits < 6 ? 3 : Math.floor(totalHabits / 2);
 }
 
+async function checkGuardianShieldEligibility(
+  userId,
+  habitId,
+  latestConfirmedDate,
+  tx,
+) {
+  const habit = await habitModel.findById(habitId, userId, tx);
+  if (!habit) return;
+
+  const stillPendingReview = await habitLogModel.findPendingByHabit(
+    habitId,
+    tx,
+  );
+  if (stillPendingReview) return;
+
+  const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+  const logs = rawLogs.map((row) => ({
+    date: row.log_date,
+    status: row.status,
+  }));
+  const { currentStreak: confirmedStreak } = calculateHabitStreaks(
+    logs,
+    latestConfirmedDate,
+  );
+  await guardianShieldService.earnShieldIfEligible(
+    userId,
+    habitId,
+    habit.difficulty,
+    confirmedStreak,
+    latestConfirmedDate,
+    tx,
+  );
+}
+
 async function getPendingReviews(userId) {
   const totalHabits = await habitModel.countByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
@@ -81,6 +115,7 @@ async function applyDecisions(decisions, userId) {
         if (shielded) {
           await habitLogModel.resolveDecision(pending.id, "shielded", tx);
           results.push({ habitId, missedDate, result: "shielded" });
+          await checkGuardianShieldEligibility(userId, habitId, missedDate, tx);
         } else {
           await habitLogModel.resolveDecision(pending.id, "missed", tx);
           results.push({ habitId, missedDate, result: "missed_no_shield" });
@@ -121,28 +156,10 @@ async function applyDecisions(decisions, userId) {
         );
       }
 
-      const stillPendingReview = await habitLogModel.findPendingByHabit(
-        habitId,
-        tx,
-      );
-      if (stillPendingReview) continue;
-
       const latestConfirmedDate = dates.reduce((a, b) => (b > a ? b : a));
-
-      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-      const logs = rawLogs.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
-      const { currentStreak: confirmedStreak } = calculateHabitStreaks(
-        logs,
-        latestConfirmedDate,
-      );
-      await guardianShieldService.earnShieldIfEligible(
+      await checkGuardianShieldEligibility(
         userId,
         habitId,
-        habit.difficulty,
-        confirmedStreak,
         latestConfirmedDate,
         tx,
       );
