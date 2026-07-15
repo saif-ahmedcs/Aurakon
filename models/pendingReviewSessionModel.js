@@ -13,9 +13,9 @@ async function findActiveByHabit(habitId, db = pool) {
 
 async function create(habitId, lastMissedDate, db = pool) {
   const [result] = await db.query(
-    `INSERT INTO pending_review_sessions (habit_id, last_missed_date)
-     VALUES (?, ?)`,
-    [habitId, lastMissedDate],
+    `INSERT INTO pending_review_sessions (habit_id, last_missed_date, active_habit_id)
+     VALUES (?, ?, ?)`,
+    [habitId, lastMissedDate, habitId],
   );
   return result.insertId;
 }
@@ -29,7 +29,7 @@ async function updateLastMissedDate(sessionId, lastMissedDate, db = pool) {
 
 async function resolve(sessionId, db = pool) {
   await db.query(
-    `UPDATE pending_review_sessions SET status = 'resolved' WHERE id = ?`,
+    `UPDATE pending_review_sessions SET status = 'resolved', active_habit_id = NULL WHERE id = ?`,
     [sessionId],
   );
 }

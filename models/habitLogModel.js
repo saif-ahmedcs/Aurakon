@@ -19,7 +19,7 @@ async function expireStaleReviewsForUser(userId, db = pool) {
       [session.id],
     );
     await db.query(
-      `UPDATE pending_review_sessions SET status = 'resolved' WHERE id = ?`,
+      `UPDATE pending_review_sessions SET status = 'resolved', active_habit_id = NULL WHERE id = ?`,
       [session.id],
     );
   }

@@ -105,6 +105,7 @@ async function deleteHabit(habitId, userId) {
     }
 
     await habitLogModel.resolvePendingReviewsForHabit(habitId, tx);
+    await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
 
     const today = new Date().toISOString().slice(0, 10);
     await dailyAuraStatsService.recalculateDailyAuraStats(userId, today, tx);
