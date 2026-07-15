@@ -35,11 +35,12 @@ async function create(title, userId, difficulty, db = pool) {
   return rows[0];
 }
 
-async function update(id, title, targetDays, difficulty) {
-  await pool.query(
-    "UPDATE habits SET title = ?, target_days = ?, difficulty = ? WHERE id = ?",
-    [title, targetDays, difficulty, id],
-  );
+async function update(id, title, difficulty) {
+  await pool.query("UPDATE habits SET title = ?, difficulty = ? WHERE id = ?", [
+    title,
+    difficulty,
+    id,
+  ]);
   const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [id]);
   return rows[0];
 }

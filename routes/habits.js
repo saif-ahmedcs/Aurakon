@@ -51,12 +51,11 @@ router.patch(
   "/:id",
   validate(updateHabitSchema),
   asyncHandler(async (req, res) => {
-    const { title, target_days } = req.body;
+    const { title } = req.body;
     const updated = await habitService.updateHabit(
       req.habitId,
       req.user.id,
       title,
-      target_days,
     );
     res.status(200).json(updated);
   }),

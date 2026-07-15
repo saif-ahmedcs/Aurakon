@@ -1,22 +1,13 @@
 const { z } = require("zod");
 
 const createHabitSchema = z.object({
-  title: z.string().trim().min(1),
-  target_days: z.number().int().positive().optional(),
+  title: z.string().trim().min(1).max(50),
   difficulty: z.enum(["easy", "medium", "hard"]),
 });
 
-const updateHabitSchema = z
-  .object({
-    title: z.string().trim().min(1).optional(),
-    target_days: z.number().int().positive().optional(),
-  })
-  .refine(
-    (data) => data.title !== undefined || data.target_days !== undefined,
-    {
-      message: "at least one of title or target_days must be provided",
-    },
-  );
+const updateHabitSchema = z.object({
+  title: z.string().trim().min(1).max(50),
+});
 
 const logSchema = z.object({
   date: z
