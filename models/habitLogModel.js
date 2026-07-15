@@ -1,16 +1,30 @@
 const { pool } = require("../db");
 
 async function expireStaleReviewsForUser(userId, db = pool) {
-  const [result] = await db.query(
-    `UPDATE habit_logs
-     JOIN habits ON habit_logs.habit_id = habits.id
-     SET habit_logs.status = 'missed'
-     WHERE habit_logs.status = 'pending_review'
-       AND habits.user_id = ?
-       AND UTC_TIMESTAMP() > DATE_ADD(habit_logs.log_date, INTERVAL 48 HOUR)`,
+  const [sessions] = await db.query(
+    `SELECT pending_review_sessions.id
+     FROM pending_review_sessions
+     JOIN habits ON habits.id = pending_review_sessions.habit_id
+     WHERE habits.user_id = ?
+       AND pending_review_sessions.status = 'active'
+       AND UTC_TIMESTAMP() > DATE_ADD(pending_review_sessions.last_missed_date, INTERVAL 48 HOUR)`,
     [userId],
   );
-  return result.affectedRows;
+
+  for (const session of sessions) {
+    await db.query(
+      `UPDATE habit_logs
+       SET status = 'missed'
+       WHERE review_session_id = ? AND status = 'pending_review'`,
+      [session.id],
+    );
+    await db.query(
+      `UPDATE pending_review_sessions SET status = 'resolved' WHERE id = ?`,
+      [session.id],
+    );
+  }
+
+  return sessions.length;
 }
 
 async function getHabitsMissingLogForDate(userId, logDate, db = pool) {
@@ -38,25 +52,29 @@ async function getLogsForHabit(habitId, db = pool) {
   return rows;
 }
 
-async function insertPendingReview(habitId, logDate, db = pool) {
+async function insertPendingReviewLog(habitId, logDate, sessionId, db = pool) {
   await db.query(
-    `INSERT IGNORE INTO habit_logs (habit_id, log_date, status, created_at)
-     VALUES (
-       ?, ?,
-       CASE
-         WHEN UTC_TIMESTAMP() > DATE_ADD(?, INTERVAL 48 HOUR) THEN 'missed'
-         ELSE 'pending_review'
-       END,
-       UTC_TIMESTAMP()
-     )`,
-    [habitId, logDate, logDate],
+    `INSERT IGNORE INTO habit_logs (habit_id, log_date, status, review_session_id, created_at)
+     VALUES (?, ?, 'pending_review', ?, UTC_TIMESTAMP())`,
+    [habitId, logDate, sessionId],
   );
+}
+
+async function expirePendingLogsForSession(sessionId, db = pool) {
+  const [result] = await db.query(
+    `UPDATE habit_logs
+     SET status = 'missed'
+     WHERE review_session_id = ? AND status = 'pending_review'`,
+    [sessionId],
+  );
+  return result.affectedRows;
 }
 
 async function findPendingForUser(userId) {
   const [rows] = await pool.query(
     `SELECT habit_logs.id,
             habit_logs.habit_id,
+            habit_logs.review_session_id,
             habits.title AS habit_name,
             habit_logs.log_date AS missed_date,
             habit_logs.created_at
@@ -116,6 +134,25 @@ async function findPendingByHabit(habitId, db = pool) {
     [habitId],
   );
   return rows[0] || null;
+}
+
+async function findAllPendingByHabit(habitId, db = pool) {
+  const [rows] = await db.query(
+    `SELECT habit_logs.id,
+            habit_logs.habit_id,
+            habit_logs.review_session_id,
+            habits.title AS habit_name,
+            habit_logs.log_date AS missed_date,
+            habit_logs.created_at
+     FROM habit_logs
+     JOIN habits ON habit_logs.habit_id = habits.id
+     WHERE habit_logs.status = 'pending_review'
+       AND habit_logs.habit_id = ?
+       AND habits.archived_at IS NULL
+     ORDER BY habit_logs.log_date ASC`,
+    [habitId],
+  );
+  return rows;
 }
 
 async function resolvePendingReviewsForHabit(habitId, db = pool) {
@@ -189,7 +226,9 @@ module.exports = {
   expireStaleReviewsForUser,
   getHabitsMissingLogForDate,
   getLogsForHabit,
-  insertPendingReview,
+  insertPendingReviewLog,
+  expirePendingLogsForSession,
+  findAllPendingByHabit,
   findPendingForUser,
   findPendingByHabit,
   findPendingByHabitAndDate,

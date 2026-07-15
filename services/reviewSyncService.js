@@ -4,6 +4,8 @@ const habitModel = require("../models/habitModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const levelService = require("./levelService");
+const pendingReviewSessionService = require("./pendingReviewSessionService");
+const pendingReviewSessionModel = require("../models/pendingReviewSessionModel");
 const { getPreviousUtcDate, addUtcDays } = require("../utils/reviewWindow");
 const { calculateHabitStreaks } = require("../utils/streak");
 
@@ -15,6 +17,16 @@ async function finalizeDay(userId, date, tx) {
   );
 
   for (const habit of candidates) {
+    const existingSession = await pendingReviewSessionModel.findActiveByHabit(
+      habit.id,
+      tx,
+    );
+
+    if (existingSession) {
+      await pendingReviewSessionService.addMissedDay(habit.id, date, tx);
+      continue;
+    }
+
     const rawLogs = await habitLogModel.getLogsForHabit(habit.id, tx);
     const logs = rawLogs.map((log) => ({
       date: log.log_date,
@@ -25,7 +37,7 @@ async function finalizeDay(userId, date, tx) {
     const { currentStreak } = calculateHabitStreaks(logs, dayBeforeGap);
 
     if (currentStreak > 0) {
-      await habitLogModel.insertPendingReview(habit.id, date, tx);
+      await pendingReviewSessionService.addMissedDay(habit.id, date, tx);
     }
   }
 

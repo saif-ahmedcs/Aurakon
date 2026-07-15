@@ -7,6 +7,7 @@ const completionRewardService = require("./completionRewardService");
 const bonusService = require("./bonusService");
 const guardianShieldService = require("./guardianShieldService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
+const pendingReviewSessionService = require("./pendingReviewSessionService");
 const { calculateHabitStreaks } = require("../utils/streak");
 const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 
@@ -54,9 +55,13 @@ async function getHabitDetail(habitId, userId) {
     logs,
     asOfDate,
   );
-  const pending = await habitLogModel.findPendingByHabit(habit.id);
-  const pendingReview = pending
-    ? { missedDate: pending.missed_date, createdAt: pending.created_at }
+  const pendingRows = await habitLogModel.findAllPendingByHabit(habit.id);
+  const pendingReview = pendingRows.length
+    ? {
+        sessionId: pendingRows[0].review_session_id,
+        missedDates: pendingRows.map((row) => row.missed_date),
+        createdAt: pendingRows[0].created_at,
+      }
     : null;
 
   return {
@@ -122,6 +127,7 @@ async function logHabit(habitId, date, userId) {
 
     if (pending) {
       await habitLogModel.resolveDecision(pending.id, "recovered", tx);
+      await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
       log = await habitLogModel.findById(pending.id, tx);
       created = false;
     } else {

@@ -1,24 +1,3 @@
-CREATE TABLE habits (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  target_days INT NULL,
-  difficulty ENUM('easy','medium','hard') NOT NULL,
-  user_id INT NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  archived_at DATETIME NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE habit_logs (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  habit_id INT NOT NULL,
-  log_date DATE NOT NULL,
-  status ENUM('pending','completed','pending_review','recovered','shielded','missed') NOT NULL DEFAULT 'pending',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
-  UNIQUE KEY unique_habit_date (habit_id, log_date)
-);
-
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
@@ -37,6 +16,39 @@ CREATE TABLE users (
   shield_balance INT NOT NULL DEFAULT 0
 );
 
+CREATE TABLE habits (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  target_days INT NULL,
+  difficulty ENUM('easy','medium','hard') NOT NULL,
+  user_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  archived_at DATETIME NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE pending_review_sessions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  habit_id INT NOT NULL,
+  status ENUM('active','resolved') NOT NULL DEFAULT 'active',
+  opened_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_missed_date DATE NOT NULL,
+  active_habit_id INT NULL,
+  FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_active_session_per_habit (active_habit_id)
+);
+
+CREATE TABLE habit_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  habit_id INT NOT NULL,
+  log_date DATE NOT NULL,
+  status ENUM('pending','completed','pending_review','recovered','shielded','missed') NOT NULL DEFAULT 'pending',
+  review_session_id INT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
+  FOREIGN KEY (review_session_id) REFERENCES pending_review_sessions(id) ON DELETE SET NULL,
+  UNIQUE KEY unique_habit_date (habit_id, log_date)
+);
 
 CREATE TABLE refresh_tokens (
   id INT AUTO_INCREMENT PRIMARY KEY,

@@ -6,6 +6,7 @@ const completionRewardService = require("./completionRewardService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const guardianShieldService = require("./guardianShieldService");
+const pendingReviewSessionService = require("./pendingReviewSessionService");
 const { calculateHabitStreaks } = require("../utils/streak");
 
 function computeAutoPopupThreshold(totalHabits) {
@@ -16,13 +17,22 @@ async function getPendingReviews(userId) {
   const totalHabits = await habitModel.countByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
 
-  const pending = pendingRows.map((row) => ({
-    habitId: row.habit_id,
-    habitName: row.habit_name,
-    missedDate: row.missed_date,
-    createdAt: row.created_at,
-  }));
+  const sessionsByHabit = new Map();
+  for (const row of pendingRows) {
+    let session = sessionsByHabit.get(row.habit_id);
+    if (!session) {
+      session = {
+        habitId: row.habit_id,
+        habitName: row.habit_name,
+        sessionId: row.review_session_id,
+        missedDates: [],
+      };
+      sessionsByHabit.set(row.habit_id, session);
+    }
+    session.missedDates.push(row.missed_date);
+  }
 
+  const pending = [...sessionsByHabit.values()];
   const pendingCount = pending.length;
   const autoPopupThreshold = computeAutoPopupThreshold(totalHabits);
   const shouldAutoPopup =
@@ -39,10 +49,15 @@ async function getPendingReviews(userId) {
 
 async function applyDecisions(decisions, userId) {
   return runInTransaction(async (tx) => {
+    const sortedDecisions = [...decisions].sort((a, b) =>
+      a.missedDate < b.missedDate ? -1 : a.missedDate > b.missedDate ? 1 : 0,
+    );
+
     const results = [];
+    const touchedDates = new Set();
     const recoveredHabitDates = new Map();
 
-    for (const item of decisions) {
+    for (const item of sortedDecisions) {
       const { habitId, missedDate, decision, useShield } = item;
 
       const pending = await habitLogModel.findPendingByHabitAndDate(
@@ -68,51 +83,47 @@ async function applyDecisions(decisions, userId) {
           await habitLogModel.resolveDecision(pending.id, "missed", tx);
           results.push({ habitId, missedDate, result: "missed_no_shield" });
         }
-        await dailyAuraStatsService.recalculateDailyAuraStats(
-          userId,
-          missedDate,
-          tx,
-        );
+        touchedDates.add(missedDate);
+        await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
         continue;
       }
 
       const newStatus = decision === "completed" ? "recovered" : "missed";
       await habitLogModel.resolveDecision(pending.id, newStatus, tx);
-      await dailyAuraStatsService.recalculateDailyAuraStats(
-        userId,
-        missedDate,
-        tx,
-      );
+      touchedDates.add(missedDate);
 
       if (newStatus === "recovered") {
-        const habit = await habitModel.findById(habitId, userId, tx);
-
-        if (habit) {
-          await completionRewardService.awardRecoveryRewards(
-            userId,
-            habit,
-            missedDate,
-            tx,
-          );
-
-          const dates = recoveredHabitDates.get(habitId) || [];
-          dates.push(missedDate);
-          recoveredHabitDates.set(habitId, dates);
-        }
+        const dates = recoveredHabitDates.get(habitId) || [];
+        dates.push(missedDate);
+        recoveredHabitDates.set(habitId, dates);
       }
 
+      await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
       results.push({ habitId, missedDate, result: newStatus });
     }
 
+    for (const date of touchedDates) {
+      await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
+    }
+
     for (const [habitId, dates] of recoveredHabitDates) {
+      const habit = await habitModel.findById(habitId, userId, tx);
+      if (!habit) continue;
+
+      for (const date of dates) {
+        await completionRewardService.awardRecoveryRewards(
+          userId,
+          habit,
+          date,
+          tx,
+        );
+      }
+
       const stillPendingReview = await habitLogModel.findPendingByHabit(
         habitId,
         tx,
       );
       if (stillPendingReview) continue;
-
-      const habit = await habitModel.findById(habitId, userId, tx);
-      if (!habit) continue;
 
       const latestConfirmedDate = dates.reduce((a, b) => (b > a ? b : a));
 
