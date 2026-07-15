@@ -165,6 +165,21 @@ async function resolvePendingReviewsForHabit(habitId, db = pool) {
   return result.affectedRows;
 }
 
+async function revertShieldedLog(habitLogId, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, habit_id, log_date FROM habit_logs WHERE id = ? AND status = 'shielded' FOR UPDATE`,
+    [habitLogId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+
+  await db.query(
+    `UPDATE habit_logs SET status = 'missed' WHERE id = ? AND status = 'shielded'`,
+    [habitLogId],
+  );
+  return row;
+}
+
 async function findById(id, db = pool) {
   const [rows] = await db.query("SELECT * FROM habit_logs WHERE id = ?", [id]);
   return rows[0] || null;
@@ -235,6 +250,7 @@ module.exports = {
   resolveDecision,
   resolvePendingReviewsForHabit,
   findById,
+  revertShieldedLog,
   findByHabitAndDate,
   deleteCompletedLog,
   insertLog,

@@ -62,6 +62,13 @@ async function decrementShieldBalanceFloor(userId, db = pool) {
   );
 }
 
+async function setShieldBalance(userId, balance, db = pool) {
+  await db.query("UPDATE users SET shield_balance = ? WHERE id = ?", [
+    balance,
+    userId,
+  ]);
+}
+
 module.exports = {
   getProgress,
   updateLevel,
@@ -71,4 +78,5 @@ module.exports = {
   incrementShieldBalance,
   decrementShieldBalanceIfAvailable,
   decrementShieldBalanceFloor,
+  setShieldBalance,
 };

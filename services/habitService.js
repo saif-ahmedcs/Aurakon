@@ -148,6 +148,9 @@ async function logHabit(habitId, date, userId) {
 
     // (2)
     const habit = await habitModel.findById(habitId, userId, tx);
+    if (!habit) {
+      throw new NotFoundError("habit not found");
+    }
 
     const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
     const logs = rawLogs.map((row) => ({

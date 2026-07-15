@@ -3,7 +3,6 @@ const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const levelService = require("./levelService");
 const completionRewardService = require("./completionRewardService");
-const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const guardianShieldService = require("./guardianShieldService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
@@ -73,8 +72,11 @@ async function applyDecisions(decisions, userId) {
       }
 
       if (decision === "missed" && useShield) {
-        const shielded =
-          await userProgressModel.decrementShieldBalanceIfAvailable(userId, tx);
+        const shielded = await guardianShieldService.spendShield(
+          userId,
+          pending.id,
+          tx,
+        );
 
         if (shielded) {
           await habitLogModel.resolveDecision(pending.id, "shielded", tx);

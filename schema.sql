@@ -86,7 +86,10 @@ CREATE TABLE guardian_shield_log (
   habit_id INT NOT NULL,
   milestone INT NOT NULL,
   awarded_at DATE NOT NULL,
+  status ENUM('available','spent') NOT NULL DEFAULT 'available',
+  spent_habit_log_id INT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
+  FOREIGN KEY (spent_habit_log_id) REFERENCES habit_logs(id) ON DELETE SET NULL,
   UNIQUE KEY unique_habit_milestone (habit_id, milestone)
 );
