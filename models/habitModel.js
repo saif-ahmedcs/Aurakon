@@ -53,8 +53,8 @@ async function archive(id, userId, db = pool) {
   return result.affectedRows;
 }
 
-async function countByUser(userId) {
-  const [rows] = await pool.query(
+async function countByUser(userId, db = pool) {
+  const [rows] = await db.query(
     "SELECT COUNT(*) AS count FROM habits WHERE user_id = ? AND archived_at IS NULL",
     [userId],
   );

@@ -8,7 +8,9 @@ const bonusService = require("./bonusService");
 const guardianShieldService = require("./guardianShieldService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
+const userProgressModel = require("../models/userProgressModel");
 const { calculateHabitStreaks } = require("../utils/streak");
+const { getHabitLimit } = require("../utils/habitLimitRules");
 const { ConflictError, NotFoundError } = require("../utils/AppErrors");
 
 async function listHabitsWithPending(userId) {
@@ -30,6 +32,13 @@ async function listHabitsWithPending(userId) {
 
 async function createHabit(title, userId, difficulty) {
   return runInTransaction(async (tx) => {
+    const progress = await userProgressModel.getProgress(userId, tx);
+    const currentCount = await habitModel.countByUser(userId, tx);
+    const limit = getHabitLimit(progress.current_level);
+    if (currentCount >= limit) {
+      throw new ConflictError("Habit limit reached for your current level.");
+    }
+
     const habit = await habitModel.create(title, userId, difficulty, tx);
     const today = new Date().toISOString().slice(0, 10);
     await dailyAuraStatsService.recalculateDailyAuraStats(userId, today, tx);
