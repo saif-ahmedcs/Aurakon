@@ -110,6 +110,24 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
           tx,
         );
 
+        if (reverted.habit_id !== habitId) {
+          const affectedRawLogs = await habitLogModel.getLogsForHabit(
+            reverted.habit_id,
+            tx,
+          );
+          const affectedLogs = affectedRawLogs.map((row) => ({
+            date: row.log_date,
+            status: row.status,
+          }));
+          await reconcileShieldsFromDate(
+            userId,
+            reverted.habit_id,
+            affectedLogs,
+            reverted.log_date,
+            tx,
+          );
+        }
+
         const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
         currentLogs = rawLogs.map((row) => ({
           date: row.log_date,
