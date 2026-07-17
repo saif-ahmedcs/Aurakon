@@ -1,11 +1,15 @@
 const pendingReviewSessionModel = require("../models/pendingReviewSessionModel");
 const habitLogModel = require("../models/habitLogModel");
 const { isSessionExpired } = require("../utils/pendingReviewSessionRules");
+const { parseToUTCDay } = require("../utils/dateUtils");
 
 async function addMissedDay(habitId, missedDate, tx) {
   let session = await pendingReviewSessionModel.findActiveByHabit(habitId, tx);
 
-  if (session && isSessionExpired(session.last_missed_date, Date.now())) {
+  if (
+    session &&
+    isSessionExpired(session.last_missed_date, parseToUTCDay(missedDate))
+  ) {
     await habitLogModel.expirePendingLogsForSession(session.id, tx);
     await pendingReviewSessionModel.resolve(session.id, tx);
     session = null;
