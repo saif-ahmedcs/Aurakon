@@ -11,7 +11,11 @@ const pendingReviewSessionService = require("./pendingReviewSessionService");
 const userProgressModel = require("../models/userProgressModel");
 const { calculateHabitStreaks } = require("../utils/streak");
 const { getHabitLimit } = require("../utils/habitLimitRules");
-const { ConflictError, NotFoundError } = require("../utils/AppErrors");
+const {
+  ConflictError,
+  NotFoundError,
+  BadRequestError,
+} = require("../utils/AppErrors");
 
 async function listHabitsWithPending(userId) {
   const rows = await habitModel.findAllByUser(userId);
@@ -115,6 +119,16 @@ async function logHabit(habitId, date, userId) {
     let log;
     let created;
 
+    const habit = await habitModel.findById(habitId, userId, tx);
+    if (!habit) {
+      throw new NotFoundError("habit not found");
+    }
+    if (date < habit.created_at.slice(0, 10)) {
+      throw new BadRequestError(
+        "log date cannot be before the habit's creation date",
+      );
+    }
+
     // (1)
     const pending = await habitLogModel.findPendingByHabitAndDate(
       habitId,
@@ -144,11 +158,6 @@ async function logHabit(habitId, date, userId) {
     }
 
     // (2)
-    const habit = await habitModel.findById(habitId, userId, tx);
-    if (!habit) {
-      throw new NotFoundError("habit not found");
-    }
-
     const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
     const logs = rawLogs.map((row) => ({
       date: row.log_date,
@@ -156,8 +165,7 @@ async function logHabit(habitId, date, userId) {
     }));
     const { currentStreak: habitStreak } = calculateHabitStreaks(logs, date);
 
-    // (3)-(7): award XP, Aura Energy, and if the day is now fully
-    // complete — advance the global streak and check consistency bonuses
+    // (3)-(7)
     await completionRewardService.awardCompletionRewards(
       userId,
       habit,
