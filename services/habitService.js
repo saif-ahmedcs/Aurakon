@@ -176,6 +176,10 @@ async function logHabit(habitId, date, userId) {
       tx,
     );
 
+    if (!created) {
+      await bonusService.reconcileBonusesFromDate(userId, date, tx);
+    }
+
     // (8)
     const stillPendingReview = await habitLogModel.findPendingByHabit(
       habitId,

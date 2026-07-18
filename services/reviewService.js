@@ -6,6 +6,7 @@ const completionRewardService = require("./completionRewardService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const guardianShieldService = require("./guardianShieldService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
+const bonusService = require("./bonusService");
 const { calculateHabitStreaks } = require("../utils/streak");
 
 function computeAutoPopupThreshold(totalHabits) {
@@ -142,6 +143,15 @@ async function applyDecisions(decisions, userId) {
 
     for (const date of touchedDates) {
       await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
+    }
+
+    const earliestTouchedDate = [...touchedDates].sort()[0];
+    if (earliestTouchedDate) {
+      await bonusService.reconcileBonusesFromDate(
+        userId,
+        earliestTouchedDate,
+        tx,
+      );
     }
 
     for (const [habitId, dates] of recoveredHabitDates) {
