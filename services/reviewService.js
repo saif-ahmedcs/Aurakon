@@ -157,13 +157,9 @@ async function applyDecisions(decisions, userId) {
         );
       }
 
-      const latestConfirmedDate = dates.reduce((a, b) => (b > a ? b : a));
-      await checkGuardianShieldEligibility(
-        userId,
-        habitId,
-        latestConfirmedDate,
-        tx,
-      );
+      for (const date of dates) {
+        await checkGuardianShieldEligibility(userId, habitId, date, tx);
+      }
     }
 
     await levelService.recalculateAndPersistLevel(userId, tx);
