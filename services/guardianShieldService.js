@@ -91,10 +91,7 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
       award.awarded_at,
     );
 
-    if (
-      currentStreak === award.milestone &&
-      currentStreakStartDate === award.streak_start_date
-    ) {
+    if (currentStreak >= award.milestone) {
       continue;
     }
 

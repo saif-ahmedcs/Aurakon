@@ -83,8 +83,8 @@ async function expirePendingLogsForSession(sessionId, db = pool) {
   return result.affectedRows;
 }
 
-async function findPendingForUser(userId) {
-  const [rows] = await pool.query(
+async function findPendingForUser(userId, db = pool) {
+  const [rows] = await db.query(
     `SELECT habit_logs.id,
             habit_logs.habit_id,
             habit_logs.review_session_id,
@@ -225,8 +225,8 @@ async function insertLog(habitId, logDate, db = pool) {
   return rows[0];
 }
 
-async function findAllByHabit(habitId) {
-  const [rows] = await pool.query(
+async function findAllByHabit(habitId, db = pool) {
+  const [rows] = await db.query(
     "SELECT * FROM habit_logs WHERE habit_id = ? ORDER BY log_date ASC",
     [habitId],
   );
