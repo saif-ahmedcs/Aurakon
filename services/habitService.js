@@ -163,7 +163,10 @@ async function logHabit(habitId, date, userId) {
       date: row.log_date,
       status: row.status,
     }));
-    const { currentStreak: habitStreak } = calculateHabitStreaks(logs, date);
+    const {
+      currentStreak: habitStreak,
+      currentStreakStartDate: habitStreakStartDate,
+    } = calculateHabitStreaks(logs, date);
 
     // (3)-(7)
     await completionRewardService.awardCompletionRewards(
@@ -184,6 +187,7 @@ async function logHabit(habitId, date, userId) {
         habitId,
         habit.difficulty,
         habitStreak,
+        habitStreakStartDate,
         date,
         tx,
       );

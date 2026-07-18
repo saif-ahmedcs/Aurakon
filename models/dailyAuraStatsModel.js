@@ -36,6 +36,7 @@ async function upsertCounts(
     [userId, date, auraEnergy, totalHabits, completedHabits, fullCompletion],
   );
 }
+
 async function getFullCompletionDates(userId, db = pool) {
   const [rows] = await db.query(
     `SELECT stat_date FROM daily_aura_stats

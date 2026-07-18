@@ -7,7 +7,7 @@
  *
  */
 
-const { MS_PER_DAY, parseToUTCDay } = require("./dateUtils");
+const { MS_PER_DAY, parseToUTCDay, formatUTCDay } = require("./dateUtils");
 const PRESENT_STATUSES = new Set(["completed", "recovered", "shielded"]);
 
 function calculateHabitStreaks(logs, asOfDate) {
@@ -36,7 +36,7 @@ function calculateHabitStreaks(logs, asOfDate) {
     .sort((a, b) => a - b);
 
   if (presentDays.length === 0) {
-    return { currentStreak: 0, longestStreak: 0 };
+    return { currentStreak: 0, longestStreak: 0, currentStreakStartDate: null };
   }
 
   const runs = [];
@@ -61,8 +61,12 @@ function calculateHabitStreaks(logs, asOfDate) {
   const currentStreak = isBridgedOrAdjacent(finalRun.endDay, asOfDay)
     ? finalRun.length
     : 0;
+  const currentStreakStartDate =
+    currentStreak > 0
+      ? formatUTCDay(presentDays[presentDays.length - finalRun.length])
+      : null;
 
-  return { currentStreak, longestStreak };
+  return { currentStreak, longestStreak, currentStreakStartDate };
 }
 
 function isFullDayCompletion(habitsForDay) {

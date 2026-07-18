@@ -7,6 +7,7 @@ function isShieldMilestone(consecutiveHabitDays) {
     consecutiveHabitDays % SHIELD_MILESTONE_INTERVAL === 0
   );
 }
+
 function isShieldEligibleDifficulty(difficulty) {
   return SHIELD_ELIGIBLE_DIFFICULTIES.includes(difficulty);
 }

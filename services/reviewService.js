@@ -32,15 +32,16 @@ async function checkGuardianShieldEligibility(
     date: row.log_date,
     status: row.status,
   }));
-  const { currentStreak: confirmedStreak } = calculateHabitStreaks(
-    logs,
-    latestConfirmedDate,
-  );
+  const {
+    currentStreak: confirmedStreak,
+    currentStreakStartDate: confirmedStreakStartDate,
+  } = calculateHabitStreaks(logs, latestConfirmedDate);
   await guardianShieldService.earnShieldIfEligible(
     userId,
     habitId,
     habit.difficulty,
     confirmedStreak,
+    confirmedStreakStartDate,
     latestConfirmedDate,
     tx,
   );

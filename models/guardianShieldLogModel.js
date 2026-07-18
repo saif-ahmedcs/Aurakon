@@ -1,26 +1,38 @@
 const { pool } = require("../db");
 
-async function hasMilestoneBeenAwarded(habitId, milestone, db = pool) {
+async function hasMilestoneBeenAwarded(
+  habitId,
+  milestone,
+  streakStartDate,
+  db = pool,
+) {
   const [rows] = await db.query(
     `SELECT 1 FROM guardian_shield_log
-     WHERE habit_id = ? AND milestone = ?
+     WHERE habit_id = ? AND milestone = ? AND streak_start_date = ?
      LIMIT 1`,
-    [habitId, milestone],
+    [habitId, milestone, streakStartDate],
   );
   return rows.length > 0;
 }
 
-async function insertAward(userId, habitId, milestone, awardedAt, db = pool) {
+async function insertAward(
+  userId,
+  habitId,
+  milestone,
+  streakStartDate,
+  awardedAt,
+  db = pool,
+) {
   await db.query(
-    `INSERT INTO guardian_shield_log (user_id, habit_id, milestone, awarded_at)
-     VALUES (?, ?, ?, ?)`,
-    [userId, habitId, milestone, awardedAt],
+    `INSERT INTO guardian_shield_log (user_id, habit_id, milestone, streak_start_date, awarded_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [userId, habitId, milestone, streakStartDate, awardedAt],
   );
 }
 
 async function findAwardsFromDate(habitId, fromDate, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, milestone, awarded_at, status, spent_habit_log_id
+    `SELECT id, milestone, streak_start_date, awarded_at, status, spent_habit_log_id
      FROM guardian_shield_log
      WHERE habit_id = ? AND awarded_at >= ?`,
     [habitId, fromDate],
@@ -59,10 +71,10 @@ async function countAvailable(userId, db = pool) {
   return rows[0].count;
 }
 
-async function deleteAward(habitId, milestone, db = pool) {
+async function deleteAward(id, db = pool) {
   const [result] = await db.query(
-    `DELETE FROM guardian_shield_log WHERE habit_id = ? AND milestone = ?`,
-    [habitId, milestone],
+    `DELETE FROM guardian_shield_log WHERE id = ?`,
+    [id],
   );
   return result.affectedRows;
 }

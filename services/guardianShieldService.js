@@ -21,6 +21,7 @@ async function earnShieldIfEligible(
   habitId,
   difficulty,
   consecutiveHabitDays,
+  streakStartDate,
   awardedAt,
   tx,
 ) {
@@ -34,6 +35,7 @@ async function earnShieldIfEligible(
   const alreadyAwarded = await guardianShieldLogModel.hasMilestoneBeenAwarded(
     habitId,
     consecutiveHabitDays,
+    streakStartDate,
     tx,
   );
   if (alreadyAwarded) {
@@ -45,6 +47,7 @@ async function earnShieldIfEligible(
       userId,
       habitId,
       consecutiveHabitDays,
+      streakStartDate,
       awardedAt,
       tx,
     );
@@ -83,12 +86,15 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
   let currentLogs = logs;
 
   for (const award of awards) {
-    const { currentStreak } = calculateHabitStreaks(
+    const { currentStreak, currentStreakStartDate } = calculateHabitStreaks(
       currentLogs,
       award.awarded_at,
     );
 
-    if (currentStreak === award.milestone) {
+    if (
+      currentStreak === award.milestone &&
+      currentStreakStartDate === award.streak_start_date
+    ) {
       continue;
     }
 
@@ -136,7 +142,7 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
       }
     }
 
-    await guardianShieldLogModel.deleteAward(habitId, award.milestone, tx);
+    await guardianShieldLogModel.deleteAward(award.id, tx);
     await recalculateShieldBalance(userId, tx);
   }
 
@@ -156,13 +162,17 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
   ].sort();
 
   for (const date of presentDatesFromDate) {
-    const { currentStreak } = calculateHabitStreaks(currentLogs, date);
+    const { currentStreak, currentStreakStartDate } = calculateHabitStreaks(
+      currentLogs,
+      date,
+    );
     if (isShieldMilestone(currentStreak)) {
       await earnShieldIfEligible(
         userId,
         habitId,
         habit.difficulty,
         currentStreak,
+        currentStreakStartDate,
         date,
         tx,
       );
