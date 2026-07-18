@@ -1,30 +1,43 @@
 const { pool } = require("../db");
 
 async function expireStaleReviewsForUser(userId, db = pool) {
-  const [sessions] = await db.query(
-    `SELECT pending_review_sessions.id
-     FROM pending_review_sessions
-     JOIN habits ON habits.id = pending_review_sessions.habit_id
+  const [staleLogs] = await db.query(
+    `SELECT habit_logs.id, habit_logs.review_session_id
+     FROM habit_logs
+     JOIN habits ON habits.id = habit_logs.habit_id
      WHERE habits.user_id = ?
-       AND pending_review_sessions.status = 'active'
-       AND UTC_TIMESTAMP() > DATE_ADD(pending_review_sessions.last_missed_date, INTERVAL 48 HOUR)`,
+       AND habit_logs.status = 'pending_review'
+       AND UTC_TIMESTAMP() > DATE_ADD(habit_logs.log_date, INTERVAL 3 DAY)`,
     [userId],
   );
 
-  for (const session of sessions) {
-    await db.query(
-      `UPDATE habit_logs
-       SET status = 'missed'
-       WHERE review_session_id = ? AND status = 'pending_review'`,
-      [session.id],
-    );
-    await db.query(
-      `UPDATE pending_review_sessions SET status = 'resolved', active_habit_id = NULL WHERE id = ?`,
-      [session.id],
-    );
+  if (staleLogs.length === 0) {
+    return 0;
   }
 
-  return sessions.length;
+  const staleIds = staleLogs.map((row) => row.id);
+  await db.query(`UPDATE habit_logs SET status = 'missed' WHERE id IN (?)`, [
+    staleIds,
+  ]);
+
+  const sessionIds = [
+    ...new Set(staleLogs.map((row) => row.review_session_id)),
+  ];
+  for (const sessionId of sessionIds) {
+    const [[{ count }]] = await db.query(
+      `SELECT COUNT(*) AS count FROM habit_logs
+       WHERE review_session_id = ? AND status = 'pending_review'`,
+      [sessionId],
+    );
+    if (count === 0) {
+      await db.query(
+        `UPDATE pending_review_sessions SET status = 'resolved', active_habit_id = NULL WHERE id = ?`,
+        [sessionId],
+      );
+    }
+  }
+
+  return staleLogs.length;
 }
 
 async function getHabitsMissingLogForDate(userId, logDate, db = pool) {

@@ -96,3 +96,99 @@ timezone — no local-time getter (getDate, getMonth, etc.) is involved.
 Once the frontend exists and supplies the client's local-date string, this
 server-clock fallback stays display-only; it is not used for check-in
 dates, which are already caller-supplied input.
+
+---
+
+# Pending Review System
+
+## Overview
+
+Immediately marking a missed habit as `missed` would permanently break streaks, revoke rewards, and apply progression penalties the moment a single day is skipped. In practice, users may miss a check-in for legitimate reasons (travel, illness, internet issues, simply forgetting to open the app, etc.).
+
+To make the system more resilient while preserving progression integrity, Aurakon introduces a **Pending Review** stage.
+
+Instead of immediately recording a missed day as `missed`, the system temporarily records it as `pending_review`, giving the user a limited opportunity to review what actually happened before the miss becomes final.
+
+---
+
+## Review Window
+
+Each missed day receives a **48-hour review window**.
+
+During this period, the user can explicitly decide whether the habit was actually completed or genuinely missed.
+
+Possible outcomes:
+
+**Recovered** → the pending review is resolved as recovered. The missed day is treated as completed, preserving streaks and triggering the appropriate progression updates, including completion rewards and any newly eligible progression systems.
+
+**Shielded** → the pending review is resolved as shielded. The day is treated as present for streak progression, but no completion XP is awarded because the habit was not actually completed.
+
+**Missed** → the pending review is finalized as missed. Any progression systems affected by that state transition are then reconciled by the corresponding application workflow.
+
+After the review window expires, unresolved pending reviews are automatically finalized as `missed`.
+
+---
+
+## Pending Review Sessions
+
+Pending reviews are grouped into **review sessions**.
+
+A session represents a continuous review period for a habit and groups consecutive pending-review days together instead of treating every missed day as an isolated workflow.
+
+The session is responsible for:
+
+- grouping related pending reviews;
+- tracking whether unresolved reviews still exist;
+- remaining active while at least one pending review is still open;
+- resolving automatically once every pending review inside the session has been finalized.
+
+This allows the review workflow to remain organized without affecting the independent expiration rules of each missed day.
+
+---
+
+# Expiration Strategy
+
+## Why no Cron Jobs?
+
+This project intentionally avoids cron jobs and background schedulers.
+
+The goal is to keep deployment simple across different environments without requiring additional worker processes or scheduled infrastructure.
+
+Instead, all synchronization is performed lazily during normal authenticated requests.
+
+---
+
+## Logical Timeline
+
+Although pending-review rows are created lazily, the review window is **not** based on the database insertion time.
+
+Using `created_at` would incorrectly grant users a fresh 48-hour review window simply because they opened the application late.
+
+Instead, the review window is anchored to the missed day itself.
+
+```
+Missed Day
+      │
+      ▼
+00:00 UTC of the following day
+      │
+Review window begins      │
+      ▼
+48-hour review window
+      │
+      ▼
+Automatically finalized as missed
+```
+
+This results in the following rule:
+
+```
+Review opens   = log_date + 1 day (00:00 UTC)
+Review expires = log_date + 3 days (00:00 UTC)
+```
+
+Because synchronization is lazy, the corresponding `pending_review` row may be inserted after its logical creation time.
+
+If the user returns after the review window has already expired, the row is still created during synchronization but is immediately finalized as `missed`, ensuring users never receive additional review time simply because they were absent from the application.
+
+This approach preserves the intended behavior while avoiding the operational complexity of cron jobs or background workers.

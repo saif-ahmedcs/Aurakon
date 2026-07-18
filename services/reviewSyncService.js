@@ -46,8 +46,6 @@ async function finalizeDay(userId, date, tx) {
 
 async function evaluatePendingReviews(userId) {
   return runInTransaction(async (tx) => {
-    await habitLogModel.expireStaleReviewsForUser(userId, tx);
-
     const yesterday = getPreviousUtcDate();
     const [latestStatDate, earliestHabitDate] = await Promise.all([
       dailyAuraStatsModel.getLatestStatDate(userId, tx),
@@ -66,6 +64,9 @@ async function evaluatePendingReviews(userId) {
       await finalizeDay(userId, date, tx);
       date = addUtcDays(date, 1);
     }
+
+    await habitLogModel.expireStaleReviewsForUser(userId, tx);
+
     await levelService.recalculateAndPersistLevel(userId, tx);
   });
 }
