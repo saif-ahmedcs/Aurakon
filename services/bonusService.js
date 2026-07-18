@@ -1,6 +1,7 @@
 const xpBonusLogModel = require("../models/xpBonusLogModel");
 const xpService = require("../services/xpService");
 const streakService = require("./streakService");
+const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const { checkBonusEligibility } = require("../utils/consistencyBonusRules");
 const { ConflictError } = require("../utils/AppErrors");
 
@@ -61,6 +62,25 @@ async function reconcileBonusesFromDate(userId, fromDate, tx) {
       );
       await xpService.reverseBonusXp(userId, award.bonus_type, tx);
     }
+  }
+
+  const fullCompletionDates = await dailyAuraStatsModel.getFullCompletionDates(
+    userId,
+    tx,
+  );
+
+  const datesFromDate = fullCompletionDates
+    .map((row) => row.stat_date)
+    .filter((date) => date >= fromDate)
+    .sort();
+
+  for (const date of datesFromDate) {
+    const streakAtDate = await streakService.getStreakAsOfDate(
+      userId,
+      date,
+      tx,
+    );
+    await checkAndAwardConsistencyBonus(userId, streakAtDate, date, tx);
   }
 }
 
