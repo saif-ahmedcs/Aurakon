@@ -143,6 +143,12 @@ async function logHabit(habitId, date, userId) {
       log = await habitLogModel.findById(pending.id, tx);
       created = false;
     } else {
+      const today = new Date().toISOString().slice(0, 10);
+      if (date !== today) {
+        throw new ConflictError(
+          "This date is outside the loggable window. Missed days must be recovered through the pending review system before their review window expires.",
+        );
+      }
       try {
         log = await habitLogModel.insertLog(habitId, date, tx);
         created = true;
