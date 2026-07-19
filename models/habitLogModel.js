@@ -73,6 +73,14 @@ async function insertPendingReviewLog(habitId, logDate, sessionId, db = pool) {
   );
 }
 
+async function insertMissedLog(habitId, logDate, db = pool) {
+  await db.query(
+    `INSERT IGNORE INTO habit_logs (habit_id, log_date, status, created_at)
+     VALUES (?, ?, 'missed', UTC_TIMESTAMP())`,
+    [habitId, logDate],
+  );
+}
+
 async function expirePendingLogsForSession(sessionId, db = pool) {
   const [result] = await db.query(
     `UPDATE habit_logs

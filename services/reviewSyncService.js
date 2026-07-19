@@ -38,6 +38,8 @@ async function finalizeDay(userId, date, tx) {
 
     if (currentStreak > 0) {
       await pendingReviewSessionService.addMissedDay(habit.id, date, tx);
+    } else {
+      await habitLogModel.insertMissedLog(habit.id, date, tx);
     }
   }
 
