@@ -2,7 +2,7 @@ const { pool } = require("../db");
 
 async function expireStaleReviewsForUser(userId, db = pool) {
   const [staleLogs] = await db.query(
-    `SELECT habit_logs.id, habit_logs.review_session_id
+    `SELECT habit_logs.id, habit_logs.habit_id, habit_logs.log_date, habit_logs.review_session_id
      FROM habit_logs
      JOIN habits ON habits.id = habit_logs.habit_id
      WHERE habits.user_id = ?
@@ -12,7 +12,7 @@ async function expireStaleReviewsForUser(userId, db = pool) {
   );
 
   if (staleLogs.length === 0) {
-    return 0;
+    return [];
   }
 
   const staleIds = staleLogs.map((row) => row.id);
@@ -37,7 +37,10 @@ async function expireStaleReviewsForUser(userId, db = pool) {
     }
   }
 
-  return staleLogs.length;
+  return staleLogs.map((row) => ({
+    habitId: row.habit_id,
+    logDate: row.log_date,
+  }));
 }
 
 async function getHabitsMissingLogForDate(userId, logDate, db = pool) {
@@ -82,13 +85,22 @@ async function insertMissedLog(habitId, logDate, db = pool) {
 }
 
 async function expirePendingLogsForSession(sessionId, db = pool) {
-  const [result] = await db.query(
-    `UPDATE habit_logs
-     SET status = 'missed'
+  const [rows] = await db.query(
+    `SELECT id, habit_id, log_date FROM habit_logs
      WHERE review_session_id = ? AND status = 'pending_review'`,
     [sessionId],
   );
-  return result.affectedRows;
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const ids = rows.map((row) => row.id);
+  await db.query(`UPDATE habit_logs SET status = 'missed' WHERE id IN (?)`, [
+    ids,
+  ]);
+
+  return rows.map((row) => ({ habitId: row.habit_id, logDate: row.log_date }));
 }
 
 async function findPendingForUser(userId, db = pool) {

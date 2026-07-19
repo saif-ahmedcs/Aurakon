@@ -6,6 +6,7 @@ const dailyAuraStatsService = require("./dailyAuraStatsService");
 const levelService = require("./levelService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
 const pendingReviewSessionModel = require("../models/pendingReviewSessionModel");
+const guardianShieldService = require("./guardianShieldService");
 const { getPreviousUtcDate, addUtcDays } = require("../utils/reviewWindow");
 const { calculateHabitStreaks } = require("../utils/streak");
 
@@ -23,7 +24,12 @@ async function finalizeDay(userId, date, tx) {
     );
 
     if (existingSession) {
-      await pendingReviewSessionService.addMissedDay(habit.id, date, tx);
+      await pendingReviewSessionService.addMissedDay(
+        userId,
+        habit.id,
+        date,
+        tx,
+      );
       continue;
     }
 
@@ -37,7 +43,12 @@ async function finalizeDay(userId, date, tx) {
     const { currentStreak } = calculateHabitStreaks(logs, dayBeforeGap);
 
     if (currentStreak > 0) {
-      await pendingReviewSessionService.addMissedDay(habit.id, date, tx);
+      await pendingReviewSessionService.addMissedDay(
+        userId,
+        habit.id,
+        date,
+        tx,
+      );
     } else {
       await habitLogModel.insertMissedLog(habit.id, date, tx);
     }
@@ -67,7 +78,33 @@ async function evaluatePendingReviews(userId) {
       date = addUtcDays(date, 1);
     }
 
-    await habitLogModel.expireStaleReviewsForUser(userId, tx);
+    const expiredReviews = await habitLogModel.expireStaleReviewsForUser(
+      userId,
+      tx,
+    );
+
+    const earliestExpiredDateByHabit = new Map();
+    for (const { habitId, logDate } of expiredReviews) {
+      const current = earliestExpiredDateByHabit.get(habitId);
+      if (!current || logDate < current) {
+        earliestExpiredDateByHabit.set(habitId, logDate);
+      }
+    }
+
+    for (const [habitId, fromDate] of earliestExpiredDateByHabit) {
+      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+      const logs = rawLogs.map((row) => ({
+        date: row.log_date,
+        status: row.status,
+      }));
+      await guardianShieldService.reconcileShieldsFromDate(
+        userId,
+        habitId,
+        logs,
+        fromDate,
+        tx,
+      );
+    }
 
     await levelService.recalculateAndPersistLevel(userId, tx);
   });

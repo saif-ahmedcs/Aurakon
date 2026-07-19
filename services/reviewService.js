@@ -91,6 +91,7 @@ async function applyDecisions(decisions, userId) {
     const results = [];
     const touchedDates = new Set();
     const recoveredHabitDates = new Map();
+    const missedHabitDates = new Map();
 
     for (const item of sortedDecisions) {
       const { habitId, missedDate, decision, useShield } = item;
@@ -121,7 +122,11 @@ async function applyDecisions(decisions, userId) {
         } else {
           await habitLogModel.resolveDecision(pending.id, "missed", tx);
           results.push({ habitId, missedDate, result: "missed_no_shield" });
+          const dates = missedHabitDates.get(habitId) || [];
+          dates.push(missedDate);
+          missedHabitDates.set(habitId, dates);
         }
+
         touchedDates.add(missedDate);
         await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
         continue;
@@ -135,6 +140,10 @@ async function applyDecisions(decisions, userId) {
         const dates = recoveredHabitDates.get(habitId) || [];
         dates.push(missedDate);
         recoveredHabitDates.set(habitId, dates);
+      } else {
+        const dates = missedHabitDates.get(habitId) || [];
+        dates.push(missedDate);
+        missedHabitDates.set(habitId, dates);
       }
 
       await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
@@ -170,6 +179,22 @@ async function applyDecisions(decisions, userId) {
       for (const date of dates) {
         await checkGuardianShieldEligibility(userId, habitId, date, tx);
       }
+    }
+
+    for (const [habitId, dates] of missedHabitDates) {
+      const earliestDate = dates.sort()[0];
+      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+      const logs = rawLogs.map((row) => ({
+        date: row.log_date,
+        status: row.status,
+      }));
+      await guardianShieldService.reconcileShieldsFromDate(
+        userId,
+        habitId,
+        logs,
+        earliestDate,
+        tx,
+      );
     }
 
     await levelService.recalculateAndPersistLevel(userId, tx);
