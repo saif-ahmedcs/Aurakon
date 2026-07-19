@@ -32,12 +32,22 @@ async function earnShieldIfEligible(
     return false;
   }
 
+  const stillPendingReview = await habitLogModel.findPendingByHabit(
+    habitId,
+    tx,
+  );
+
+  if (stillPendingReview) {
+    return false;
+  }
+
   const alreadyAwarded = await guardianShieldLogModel.hasMilestoneBeenAwarded(
     habitId,
     consecutiveHabitDays,
     streakStartDate,
     tx,
   );
+
   if (alreadyAwarded) {
     return false;
   }
