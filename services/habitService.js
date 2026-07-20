@@ -216,6 +216,13 @@ async function undoLog(habitId, date, userId) {
       throw new NotFoundError("habit not found");
     }
 
+    const today = new Date().toISOString().slice(0, 10);
+    if (date !== today) {
+      throw new ConflictError(
+        "Only today's log can be undone. Past dates must be handled through the pending review system.",
+      );
+    }
+
     const log = await habitLogModel.findByHabitAndDate(habitId, date, tx);
     if (!log || log.status !== "completed") {
       throw new ConflictError("only completed logs can be undone");
