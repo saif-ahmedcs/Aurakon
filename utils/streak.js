@@ -23,11 +23,11 @@ function calculateHabitStreaks(logs, asOfDate) {
 
   function isBridgedOrAdjacent(fromDay, toDay) {
     const diffDays = (toDay - fromDay) / MS_PER_DAY;
-    if (diffDays <= 1) return true;
-    if (diffDays === 2) {
-      return statusByDay.get(fromDay + MS_PER_DAY) === "pending_review";
+    if (diffDays <= 1) return statusByDay.get(toDay) !== "missed";
+    for (let day = fromDay + MS_PER_DAY; day < toDay; day += MS_PER_DAY) {
+      if (statusByDay.get(day) !== "pending_review") return false;
     }
-    return false;
+    return true;
   }
 
   const presentDays = [...statusByDay.entries()]
