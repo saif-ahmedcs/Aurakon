@@ -192,15 +192,25 @@ async function logHabit(habitId, date, userId) {
       tx,
     );
     if (!stillPendingReview) {
-      await guardianShieldService.earnShieldIfEligible(
-        userId,
-        habitId,
-        habit.difficulty,
-        habitStreak,
-        habitStreakStartDate,
-        date,
-        tx,
-      );
+      if (created) {
+        await guardianShieldService.earnShieldIfEligible(
+          userId,
+          habitId,
+          habit.difficulty,
+          habitStreak,
+          habitStreakStartDate,
+          date,
+          tx,
+        );
+      } else {
+        await guardianShieldService.reconcileShieldsFromDate(
+          userId,
+          habitId,
+          logs,
+          date,
+          tx,
+        );
+      }
     }
     // (9)
     await levelService.recalculateAndPersistLevel(userId, tx);

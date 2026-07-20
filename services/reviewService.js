@@ -176,9 +176,19 @@ async function applyDecisions(decisions, userId) {
         );
       }
 
-      for (const date of dates) {
-        await checkGuardianShieldEligibility(userId, habitId, date, tx);
-      }
+      const earliestDate = dates.sort()[0];
+      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+      const logs = rawLogs.map((row) => ({
+        date: row.log_date,
+        status: row.status,
+      }));
+      await guardianShieldService.reconcileShieldsFromDate(
+        userId,
+        habitId,
+        logs,
+        earliestDate,
+        tx,
+      );
     }
 
     for (const [habitId, dates] of missedHabitDates) {
