@@ -34,7 +34,8 @@ async function findAwardsFromDate(habitId, fromDate, db = pool) {
   const [rows] = await db.query(
     `SELECT id, milestone, streak_start_date, awarded_at, status, spent_habit_log_id
      FROM guardian_shield_log
-     WHERE habit_id = ? AND awarded_at >= ?`,
+     WHERE habit_id = ? AND awarded_at >= ?
+     ORDER BY awarded_at ASC, id ASC`,
     [habitId, fromDate],
   );
   return rows;
