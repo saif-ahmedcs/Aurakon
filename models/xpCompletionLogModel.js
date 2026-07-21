@@ -10,6 +10,14 @@ async function findAward(habitId, logDate, db = pool) {
   return rows[0] || null;
 }
 
+async function sumByUser(userId, db = pool) {
+  const [rows] = await db.query(
+    `SELECT COALESCE(SUM(xp_amount), 0) AS total FROM xp_completion_log WHERE user_id = ?`,
+    [userId],
+  );
+  return Number(rows[0].total);
+}
+
 async function insertAward(userId, habitId, logDate, xpAmount, db = pool) {
   await db.query(
     `INSERT INTO xp_completion_log (user_id, habit_id, log_date, xp_amount)
@@ -26,4 +34,9 @@ async function deleteAward(habitId, logDate, db = pool) {
   return result.affectedRows;
 }
 
-module.exports = { findAward, insertAward, deleteAward };
+module.exports = {
+  findAward,
+  sumByUser,
+  insertAward,
+  deleteAward,
+};

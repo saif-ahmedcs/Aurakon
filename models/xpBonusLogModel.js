@@ -10,6 +10,14 @@ async function hasBonusBeenAwarded(userId, bonusType, awardedAt, db = pool) {
   return rows.length > 0;
 }
 
+async function countByUserAndType(userId, bonusType, db = pool) {
+  const [rows] = await db.query(
+    `SELECT COUNT(*) AS count FROM xp_bonus_log WHERE user_id = ? AND bonus_type = ?`,
+    [userId, bonusType],
+  );
+  return Number(rows[0].count);
+}
+
 async function insertBonusAward(userId, bonusType, awardedAt, db = pool) {
   await db.query(
     `INSERT INTO xp_bonus_log (user_id, bonus_type, awarded_at)
@@ -37,6 +45,7 @@ async function deleteAward(userId, bonusType, awardedAt, db = pool) {
 
 module.exports = {
   hasBonusBeenAwarded,
+  countByUserAndType,
   insertBonusAward,
   findAwardsFromDate,
   deleteAward,

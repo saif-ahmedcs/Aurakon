@@ -1,5 +1,6 @@
 const xpModel = require("../models/xpModel");
 const xpCompletionLogModel = require("../models/xpCompletionLogModel");
+const xpBonusLogModel = require("../models/xpBonusLogModel");
 const titleService = require("../services/titleService");
 const { difficultyToXp } = require("../utils/xpCalculator");
 
@@ -67,9 +68,30 @@ async function reverseBonusXp(userId, bonusType, tx) {
   return applyXpDelta(userId, delta, tx);
 }
 
+async function rebuildTotalXp(userId, tx) {
+  const completionTotal = await xpCompletionLogModel.sumByUser(userId, tx);
+
+  let bonusTotal = 0;
+  for (const bonusType of Object.keys(BONUS_XP)) {
+    const count = await xpBonusLogModel.countByUserAndType(
+      userId,
+      bonusType,
+      tx,
+    );
+    bonusTotal += count * BONUS_XP[bonusType];
+  }
+
+  const total = completionTotal + bonusTotal;
+  await xpModel.setTotalXp(userId, total, tx);
+
+  const title = titleService.resolveCurrentTitle(total);
+  return { totalXp: total, title };
+}
+
 module.exports = {
   awardCompletionXp,
   reverseCompletionXp,
   awardBonusXp,
   reverseBonusXp,
+  rebuildTotalXp,
 };

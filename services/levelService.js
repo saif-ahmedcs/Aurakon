@@ -1,9 +1,11 @@
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
+const xpService = require("./xpService");
 const streakService = require("./streakService");
 const { computeLevel } = require("../utils/levelCalculator");
 
 async function recalculateAndPersistLevel(userId, tx) {
+  await xpService.rebuildTotalXp(userId, tx);
   const progress = (await userProgressModel.getProgress(userId, tx)) || {};
   const stats = (await dailyAuraStatsModel.getLifetimeStats(userId, tx)) || {};
 
