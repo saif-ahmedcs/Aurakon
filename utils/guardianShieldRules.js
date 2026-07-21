@@ -1,20 +1,23 @@
-const SHIELD_MILESTONE_INTERVAL = 60;
-const SHIELD_ELIGIBLE_DIFFICULTIES = ["medium", "hard"];
+const SHIELD_MILESTONE_INTERVALS = {
+  medium: 45,
+  hard: 30,
+};
 
-function isShieldMilestone(consecutiveHabitDays) {
-  return (
-    consecutiveHabitDays > 0 &&
-    consecutiveHabitDays % SHIELD_MILESTONE_INTERVAL === 0
+function isShieldEligibleDifficulty(difficulty) {
+  return Object.prototype.hasOwnProperty.call(
+    SHIELD_MILESTONE_INTERVALS,
+    difficulty,
   );
 }
 
-function isShieldEligibleDifficulty(difficulty) {
-  return SHIELD_ELIGIBLE_DIFFICULTIES.includes(difficulty);
+function isShieldMilestone(consecutiveHabitDays, difficulty) {
+  const interval = SHIELD_MILESTONE_INTERVALS[difficulty];
+  if (!interval) return false;
+  return consecutiveHabitDays > 0 && consecutiveHabitDays % interval === 0;
 }
 
 module.exports = {
-  SHIELD_MILESTONE_INTERVAL,
-  SHIELD_ELIGIBLE_DIFFICULTIES,
+  SHIELD_MILESTONE_INTERVALS,
   isShieldMilestone,
   isShieldEligibleDifficulty,
 };

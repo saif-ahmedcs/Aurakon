@@ -26,7 +26,7 @@ async function earnShieldIfEligible(
   tx,
 ) {
   if (
-    !isShieldMilestone(consecutiveHabitDays) ||
+    !isShieldMilestone(consecutiveHabitDays, difficulty) ||
     !isShieldEligibleDifficulty(difficulty)
   ) {
     return false;
@@ -173,7 +173,7 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
       currentLogs,
       date,
     );
-    if (isShieldMilestone(currentStreak)) {
+    if (isShieldMilestone(currentStreak, habit.difficulty)) {
       await earnShieldIfEligible(
         userId,
         habitId,
