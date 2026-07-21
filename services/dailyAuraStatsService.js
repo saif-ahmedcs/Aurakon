@@ -6,10 +6,12 @@ const auraEnergyService = require("./auraEnergyService");
 const { isFullDayCompletion, PRESENT_STATUSES } = require("../utils/streak");
 
 async function recalculateDailyAuraStats(userId, date, tx) {
+  await dailyAuraStatsModel.lockRow(userId, date, tx);
   const statuses = await habitLogModel.getStatusesForUserAndDate(
     userId,
     date,
     tx,
+    true,
   );
 
   const totalHabits = statuses.length;

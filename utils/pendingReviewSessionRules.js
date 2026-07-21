@@ -1,6 +1,6 @@
 const { parseToUTCDay } = require("./dateUtils");
 
-const GRACE_PERIOD_MS = 48 * 60 * 60 * 1000;
+const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
 
 function isSessionExpired(lastMissedDate, nowUtcMs) {
   return nowUtcMs > parseToUTCDay(lastMissedDate) + GRACE_PERIOD_MS;

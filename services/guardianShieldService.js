@@ -11,7 +11,11 @@ const {
 const { calculateHabitStreaks, PRESENT_STATUSES } = require("../utils/streak");
 
 async function recalculateShieldBalance(userId, tx) {
-  const available = await guardianShieldLogModel.countAvailable(userId, tx);
+  const available = await guardianShieldLogModel.countAvailable(
+    userId,
+    tx,
+    true,
+  );
   await userProgressModel.setShieldBalance(userId, available, tx);
   return available;
 }

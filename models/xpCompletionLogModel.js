@@ -10,9 +10,11 @@ async function findAward(habitId, logDate, db = pool) {
   return rows[0] || null;
 }
 
-async function sumByUser(userId, db = pool) {
+async function sumByUser(userId, db = pool, forUpdate = false) {
   const [rows] = await db.query(
-    `SELECT COALESCE(SUM(xp_amount), 0) AS total FROM xp_completion_log WHERE user_id = ?`,
+    `SELECT COALESCE(SUM(xp_amount), 0) AS total FROM xp_completion_log WHERE user_id = ?${
+      forUpdate ? " FOR UPDATE" : ""
+    }`,
     [userId],
   );
   return Number(rows[0].total);

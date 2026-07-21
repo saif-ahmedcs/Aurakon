@@ -34,16 +34,26 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
   const diffDays = (today - lastDay) / MS_PER_DAY;
 
   if (diffDays > 1) {
-    await userProgressModel.updateGlobalDailyStreak(userId, 0, tx);
-    progress.global_daily_streak = 0;
-    return 0;
+    const wasReset = await userProgressModel.resetStaleGlobalStreak(
+      userId,
+      asOfDate,
+      tx,
+    );
+    if (wasReset) {
+      progress.global_daily_streak = 0;
+      return 0;
+    }
   }
 
   return progress.global_daily_streak;
 }
 
 async function recalculateGlobalStreak(userId, tx) {
-  const rows = await dailyAuraStatsModel.getFullCompletionDates(userId, tx);
+  const rows = await dailyAuraStatsModel.getFullCompletionDates(
+    userId,
+    tx,
+    true,
+  );
   const trueDays = [
     ...new Set(rows.map((row) => parseToUTCDay(toDateOnly(row.stat_date)))),
   ].sort((a, b) => a - b);

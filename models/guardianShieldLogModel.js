@@ -63,10 +63,12 @@ async function markSpent(id, habitLogId, db = pool) {
   );
 }
 
-async function countAvailable(userId, db = pool) {
+async function countAvailable(userId, db = pool, forUpdate = false) {
   const [rows] = await db.query(
     `SELECT COUNT(*) AS count FROM guardian_shield_log
-     WHERE user_id = ? AND status = 'available'`,
+     WHERE user_id = ? AND status = 'available'${
+       forUpdate ? " FOR UPDATE" : ""
+     }`,
     [userId],
   );
   return rows[0].count;

@@ -63,6 +63,10 @@ async function register(email, password, username) {
       tx,
     );
 
+    if (newUserId === null) {
+      throw new ConflictError("email already registered");
+    }
+
     return await userModel.findById(newUserId, tx);
   });
 
@@ -95,26 +99,33 @@ const GENERIC_RESEND_RESPONSE = {
 // ------------- RESEND VERIFICATION --------------
 async function resendVerification(email) {
   const normalizedEmail = email.toLowerCase();
-  const user = await userModel.findForResend(normalizedEmail);
-  if (!user || user.is_verified) {
-    return GENERIC_RESEND_RESPONSE;
-  }
 
-  if (user.email_verification_expires) {
-    const issuedAt =
-      new Date(user.email_verification_expires).getTime() - 24 * 60 * 60 * 1000;
-    if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
-      throw new TooManyRequestsError(
-        "Please wait before requesting another verification email.",
-      );
+  await runInTransaction(async (tx) => {
+    const user = await userModel.findForResend(normalizedEmail, tx);
+    if (!user || user.is_verified) {
+      return;
     }
-  }
 
-  const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
+    if (user.email_verification_expires) {
+      const issuedAt =
+        new Date(user.email_verification_expires).getTime() -
+        24 * 60 * 60 * 1000;
+      if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
+        throw new TooManyRequestsError(
+          "Please wait before requesting another verification email.",
+        );
+      }
+    }
 
-  await userModel.setVerificationToken(user.id, tokenHash, expiresAt);
+    const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
-  authEvents.emit("VERIFICATION_RESENT", { email: normalizedEmail, rawToken });
+    await userModel.setVerificationToken(user.id, tokenHash, expiresAt, tx);
+
+    authEvents.emit("VERIFICATION_RESENT", {
+      email: normalizedEmail,
+      rawToken,
+    });
+  });
 
   return GENERIC_RESEND_RESPONSE;
 }
@@ -148,19 +159,23 @@ async function login(email, password) {
   const { rawRefreshToken, refreshTokenHash, refreshTokenExpiresAt } =
     generateRefreshToken();
 
-  await refreshTokenModel.deleteExpiredForUser(user.id);
+  await runInTransaction(async (tx) => {
+    await refreshTokenModel.deleteExpiredForUser(user.id, tx);
+    await refreshTokenModel.lockActiveForUser(user.id, tx);
 
-  let activeCount = await refreshTokenModel.countActiveByUserId(user.id);
-  while (activeCount >= MAX_ACTIVE_SESSIONS) {
-    await refreshTokenModel.deleteOldestByUserId(user.id);
-    activeCount--;
-  }
+    let activeCount = await refreshTokenModel.countActiveByUserId(user.id, tx);
+    while (activeCount >= MAX_ACTIVE_SESSIONS) {
+      await refreshTokenModel.deleteOldestByUserId(user.id, tx);
+      activeCount--;
+    }
 
-  await refreshTokenModel.insert(
-    user.id,
-    refreshTokenHash,
-    refreshTokenExpiresAt,
-  );
+    await refreshTokenModel.insert(
+      user.id,
+      refreshTokenHash,
+      refreshTokenExpiresAt,
+      tx,
+    );
+  });
 
   return { accessToken, rawRefreshToken };
 }
@@ -168,18 +183,20 @@ async function login(email, password) {
 // ------------- FORGOT PASSWORD --------------
 async function forgotPassword(email) {
   const normalizedEmail = email.toLowerCase();
-  const user = await userModel.findForPasswordReset(normalizedEmail);
 
-  if (!user || !user.is_verified) {
-    return GENERIC_FORGOT_PASSWORD_RESPONSE;
-  }
+  await runInTransaction(async (tx) => {
+    const user = await userModel.findForPasswordReset(normalizedEmail, tx);
+    if (!user || !user.is_verified) {
+      return;
+    }
 
-  const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
+    const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
 
-  await userModel.setResetToken(user.id, tokenHash, expiresAt);
-  authEvents.emit("PASSWORD_RESET_REQUESTED", {
-    email: normalizedEmail,
-    rawToken,
+    await userModel.setResetToken(user.id, tokenHash, expiresAt, tx);
+    authEvents.emit("PASSWORD_RESET_REQUESTED", {
+      email: normalizedEmail,
+      rawToken,
+    });
   });
 
   return GENERIC_FORGOT_PASSWORD_RESPONSE;
@@ -197,7 +214,15 @@ async function resetPassword(token, newPassword) {
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
-  await userModel.updatePasswordAndClearResetToken(user.id, passwordHash);
+  const applied = await userModel.updatePasswordAndClearResetToken(
+    user.id,
+    tokenHash,
+    passwordHash,
+  );
+
+  if (!applied) {
+    throw new BadRequestError("invalid or expired token");
+  }
 
   return { message: "password reset successfully" };
 }

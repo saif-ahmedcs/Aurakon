@@ -8,6 +8,19 @@ async function getByDate(userId, date, db = pool) {
   return rows[0] || null;
 }
 
+async function lockRow(userId, date, db = pool) {
+  await db.query(
+    `INSERT INTO daily_aura_stats (user_id, stat_date, total_habits, completed_habits)
+     VALUES (?, ?, 0, 0)
+     ON DUPLICATE KEY UPDATE id = id`,
+    [userId, date],
+  );
+  await db.query(
+    `SELECT id FROM daily_aura_stats WHERE user_id = ? AND stat_date = ? FOR UPDATE`,
+    [userId, date],
+  );
+}
+
 async function getLatestStatDate(userId, db = pool) {
   const [rows] = await db.query(
     `SELECT MAX(stat_date) AS latestDate FROM daily_aura_stats WHERE user_id = ?`,
@@ -37,11 +50,11 @@ async function upsertCounts(
   );
 }
 
-async function getFullCompletionDates(userId, db = pool) {
+async function getFullCompletionDates(userId, db = pool, forUpdate = false) {
   const [rows] = await db.query(
     `SELECT stat_date FROM daily_aura_stats
      WHERE user_id = ? AND full_completion = true
-     ORDER BY stat_date ASC`,
+     ORDER BY stat_date ASC${forUpdate ? " FOR UPDATE" : ""}`,
     [userId],
   );
   return rows;
@@ -77,6 +90,7 @@ async function getLifetimeStats(userId, db = pool) {
 
 module.exports = {
   getByDate,
+  lockRow,
   getLatestStatDate,
   upsertCounts,
   getLifetimeStats,

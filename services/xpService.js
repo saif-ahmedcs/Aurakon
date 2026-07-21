@@ -69,7 +69,11 @@ async function reverseBonusXp(userId, bonusType, tx) {
 }
 
 async function rebuildTotalXp(userId, tx) {
-  const completionTotal = await xpCompletionLogModel.sumByUser(userId, tx);
+  const completionTotal = await xpCompletionLogModel.sumByUser(
+    userId,
+    tx,
+    true,
+  );
 
   let bonusTotal = 0;
   for (const bonusType of Object.keys(BONUS_XP)) {
@@ -77,6 +81,7 @@ async function rebuildTotalXp(userId, tx) {
       userId,
       bonusType,
       tx,
+      true,
     );
     bonusTotal += count * BONUS_XP[bonusType];
   }

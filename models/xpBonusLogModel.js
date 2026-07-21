@@ -10,9 +10,16 @@ async function hasBonusBeenAwarded(userId, bonusType, awardedAt, db = pool) {
   return rows.length > 0;
 }
 
-async function countByUserAndType(userId, bonusType, db = pool) {
+async function countByUserAndType(
+  userId,
+  bonusType,
+  db = pool,
+  forUpdate = false,
+) {
   const [rows] = await db.query(
-    `SELECT COUNT(*) AS count FROM xp_bonus_log WHERE user_id = ? AND bonus_type = ?`,
+    `SELECT COUNT(*) AS count FROM xp_bonus_log WHERE user_id = ? AND bonus_type = ?${
+      forUpdate ? " FOR UPDATE" : ""
+    }`,
     [userId, bonusType],
   );
   return Number(rows[0].count);

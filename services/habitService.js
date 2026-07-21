@@ -36,7 +36,7 @@ async function listHabitsWithPending(userId) {
 
 async function createHabit(title, userId, difficulty) {
   return runInTransaction(async (tx) => {
-    const progress = await userProgressModel.getProgress(userId, tx);
+    const progress = await userProgressModel.getProgress(userId, tx, true);
     const currentCount = await habitModel.countByUser(userId, tx);
     const limit = getHabitLimit(progress.current_level);
     if (currentCount >= limit) {

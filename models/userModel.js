@@ -2,7 +2,7 @@ const { pool } = require("../db");
 
 async function findByEmailForRegistration(email, db = pool) {
   const [rows] = await db.query(
-    "SELECT id, is_verified FROM users WHERE email = ?",
+    "SELECT id, is_verified FROM users WHERE email = ? FOR UPDATE",
     [email],
   );
   return rows[0] || null;
@@ -16,12 +16,19 @@ async function createUser(
   expiresAt,
   db = pool,
 ) {
-  const [result] = await db.query(
-    `INSERT INTO users (email, password_hash, username, is_verified, email_verification_token_hash, email_verification_expires)
-     VALUES (?, ?, ?, false, ?, ?)`,
-    [email, passwordHash, username, tokenHash, expiresAt],
-  );
-  return result.insertId;
+  try {
+    const [result] = await db.query(
+      `INSERT INTO users (email, password_hash, username, is_verified, email_verification_token_hash, email_verification_expires)
+       VALUES (?, ?, ?, false, ?, ?)`,
+      [email, passwordHash, username, tokenHash, expiresAt],
+    );
+    return result.insertId;
+  } catch (err) {
+    if (err.code === "ER_DUP_ENTRY") {
+      return null;
+    }
+    throw err;
+  }
 }
 
 async function reclaimUnverified(
@@ -64,16 +71,16 @@ async function verifyEmail(tokenHash) {
   return result.affectedRows;
 }
 
-async function findForResend(email) {
-  const [rows] = await pool.query(
-    "SELECT id, is_verified, email_verification_expires FROM users WHERE email = ?",
+async function findForResend(email, db = pool) {
+  const [rows] = await db.query(
+    "SELECT id, is_verified, email_verification_expires FROM users WHERE email = ? FOR UPDATE",
     [email],
   );
   return rows[0] || null;
 }
 
-async function setVerificationToken(userId, tokenHash, expiresAt) {
-  await pool.query(
+async function setVerificationToken(userId, tokenHash, expiresAt, db = pool) {
+  await db.query(
     `UPDATE users
      SET email_verification_token_hash = ?,
          email_verification_expires = ?
@@ -82,16 +89,16 @@ async function setVerificationToken(userId, tokenHash, expiresAt) {
   );
 }
 
-async function findForPasswordReset(email) {
-  const [rows] = await pool.query(
-    "SELECT id, is_verified FROM users WHERE email = ?",
+async function findForPasswordReset(email, db = pool) {
+  const [rows] = await db.query(
+    "SELECT id, is_verified FROM users WHERE email = ? FOR UPDATE",
     [email],
   );
   return rows[0] || null;
 }
 
-async function setResetToken(userId, tokenHash, expiresAt) {
-  await pool.query(
+async function setResetToken(userId, tokenHash, expiresAt, db = pool) {
+  await db.query(
     `UPDATE users
      SET reset_token_hash = ?,
          reset_token_expires = ?
@@ -110,15 +117,22 @@ async function findByValidResetToken(tokenHash) {
   return rows[0] || null;
 }
 
-async function updatePasswordAndClearResetToken(userId, passwordHash) {
-  await pool.query(
+async function updatePasswordAndClearResetToken(
+  userId,
+  tokenHash,
+  passwordHash,
+) {
+  const [result] = await pool.query(
     `UPDATE users
      SET password_hash = ?,
          reset_token_hash = NULL,
          reset_token_expires = NULL
-     WHERE id = ?`,
-    [passwordHash, userId],
+     WHERE id = ?
+       AND reset_token_hash = ?
+       AND reset_token_expires > UTC_TIMESTAMP()`,
+    [passwordHash, userId, tokenHash],
   );
+  return result.affectedRows > 0;
 }
 
 async function findForLogin(email) {

@@ -24,17 +24,16 @@ async function expireStaleReviewsForUser(userId, db = pool) {
     ...new Set(staleLogs.map((row) => row.review_session_id)),
   ];
   for (const sessionId of sessionIds) {
-    const [[{ count }]] = await db.query(
-      `SELECT COUNT(*) AS count FROM habit_logs
-       WHERE review_session_id = ? AND status = 'pending_review'`,
-      [sessionId],
+    await db.query(
+      `UPDATE pending_review_sessions
+       SET status = 'resolved', active_habit_id = NULL
+       WHERE id = ?
+         AND NOT EXISTS (
+           SELECT 1 FROM habit_logs
+           WHERE review_session_id = ? AND status = 'pending_review'
+         )`,
+      [sessionId, sessionId],
     );
-    if (count === 0) {
-      await db.query(
-        `UPDATE pending_review_sessions SET status = 'resolved', active_habit_id = NULL WHERE id = ?`,
-        [sessionId],
-      );
-    }
   }
 
   return staleLogs.map((row) => ({
@@ -253,7 +252,12 @@ async function findAllByHabit(habitId, db = pool) {
   return rows;
 }
 
-async function getStatusesForUserAndDate(userId, logDate, db = pool) {
+async function getStatusesForUserAndDate(
+  userId,
+  logDate,
+  db = pool,
+  forUpdate = false,
+) {
   const [rows] = await db.query(
     `SELECT habits.id AS habit_id,
             habits.difficulty AS difficulty,
@@ -264,7 +268,9 @@ async function getStatusesForUserAndDate(userId, logDate, db = pool) {
        AND habit_logs.log_date = ?
      WHERE habits.user_id = ?
        AND DATE(habits.created_at) <= ?
-       AND (habits.archived_at IS NULL OR DATE(habits.archived_at) >= ?)`,
+       AND (habits.archived_at IS NULL OR DATE(habits.archived_at) >= ?)${
+         forUpdate ? " FOR UPDATE" : ""
+       }`,
     [logDate, userId, logDate, logDate],
   );
   return rows;

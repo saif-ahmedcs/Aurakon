@@ -41,6 +41,24 @@ async function addMissedDay(userId, habitId, missedDate, tx) {
       missedDate,
       tx,
     );
+
+    if (sessionId === null) {
+      const concurrentSession =
+        await pendingReviewSessionModel.findActiveByHabit(habitId, tx);
+      await pendingReviewSessionModel.updateLastMissedDate(
+        concurrentSession.id,
+        missedDate,
+        tx,
+      );
+      await habitLogModel.insertPendingReviewLog(
+        habitId,
+        missedDate,
+        concurrentSession.id,
+        tx,
+      );
+      return;
+    }
+
     await habitLogModel.insertPendingReviewLog(
       habitId,
       missedDate,
@@ -64,16 +82,7 @@ async function addMissedDay(userId, habitId, missedDate, tx) {
 }
 
 async function resolveSessionIfComplete(habitId, tx) {
-  const stillPending = await habitLogModel.findPendingByHabit(habitId, tx);
-  if (stillPending) return;
-
-  const session = await pendingReviewSessionModel.findActiveByHabit(
-    habitId,
-    tx,
-  );
-  if (session) {
-    await pendingReviewSessionModel.resolve(session.id, tx);
-  }
+  await pendingReviewSessionModel.resolveIfNoPending(habitId, tx);
 }
 
 module.exports = { addMissedDay, resolveSessionIfComplete };

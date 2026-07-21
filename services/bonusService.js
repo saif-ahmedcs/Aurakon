@@ -54,13 +54,15 @@ async function reconcileBonusesFromDate(userId, fromDate, tx) {
     const eligibility = checkBonusEligibility(streakAtDate);
 
     if (!eligibility[award.bonus_type]) {
-      await xpBonusLogModel.deleteAward(
+      const deleted = await xpBonusLogModel.deleteAward(
         userId,
         award.bonus_type,
         award.awarded_at,
         tx,
       );
-      await xpService.reverseBonusXp(userId, award.bonus_type, tx);
+      if (deleted > 0) {
+        await xpService.reverseBonusXp(userId, award.bonus_type, tx);
+      }
     }
   }
 

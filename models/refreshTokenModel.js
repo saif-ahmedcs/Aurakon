@@ -42,6 +42,15 @@ async function deleteExpiredForUser(userId) {
   return result.affectedRows;
 }
 
+async function lockActiveForUser(userId, db = pool) {
+  await db.query(
+    `SELECT id FROM refresh_tokens
+     WHERE user_id = ? AND expires_at > UTC_TIMESTAMP()
+     FOR UPDATE`,
+    [userId],
+  );
+}
+
 async function countActiveByUserId(userId) {
   const [rows] = await pool.query(
     `SELECT COUNT(*) AS count FROM refresh_tokens WHERE user_id = ? AND expires_at > UTC_TIMESTAMP()`,
@@ -72,6 +81,7 @@ module.exports = {
   deleteByTokenHash,
   deleteAllByUserId,
   deleteExpiredForUser,
+  lockActiveForUser,
   countActiveByUserId,
   deleteOldestByUserId,
 };
