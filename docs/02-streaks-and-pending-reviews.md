@@ -136,13 +136,25 @@ A session:
 Sessions organize the workflow only—they do not affect each day's
 independent expiration.
 
+## Archived Habits
+
+Archiving a habit permanently removes it from the pending review system.
+Once a habit is archived, it is no longer eligible to generate new
+`pending_review` entries, including during lazy synchronization or
+backfilling. Any unresolved reviews that already exist for the habit are
+automatically finalized as `missed`, since archived habits are no longer
+reviewable.
+
 ---
 
 # Expiration Strategy
 
 ## No Cron Jobs
 
-Aurakon intentionally avoids cron jobs and background workers as a design decision to reduce deployment complexity, minimize infrastructure requirements, and remain compatible with serverless and traditional hosting environments.
+Aurakon intentionally avoids cron jobs and background workers as a design
+decision to reduce deployment complexity, minimize infrastructure
+requirements, and remain compatible with serverless and traditional
+hosting environments.
 
 Instead, pending-review synchronization happens lazily during normal
 authenticated requests.

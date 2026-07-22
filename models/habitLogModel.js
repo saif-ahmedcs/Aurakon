@@ -44,9 +44,9 @@ async function expireStaleReviewsForUser(userId, db = pool) {
 
 async function getHabitsMissingLogForDate(userId, logDate, db = pool) {
   const [rows] = await db.query(
-    `SELECT habits.id, habits.title
+    `SELECT habits.id, habits.title, habits.archived_at
      FROM habits
-     WHERE habits.user_id = ?
+      WHERE habits.user_id = ?
        AND DATE(habits.created_at) <= ?
        AND (habits.archived_at IS NULL OR DATE(habits.archived_at) >= ?)
        AND NOT EXISTS (

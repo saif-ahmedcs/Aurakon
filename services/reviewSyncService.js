@@ -18,6 +18,11 @@ async function finalizeDay(userId, date, tx) {
   );
 
   for (const habit of candidates) {
+    if (habit.archived_at) {
+      await habitLogModel.insertMissedLog(habit.id, date, tx);
+      continue;
+    }
+
     const existingSession = await pendingReviewSessionModel.findActiveByHabit(
       habit.id,
       tx,

@@ -71,6 +71,6 @@ requirement, but previously awarded Bonus XP is never revoked.
 - Multiple bonuses may stack on the same day (e.g. day 210).
 - Stored per `(user, bonus_type, awarded_date)`, allowing the same
   milestone to be earned again after a future streak rebuild.
-- Any retroactive change (recover, undo recover, or reverting a shielded
-  day) triggers forward reconciliation, revoking invalid bonuses and
-  awarding newly eligible ones.
+- Any retroactive change (such as recovering a pending review or reverting
+  a shielded day to `missed`) triggers forward reconciliation, revoking
+  invalid bonuses and awarding newly eligible ones.

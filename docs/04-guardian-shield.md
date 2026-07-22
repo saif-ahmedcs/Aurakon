@@ -30,7 +30,10 @@ streak, it doesn't fake a completion.
   missed-review decision, or a resolved review) shows the streak that earned
   a shield no longer holds, the shield is revoked — and if it had already
   been spent on a different habit's pending day, that day is reverted from
-  `shielded` back to `missed`, cascading the re-check from there.
+  `shielded` back to `missed`, cascading the re-check from there. **Deleting
+  an entire habit is an exception:** any Guardian Shields legitimately earned
+  from that habit before deletion remain permanently unlocked and are not
+  revoked.
 - Resolving a pending review re-evaluates the habit's **current** full
   streak, not just the state as of the reviewed day, so a milestone reached
   on a day completed while the review was still open is correctly caught
