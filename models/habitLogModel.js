@@ -235,7 +235,7 @@ async function deleteCompletedLog(habitLogId, db = pool) {
 
 async function insertLog(habitId, logDate, db = pool) {
   const [result] = await db.query(
-    "INSERT INTO habit_logs (habit_id, log_date, status) VALUES (?, ?, 'completed')",
+    "INSERT INTO habit_logs (habit_id, log_date, status, created_at) VALUES (?, ?, 'completed', UTC_TIMESTAMP())",
     [habitId, logDate],
   );
   const [rows] = await db.query("SELECT * FROM habit_logs WHERE id = ?", [

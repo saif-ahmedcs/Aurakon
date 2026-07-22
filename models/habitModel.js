@@ -26,7 +26,7 @@ async function existsForUser(id, userId) {
 
 async function create(title, userId, difficulty, db = pool) {
   const [result] = await db.query(
-    "INSERT INTO habits (title, user_id, difficulty) VALUES (?, ?, ?)",
+    "INSERT INTO habits (title, user_id, difficulty, created_at) VALUES (?, ?, ?, UTC_TIMESTAMP())",
     [title, userId, difficulty],
   );
   const [rows] = await db.query("SELECT * FROM habits WHERE id = ?", [

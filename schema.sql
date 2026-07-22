@@ -2,7 +2,7 @@ CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP()),
   is_verified BOOLEAN NOT NULL DEFAULT false,
   email_verification_token_hash CHAR(64) NULL,
   email_verification_expires DATETIME NULL,
@@ -74,7 +74,7 @@ CREATE TABLE xp_bonus_log (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   bonus_type ENUM('7day','30day') NOT NULL,
-  awarded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  awarded_at DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP()),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   UNIQUE KEY unique_user_bonus_awarded (user_id, bonus_type, awarded_at)
 );
@@ -85,7 +85,7 @@ CREATE TABLE xp_completion_log (
   habit_id INT NOT NULL,
   log_date DATE NOT NULL,
   xp_amount INT NOT NULL,
-  awarded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  awarded_at DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP()),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
   UNIQUE KEY unique_habit_log_date (habit_id, log_date)

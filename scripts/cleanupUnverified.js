@@ -1,5 +1,6 @@
+process.env.TZ = "UTC";
 require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
-const pool = require("../db");
+const { pool } = require("../db");
 
 const WINDOW_DAYS = Number(process.env.CLEANUP_UNVERIFIED_DAYS ?? 7);
 

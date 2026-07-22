@@ -2,8 +2,8 @@ const { pool } = require("../db");
 
 async function insert(userId, tokenHash, expiresAt) {
   await pool.query(
-    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-     VALUES (?, ?, ?)`,
+    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, created_at)
+     VALUES (?, ?, ?, UTC_TIMESTAMP())`,
     [userId, tokenHash, expiresAt],
   );
 }

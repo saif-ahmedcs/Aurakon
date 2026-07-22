@@ -14,8 +14,8 @@ async function findActiveByHabit(habitId, db = pool) {
 async function create(habitId, lastMissedDate, db = pool) {
   try {
     const [result] = await db.query(
-      `INSERT INTO pending_review_sessions (habit_id, last_missed_date, active_habit_id)
-       VALUES (?, ?, ?)`,
+      `INSERT INTO pending_review_sessions (habit_id, last_missed_date, active_habit_id, opened_at)
+       VALUES (?, ?, ?, UTC_TIMESTAMP())`,
       [habitId, lastMissedDate, habitId],
     );
     return result.insertId;

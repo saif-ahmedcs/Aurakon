@@ -8,6 +8,13 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   dateStrings: true,
+  timezone: "Z",
+});
+
+pool.on("connection", (connection) => {
+  connection.query("SET time_zone = '+00:00'", (err) => {
+    if (err) console.error("Failed to set session time_zone to UTC:", err);
+  });
 });
 
 async function runInTransaction(callback) {
