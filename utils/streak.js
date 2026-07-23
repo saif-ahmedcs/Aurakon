@@ -1,12 +1,3 @@
-/**
- * Calculates the streak for one habit.
- *
- * The streak can continue if a skipped day is still pending review.
- * This is only used for Guardian Shield rewards and is different from
- * the global daily streak in services/streakService.js.
- *
- */
-
 const { MS_PER_DAY, parseToUTCDay, formatUTCDay } = require("./dateUtils");
 const PRESENT_STATUSES = new Set(["completed", "recovered", "shielded"]);
 

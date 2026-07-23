@@ -13,3 +13,5 @@ All async route handlers must use a wrapper (asyncHandler) to avoid repeating tr
 All timestamps stored in the database must remain in UTC.
 
 User-facing day calculations (today, yesterday, streaks, review windows, etc.) must always use the user's configured timezone, while storage remains UTC.
+
+The user's configured timezone is the source of truth. It may be updated manually at any time, and client-side timezone detection should only suggest an update—it must never change the stored timezone automatically.

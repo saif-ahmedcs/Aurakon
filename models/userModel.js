@@ -65,6 +65,13 @@ async function getTimezone(id, db = pool) {
   return rows[0] ? rows[0].timezone : null;
 }
 
+async function updateTimezone(userId, timezone, db = pool) {
+  await db.query("UPDATE users SET timezone = ? WHERE id = ?", [
+    timezone,
+    userId,
+  ]);
+}
+
 async function verifyEmail(tokenHash) {
   const [result] = await pool.query(
     `UPDATE users
@@ -193,6 +200,7 @@ module.exports = {
   reclaimUnverified,
   findById,
   getTimezone,
+  updateTimezone,
   verifyEmail,
   findForResend,
   setVerificationToken,

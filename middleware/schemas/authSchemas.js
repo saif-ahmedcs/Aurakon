@@ -1,5 +1,6 @@
 const { z } = require("zod");
 const { isPasswordValid } = require("../../utils/passwordPolicy");
+const { isValidTimezone } = require("../../utils/timezone");
 
 const registerSchema = z.object({
   email: z.string().trim().email(),
@@ -31,10 +32,17 @@ const resendVerificationSchema = z.object({
   email: z.string().trim().email(),
 });
 
+const updateTimezoneSchema = z.object({
+  timezone: z.string().min(1).refine(isValidTimezone, {
+    message: "invalid IANA timezone",
+  }),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
+  updateTimezoneSchema,
 };

@@ -136,6 +136,18 @@ A session:
 Sessions organize the workflow only—they do not affect each day's
 independent expiration.
 
+## Streak Display Policy (User-Facing)
+
+To provide a seamless user experience, the habit streak displayed to the user
+(`currentStreak` in `GET /habits/:id`) treats `pending_review` days as
+temporary bridges (`calculateHabitStreaks`).
+
+- **While Review is Unresolved:** The streak is preserved ("optimistic streak").
+- **If Review is Recovered/Shielded:** The streak remains unbroken.
+- **If Review Expires / Finalized as Missed:** The bridge collapses, and the streak is recalculated without that day (breaking the streak).
+
+The strict non-bridging logic `calculateStreaks()` serves as the core mathematical fallback.
+
 ## Archived Habits
 
 Archiving a habit permanently removes it from the pending review system.

@@ -4,6 +4,7 @@ const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const { REFRESH_TOKEN_MAX_AGE_MS } = require("../utils/constants");
 const authService = require("../services/authService");
 const validate = require("../middleware/validate");
+const auth = require("../middleware/authenticate");
 const {
   registerSchema,
   loginSchema,
@@ -137,6 +138,17 @@ router.post(
 
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json({ message: "logged out from all devices" });
+  }),
+);
+
+router.patch(
+  "/timezone",
+  auth,
+  validate(updateTimezoneSchema),
+  asyncHandler(async (req, res) => {
+    const { timezone } = req.body;
+    const result = await authService.updateTimezone(req.user.id, timezone);
+    res.status(200).json(result);
   }),
 );
 

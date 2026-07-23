@@ -278,6 +278,12 @@ async function logoutAll(rawRefreshToken) {
   await refreshTokenModel.deleteAllByUserId(stored.user_id);
 }
 
+// ------------- UPDATE TIMEZONE --------------
+async function updateTimezone(userId, timezone) {
+  await userModel.updateTimezone(userId, timezone);
+  return { timezone };
+}
+
 module.exports = {
   login,
   register,
@@ -288,4 +294,5 @@ module.exports = {
   refresh,
   logout,
   logoutAll,
+  updateTimezone,
 };
