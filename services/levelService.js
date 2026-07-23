@@ -3,8 +3,9 @@ const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const xpService = require("./xpService");
 const streakService = require("./streakService");
 const { computeLevel } = require("../utils/levelCalculator");
+const { todayInTimezone } = require("../utils/timezone");
 
-async function recalculateAndPersistLevel(userId, tx) {
+async function recalculateAndPersistLevel(userId, tx, timezone) {
   await xpService.rebuildTotalXp(userId, tx);
   const progress = (await userProgressModel.getProgress(userId, tx)) || {};
   const stats = (await dailyAuraStatsModel.getLifetimeStats(userId, tx)) || {};
@@ -16,7 +17,7 @@ async function recalculateAndPersistLevel(userId, tx) {
   const consistencyRatio =
     lifetimeTotal > 0 ? lifetimeCompleted / lifetimeTotal : 0;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInTimezone(timezone);
   const currentStreak = await streakService.reconcileStaleStreak(
     userId,
     today,

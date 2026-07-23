@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
+const userModel = require("../models/userModel");
+const { DEFAULT_TIMEZONE } = require("../utils/timezone");
 
-function auth(req, res, next) {
+async function auth(req, res, next) {
   const authHeader = req.headers["authorization"];
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -11,14 +13,21 @@ function auth(req, res, next) {
 
   const token = authHeader.slice(7);
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+    decoded = jwt.verify(token, process.env.JWT_SECRET, {
       algorithms: ["HS256"],
     });
-    req.user = { id: decoded.sub };
-    next();
   } catch {
     return res.status(401).json({ error: "invalid or expired token" });
+  }
+
+  try {
+    const timezone = await userModel.getTimezone(decoded.sub);
+    req.user = { id: decoded.sub, timezone: timezone || DEFAULT_TIMEZONE };
+    next();
+  } catch (err) {
+    next(err);
   }
 }
 

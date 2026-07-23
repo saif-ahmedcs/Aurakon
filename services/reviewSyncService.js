@@ -7,14 +7,23 @@ const levelService = require("./levelService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
 const pendingReviewSessionModel = require("../models/pendingReviewSessionModel");
 const guardianShieldService = require("./guardianShieldService");
-const { getPreviousUtcDate, addUtcDays } = require("../utils/reviewWindow");
+const { getPreviousLocalDate, addUtcDays } = require("../utils/reviewWindow");
+const {
+  todayInTimezone,
+  toLocalDateString,
+  isActiveOnLocalDate,
+} = require("../utils/timezone");
+const { GRACE_PERIOD_DAYS } = require("../utils/pendingReviewSessionRules");
 const { calculateHabitStreaks } = require("../utils/streak");
 
-async function finalizeDay(userId, date, tx) {
-  const candidates = await habitLogModel.getHabitsMissingLogForDate(
+async function finalizeDay(userId, date, tx, timezone) {
+  const allCandidates = await habitLogModel.getHabitsMissingLogForDate(
     userId,
     date,
     tx,
+  );
+  const candidates = allCandidates.filter((habit) =>
+    isActiveOnLocalDate(habit.created_at, habit.archived_at, date, timezone),
   );
 
   for (const habit of candidates) {
@@ -34,6 +43,7 @@ async function finalizeDay(userId, date, tx) {
         habit.id,
         date,
         tx,
+        timezone,
       );
       continue;
     }
@@ -53,38 +63,51 @@ async function finalizeDay(userId, date, tx) {
         habit.id,
         date,
         tx,
+        timezone,
       );
     } else {
       await habitLogModel.insertMissedLog(habit.id, date, tx);
     }
   }
 
-  await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
+  await dailyAuraStatsService.recalculateDailyAuraStats(
+    userId,
+    date,
+    tx,
+    timezone,
+  );
 }
 
-async function evaluatePendingReviews(userId) {
+async function evaluatePendingReviews(userId, timezone) {
   return runInTransaction(async (tx) => {
-    const yesterday = getPreviousUtcDate();
-    const [latestStatDate, earliestHabitDate] = await Promise.all([
+    const yesterday = getPreviousLocalDate(timezone);
+    const [latestStatDate, earliestCreatedAt] = await Promise.all([
       dailyAuraStatsModel.getLatestStatDate(userId, tx),
-      habitModel.getEarliestCreatedDate(userId, tx),
+      habitModel.getEarliestCreatedAt(userId, tx),
     ]);
 
-    if (!earliestHabitDate) {
+    if (!earliestCreatedAt) {
       return;
     }
+
+    const earliestHabitDate = toLocalDateString(earliestCreatedAt, timezone);
 
     let date = latestStatDate
       ? addUtcDays(latestStatDate, 1)
       : earliestHabitDate;
 
     while (date <= yesterday) {
-      await finalizeDay(userId, date, tx);
+      await finalizeDay(userId, date, tx, timezone);
       date = addUtcDays(date, 1);
     }
 
+    const cutoffDate = addUtcDays(
+      todayInTimezone(timezone),
+      -GRACE_PERIOD_DAYS,
+    );
     const expiredReviews = await habitLogModel.expireStaleReviewsForUser(
       userId,
+      cutoffDate,
       tx,
     );
 
@@ -108,10 +131,11 @@ async function evaluatePendingReviews(userId) {
         logs,
         fromDate,
         tx,
+        timezone,
       );
     }
 
-    await levelService.recalculateAndPersistLevel(userId, tx);
+    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
   });
 }
 

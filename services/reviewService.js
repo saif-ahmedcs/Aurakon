@@ -46,7 +46,7 @@ async function getPendingReviews(userId) {
   };
 }
 
-async function applyDecisions(decisions, userId) {
+async function applyDecisions(decisions, userId, timezone) {
   return runInTransaction(async (tx) => {
     const sortedDecisions = [...decisions].sort((a, b) =>
       a.missedDate < b.missedDate ? -1 : a.missedDate > b.missedDate ? 1 : 0,
@@ -118,7 +118,12 @@ async function applyDecisions(decisions, userId) {
     }
 
     for (const date of touchedDates) {
-      await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
+      await dailyAuraStatsService.recalculateDailyAuraStats(
+        userId,
+        date,
+        tx,
+        timezone,
+      );
     }
 
     const earliestTouchedDate = [...touchedDates].sort()[0];
@@ -155,6 +160,7 @@ async function applyDecisions(decisions, userId) {
         logs,
         earliestDate,
         tx,
+        timezone,
       );
     }
 
@@ -171,6 +177,7 @@ async function applyDecisions(decisions, userId) {
         logs,
         earliestDate,
         tx,
+        timezone,
       );
     }
 
@@ -187,10 +194,11 @@ async function applyDecisions(decisions, userId) {
         logs,
         earliestDate,
         tx,
+        timezone,
       );
     }
 
-    await levelService.recalculateAndPersistLevel(userId, tx);
+    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
 
     return results;
   });

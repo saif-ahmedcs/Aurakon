@@ -8,7 +8,7 @@ const validate = require("../middleware/validate");
 const {
   createHabitSchema,
   updateHabitSchema,
-  logSchema,
+  createLogSchema,
   logDateParamSchema,
 } = require("../middleware/schemas/habitSchemas");
 
@@ -34,6 +34,7 @@ router.post(
       title,
       req.user.id,
       difficulty,
+      req.user.timezone,
     );
     res.status(201).json(habit);
   }),
@@ -42,7 +43,11 @@ router.post(
 router.get(
   "/:id",
   asyncHandler(async (req, res) => {
-    const habit = await habitService.getHabitDetail(req.habitId, req.user.id);
+    const habit = await habitService.getHabitDetail(
+      req.habitId,
+      req.user.id,
+      req.user.timezone,
+    );
     res.status(200).json(habit);
   }),
 );
@@ -64,20 +69,21 @@ router.patch(
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    await habitService.deleteHabit(req.habitId, req.user.id);
+    await habitService.deleteHabit(req.habitId, req.user.id, req.user.timezone);
     return res.status(200).json({ message: "Habit deleted successfully" });
   }),
 );
 
 router.post(
   "/:id/logs",
-  validate(logSchema),
+  validate((req) => createLogSchema(req.user.timezone)),
   asyncHandler(async (req, res) => {
     const { date } = req.body;
     const { log, created } = await habitService.logHabit(
       req.habitId,
       date,
       req.user.id,
+      req.user.timezone,
     );
     res.status(created ? 201 : 200).json(log);
   }),
@@ -96,7 +102,12 @@ router.delete(
   validate(logDateParamSchema, "params"),
   asyncHandler(async (req, res) => {
     const { date } = req.params;
-    await habitService.undoLog(req.habitId, date, req.user.id);
+    await habitService.undoLog(
+      req.habitId,
+      date,
+      req.user.id,
+      req.user.timezone,
+    );
     res.status(200).json({ message: "Log undone successfully" });
   }),
 );

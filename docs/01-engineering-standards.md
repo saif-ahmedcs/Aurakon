@@ -10,8 +10,6 @@ All async route handlers must use a wrapper (asyncHandler) to avoid repeating tr
 
 ## 3. UTC dates rule
 
-All dates stored in the database must be in UTC format. No local timezone storage.
+All timestamps stored in the database must remain in UTC.
 
-Enforced by: `db.js` pool uses `timezone: "Z"` + `SET time_zone='+00:00'` on connect; all `created_at`/`opened_at` inserts use `UTC_TIMESTAMP()` explicitly; `process.env.TZ = "UTC"` is pinned at the top of every entry point (`server.js`, `scripts/cleanupUnverified.js`).
-
-Verify: `TZ=America/Los_Angeles node manual-verification/test-timezoneSafety.js` — should pass identically under any TZ.
+User-facing day calculations (today, yesterday, streaks, review windows, etc.) must always use the user's configured timezone, while storage remains UTC.

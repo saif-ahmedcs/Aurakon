@@ -6,6 +6,7 @@ const titleService = require("../services/titleService");
 const streakService = require("../services/streakService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
+const { todayInTimezone } = require("../utils/timezone");
 
 const router = express.Router();
 router.use(auth);
@@ -15,7 +16,7 @@ router.get(
   "/",
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInTimezone(req.user.timezone);
 
     const [progress, todayStats] = await Promise.all([
       userProgressModel.getProgress(userId),

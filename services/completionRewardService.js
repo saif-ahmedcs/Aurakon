@@ -1,7 +1,7 @@
 const xpService = require("./xpService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 
-async function awardCompletionRewards(userId, habit, date, tx) {
+async function awardCompletionRewards(userId, habit, date, tx, timezone) {
   await xpService.awardCompletionXp(
     userId,
     habit.id,
@@ -10,7 +10,12 @@ async function awardCompletionRewards(userId, habit, date, tx) {
     tx,
   );
 
-  await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
+  await dailyAuraStatsService.recalculateDailyAuraStats(
+    userId,
+    date,
+    tx,
+    timezone,
+  );
 }
 
 async function awardRecoveryRewards(userId, habit, date, tx) {

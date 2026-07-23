@@ -61,12 +61,12 @@ async function countByUser(userId, db = pool) {
   return rows[0].count;
 }
 
-async function getEarliestCreatedDate(userId, db = pool) {
+async function getEarliestCreatedAt(userId, db = pool) {
   const [rows] = await db.query(
-    "SELECT DATE(MIN(created_at)) AS earliestDate FROM habits WHERE user_id = ?",
+    "SELECT MIN(created_at) AS earliestCreatedAt FROM habits WHERE user_id = ?",
     [userId],
   );
-  return rows[0] ? rows[0].earliestDate : null;
+  return rows[0] ? rows[0].earliestCreatedAt : null;
 }
 
 module.exports = {
@@ -77,5 +77,5 @@ module.exports = {
   update,
   archive,
   countByUser,
-  getEarliestCreatedDate,
+  getEarliestCreatedAt,
 };

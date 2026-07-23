@@ -4,7 +4,7 @@ const guardianShieldService = require("./guardianShieldService");
 const { isSessionExpired } = require("../utils/pendingReviewSessionRules");
 const { parseToUTCDay } = require("../utils/dateUtils");
 
-async function addMissedDay(userId, habitId, missedDate, tx) {
+async function addMissedDay(userId, habitId, missedDate, tx, timezone) {
   let session = await pendingReviewSessionModel.findActiveByHabit(habitId, tx);
 
   if (
@@ -31,6 +31,7 @@ async function addMissedDay(userId, habitId, missedDate, tx) {
         logs,
         earliestDate,
         tx,
+        timezone,
       );
     }
   }

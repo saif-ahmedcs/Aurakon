@@ -2,7 +2,10 @@ const asyncHandler = require("../utils/asyncHandler");
 const reviewSyncService = require("../services/reviewSyncService");
 
 const finalizeReviews = asyncHandler(async (req, res, next) => {
-  await reviewSyncService.evaluatePendingReviews(req.user.id);
+  await reviewSyncService.evaluatePendingReviews(
+    req.user.id,
+    req.user.timezone,
+  );
   next();
 });
 

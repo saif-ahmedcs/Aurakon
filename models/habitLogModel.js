@@ -1,14 +1,14 @@
 const { pool } = require("../db");
 
-async function expireStaleReviewsForUser(userId, db = pool) {
+async function expireStaleReviewsForUser(userId, cutoffDate, db = pool) {
   const [staleLogs] = await db.query(
     `SELECT habit_logs.id, habit_logs.habit_id, habit_logs.log_date, habit_logs.review_session_id
      FROM habit_logs
      JOIN habits ON habits.id = habit_logs.habit_id
      WHERE habits.user_id = ?
        AND habit_logs.status = 'pending_review'
-       AND UTC_TIMESTAMP() > DATE_ADD(habit_logs.log_date, INTERVAL 3 DAY)`,
-    [userId],
+       AND habit_logs.log_date <= ?`,
+    [userId, cutoffDate],
   );
 
   if (staleLogs.length === 0) {
@@ -44,17 +44,15 @@ async function expireStaleReviewsForUser(userId, db = pool) {
 
 async function getHabitsMissingLogForDate(userId, logDate, db = pool) {
   const [rows] = await db.query(
-    `SELECT habits.id, habits.title, habits.archived_at
+    `SELECT habits.id, habits.title, habits.created_at, habits.archived_at
      FROM habits
       WHERE habits.user_id = ?
-       AND DATE(habits.created_at) <= ?
-       AND (habits.archived_at IS NULL OR DATE(habits.archived_at) >= ?)
        AND NOT EXISTS (
          SELECT 1 FROM habit_logs
          WHERE habit_logs.habit_id = habits.id
            AND habit_logs.log_date = ?
        )`,
-    [userId, logDate, logDate, logDate],
+    [userId, logDate],
   );
   return rows;
 }
@@ -261,17 +259,15 @@ async function getStatusesForUserAndDate(
   const [rows] = await db.query(
     `SELECT habits.id AS habit_id,
             habits.difficulty AS difficulty,
+            habits.created_at AS created_at,
+            habits.archived_at AS archived_at,
             COALESCE(habit_logs.status, 'missing') AS status
      FROM habits
      LEFT JOIN habit_logs
        ON habit_logs.habit_id = habits.id
        AND habit_logs.log_date = ?
-     WHERE habits.user_id = ?
-       AND DATE(habits.created_at) <= ?
-       AND (habits.archived_at IS NULL OR DATE(habits.archived_at) >= ?)${
-         forUpdate ? " FOR UPDATE" : ""
-       }`,
-    [logDate, userId, logDate, logDate],
+     WHERE habits.user_id = ?${forUpdate ? " FOR UPDATE" : ""}`,
+    [logDate, userId],
   );
   return rows;
 }

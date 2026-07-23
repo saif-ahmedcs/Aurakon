@@ -4,14 +4,18 @@ const streakService = require("./streakService");
 const bonusService = require("./bonusService");
 const auraEnergyService = require("./auraEnergyService");
 const { isFullDayCompletion, PRESENT_STATUSES } = require("../utils/streak");
+const { isActiveOnLocalDate } = require("../utils/timezone");
 
-async function recalculateDailyAuraStats(userId, date, tx) {
+async function recalculateDailyAuraStats(userId, date, tx, timezone) {
   await dailyAuraStatsModel.lockRow(userId, date, tx);
-  const statuses = await habitLogModel.getStatusesForUserAndDate(
+  const allStatuses = await habitLogModel.getStatusesForUserAndDate(
     userId,
     date,
     tx,
     true,
+  );
+  const statuses = allStatuses.filter((row) =>
+    isActiveOnLocalDate(row.created_at, row.archived_at, date, timezone),
   );
 
   const totalHabits = statuses.length;

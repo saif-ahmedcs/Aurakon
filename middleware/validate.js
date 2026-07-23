@@ -1,5 +1,9 @@
-function validate(schema, source = "body") {
+function validate(schemaOrFactory, source = "body") {
   return (req, res, next) => {
+    const schema =
+      typeof schemaOrFactory === "function"
+        ? schemaOrFactory(req)
+        : schemaOrFactory;
     const result = schema.safeParse(req[source]);
 
     if (!result.success) {

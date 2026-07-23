@@ -24,7 +24,11 @@ router.post(
   validate(reviewDecisionsSchema),
   asyncHandler(async (req, res) => {
     const { decisions } = req.body;
-    const results = await reviewService.applyDecisions(decisions, req.user.id);
+    const results = await reviewService.applyDecisions(
+      decisions,
+      req.user.id,
+      req.user.timezone,
+    );
     res.status(200).json({ results });
   }),
 );

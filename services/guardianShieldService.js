@@ -90,7 +90,14 @@ async function spendShield(userId, habitLogId, tx) {
   return true;
 }
 
-async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
+async function reconcileShieldsFromDate(
+  userId,
+  habitId,
+  logs,
+  fromDate,
+  tx,
+  timezone,
+) {
   const awards = await guardianShieldLogModel.findAwardsFromDate(
     habitId,
     fromDate,
@@ -120,6 +127,7 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
           userId,
           reverted.log_date,
           tx,
+          timezone,
         );
         await bonusService.reconcileBonusesFromDate(
           userId,
@@ -142,6 +150,7 @@ async function reconcileShieldsFromDate(userId, habitId, logs, fromDate, tx) {
             affectedLogs,
             reverted.log_date,
             tx,
+            timezone,
           );
         }
 

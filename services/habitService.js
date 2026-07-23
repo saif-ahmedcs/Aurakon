@@ -11,6 +11,7 @@ const pendingReviewSessionService = require("./pendingReviewSessionService");
 const userProgressModel = require("../models/userProgressModel");
 const { calculateHabitStreaks } = require("../utils/streak");
 const { getHabitLimit } = require("../utils/habitLimitRules");
+const { todayInTimezone, toLocalDateString } = require("../utils/timezone");
 const {
   ConflictError,
   NotFoundError,
@@ -34,7 +35,7 @@ async function listHabitsWithPending(userId) {
   }));
 }
 
-async function createHabit(title, userId, difficulty) {
+async function createHabit(title, userId, difficulty, timezone) {
   return runInTransaction(async (tx) => {
     const progress = await userProgressModel.getProgress(userId, tx, true);
     const currentCount = await habitModel.countByUser(userId, tx);
@@ -44,14 +45,19 @@ async function createHabit(title, userId, difficulty) {
     }
 
     const habit = await habitModel.create(title, userId, difficulty, tx);
-    const today = new Date().toISOString().slice(0, 10);
-    await dailyAuraStatsService.recalculateDailyAuraStats(userId, today, tx);
-    await levelService.recalculateAndPersistLevel(userId, tx);
+    const today = todayInTimezone(timezone);
+    await dailyAuraStatsService.recalculateDailyAuraStats(
+      userId,
+      today,
+      tx,
+      timezone,
+    );
+    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
     return habit;
   });
 }
 
-async function getHabitDetail(habitId, userId) {
+async function getHabitDetail(habitId, userId, timezone) {
   const habit = await habitModel.findById(habitId, userId);
   if (!habit) {
     throw new NotFoundError("habit not found");
@@ -63,7 +69,7 @@ async function getHabitDetail(habitId, userId) {
     status: row.status,
   }));
 
-  const asOfDate = new Date().toISOString().slice(0, 10);
+  const asOfDate = todayInTimezone(timezone);
   const { currentStreak, longestStreak } = calculateHabitStreaks(
     logs,
     asOfDate,
@@ -98,7 +104,7 @@ async function updateHabit(habitId, userId, title) {
   return habitModel.update(habit.id, title, habit.difficulty);
 }
 
-async function deleteHabit(habitId, userId) {
+async function deleteHabit(habitId, userId, timezone) {
   return runInTransaction(async (tx) => {
     const affectedRows = await habitModel.archive(habitId, userId, tx);
     if (affectedRows === 0) {
@@ -108,13 +114,18 @@ async function deleteHabit(habitId, userId) {
     await habitLogModel.resolvePendingReviewsForHabit(habitId, tx);
     await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
 
-    const today = new Date().toISOString().slice(0, 10);
-    await dailyAuraStatsService.recalculateDailyAuraStats(userId, today, tx);
-    await levelService.recalculateAndPersistLevel(userId, tx);
+    const today = todayInTimezone(timezone);
+    await dailyAuraStatsService.recalculateDailyAuraStats(
+      userId,
+      today,
+      tx,
+      timezone,
+    );
+    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
   });
 }
 
-async function logHabit(habitId, date, userId) {
+async function logHabit(habitId, date, userId, timezone) {
   return await runInTransaction(async (tx) => {
     let log;
     let created;
@@ -123,7 +134,8 @@ async function logHabit(habitId, date, userId) {
     if (!habit) {
       throw new NotFoundError("habit not found");
     }
-    if (date < habit.created_at.slice(0, 10)) {
+    const habitCreatedLocalDate = toLocalDateString(habit.created_at, timezone);
+    if (date < habitCreatedLocalDate) {
       throw new BadRequestError(
         "log date cannot be before the habit's creation date",
       );
@@ -143,7 +155,7 @@ async function logHabit(habitId, date, userId) {
       log = await habitLogModel.findById(pending.id, tx);
       created = false;
     } else {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayInTimezone(timezone);
       if (date !== today) {
         throw new ConflictError(
           "This date is outside the loggable window. Missed days must be recovered through the pending review system before their review window expires.",
@@ -180,6 +192,7 @@ async function logHabit(habitId, date, userId) {
       habit,
       date,
       tx,
+      timezone,
     );
 
     if (!created) {
@@ -209,24 +222,25 @@ async function logHabit(habitId, date, userId) {
           logs,
           date,
           tx,
+          timezone,
         );
       }
     }
     // (9)
-    await levelService.recalculateAndPersistLevel(userId, tx);
+    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
 
     return { log, created };
   });
 }
 
-async function undoLog(habitId, date, userId) {
+async function undoLog(habitId, date, userId, timezone) {
   return await runInTransaction(async (tx) => {
     const habit = await habitModel.findById(habitId, userId, tx);
     if (!habit) {
       throw new NotFoundError("habit not found");
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInTimezone(timezone);
     if (date !== today) {
       throw new ConflictError(
         "Only today's log can be undone. Past dates must be handled through the pending review system.",
@@ -244,7 +258,12 @@ async function undoLog(habitId, date, userId) {
     }
 
     await xpService.reverseCompletionXp(userId, habit.id, date, tx);
-    await dailyAuraStatsService.recalculateDailyAuraStats(userId, date, tx);
+    await dailyAuraStatsService.recalculateDailyAuraStats(
+      userId,
+      date,
+      tx,
+      timezone,
+    );
     await bonusService.reconcileBonusesFromDate(userId, date, tx);
 
     const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
@@ -258,9 +277,10 @@ async function undoLog(habitId, date, userId) {
       logs,
       date,
       tx,
+      timezone,
     );
 
-    await levelService.recalculateAndPersistLevel(userId, tx);
+    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
   });
 }
 
