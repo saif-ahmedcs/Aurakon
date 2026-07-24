@@ -200,12 +200,12 @@ async function logHabit(habitId, date, userId, timezone) {
     }
 
     // (8)
-    const stillPendingReview = await habitLogModel.findPendingByHabit(
-      habitId,
-      tx,
-    );
-    if (!stillPendingReview) {
-      if (created) {
+    if (created) {
+      const stillPendingReview = await habitLogModel.findPendingByHabit(
+        habitId,
+        tx,
+      );
+      if (!stillPendingReview) {
         await guardianShieldService.earnShieldIfEligible(
           userId,
           habitId,
@@ -215,16 +215,16 @@ async function logHabit(habitId, date, userId, timezone) {
           date,
           tx,
         );
-      } else {
-        await guardianShieldService.reconcileShieldsFromDate(
-          userId,
-          habitId,
-          logs,
-          date,
-          tx,
-          timezone,
-        );
       }
+    } else {
+      await guardianShieldService.reconcileShieldsFromDate(
+        userId,
+        habitId,
+        logs,
+        date,
+        tx,
+        timezone,
+      );
     }
     // (9)
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);

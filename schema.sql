@@ -13,7 +13,7 @@ CREATE TABLE users (
   current_level INT NOT NULL DEFAULT 0,
   global_daily_streak INT NOT NULL DEFAULT 0,
   last_full_completion_date DATE NULL,
-  shield_balance INT NOT NULL DEFAULT 0
+  shield_balance INT NOT NULL DEFAULT 0,
   timezone VARCHAR(64) NOT NULL DEFAULT 'UTC'
 );
 

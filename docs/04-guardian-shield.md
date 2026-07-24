@@ -38,3 +38,13 @@ streak, it doesn't fake a completion.
   streak, not just the state as of the reviewed day, so a milestone reached
   on a day completed while the review was still open is correctly caught
   instead of silently skipped.
+
+### Habit Archiving
+
+Archiving a habit takes effect immediately.
+
+Once a habit is archived, it is removed from the active habit set for the current local day and all future days. As a result, it no longer contributes to `total_habits`, `completed_habits`, `full_completion`, or any other active-habit calculations. This may affect future global streak and consistency bonus eligibility.
+
+However, archiving a habit does **not** trigger Guardian Shield reconciliation for shields that were already earned from that habit. Previously awarded Guardian Shields are immutable and are never revoked as a result of archiving or deleting the habit.
+
+This is an intentional exception to the normal reconciliation process.

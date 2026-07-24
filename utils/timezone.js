@@ -33,7 +33,7 @@ function toLocalDateString(utcDateTime, timeZone) {
 
 function isActiveOnLocalDate(createdAt, archivedAt, date, timeZone) {
   if (toLocalDateString(createdAt, timeZone) > date) return false;
-  if (archivedAt && toLocalDateString(archivedAt, timeZone) < date)
+  if (archivedAt && toLocalDateString(archivedAt, timeZone) <= date)
     return false;
   return true;
 }
