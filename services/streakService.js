@@ -1,13 +1,3 @@
-/**
- * Tracks the user's global daily streak.
- *
- * The streak only continues when every habit is completed each day.
- * Missing a day resets it.
- *
- * This is separate from the per-habit streak in utils/streak.js and
- * is used for consistency bonuses.
- */
-
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const {

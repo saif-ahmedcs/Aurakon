@@ -42,6 +42,7 @@ async function earnShieldIfEligible(
   );
 
   if (stillPendingReview) {
+    await habitModel.recordShieldDeferral(habitId, awardedAt, tx);
     return false;
   }
 
@@ -98,6 +99,10 @@ async function reconcileShieldsFromDate(
   tx,
   timezone,
 ) {
+  const deferredSince = await habitModel.getShieldDeferredSince(habitId, tx);
+  const effectiveFromDate =
+    deferredSince && deferredSince < fromDate ? deferredSince : fromDate;
+
   const awards = await guardianShieldLogModel.findAwardsFromDate(
     habitId,
     fromDate,
@@ -175,7 +180,8 @@ async function reconcileShieldsFromDate(
     ...new Set(
       currentLogs
         .filter(
-          (log) => PRESENT_STATUSES.has(log.status) && log.date >= fromDate,
+          (log) =>
+            PRESENT_STATUSES.has(log.status) && log.date >= effectiveFromDate,
         )
         .map((log) => log.date),
     ),
@@ -197,6 +203,14 @@ async function reconcileShieldsFromDate(
         tx,
       );
     }
+  }
+
+  const stillPendingReview = await habitLogModel.findPendingByHabit(
+    habitId,
+    tx,
+  );
+  if (!stillPendingReview) {
+    await habitModel.clearShieldDeferral(habitId, tx);
   }
 }
 

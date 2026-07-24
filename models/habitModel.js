@@ -69,6 +69,30 @@ async function getEarliestCreatedAt(userId, db = pool) {
   return rows[0] ? rows[0].earliestCreatedAt : null;
 }
 
+async function getShieldDeferredSince(id, db = pool) {
+  const [rows] = await db.query(
+    "SELECT shield_deferred_since FROM habits WHERE id = ?",
+    [id],
+  );
+  return rows[0] ? rows[0].shield_deferred_since : null;
+}
+
+async function recordShieldDeferral(id, date, db = pool) {
+  await db.query(
+    `UPDATE habits
+     SET shield_deferred_since = LEAST(COALESCE(shield_deferred_since, ?), ?)
+     WHERE id = ?`,
+    [date, date, id],
+  );
+}
+
+async function clearShieldDeferral(id, db = pool) {
+  await db.query(
+    "UPDATE habits SET shield_deferred_since = NULL WHERE id = ?",
+    [id],
+  );
+}
+
 module.exports = {
   findAllByUser,
   findById,
@@ -78,4 +102,7 @@ module.exports = {
   archive,
   countByUser,
   getEarliestCreatedAt,
+  getShieldDeferredSince,
+  recordShieldDeferral,
+  clearShieldDeferral,
 };

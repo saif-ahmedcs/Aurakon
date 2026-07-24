@@ -24,6 +24,7 @@ CREATE TABLE habits (
   user_id INT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   archived_at DATETIME NULL,
+  shield_deferred_since DATE NULL,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

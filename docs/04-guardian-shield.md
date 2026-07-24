@@ -13,8 +13,18 @@ streak, it doesn't fake a completion.
 - "Present" days are `completed`, `recovered`, or `shielded` — the same
   per-habit streak used throughout this system (see the Streaks doc),
   including its pending-review bridging behavior.
-- A shield can only be earned while the habit has **zero** open pending
+- A shield can only be earned while the habit has _zero_ open pending
   reviews, to avoid awarding on unconfirmed data.
+
+> _Design note:_ "Zero open pending reviews" means for the _whole
+> habit_, not just the specific day that reached the milestone. If day
+> 30 hits the milestone but an earlier day for the same habit is still
+> pending_review, the shield is _not_ granted yet — even after day
+> 30 itself is resolved. It stays deferred until every pending review
+> for that habit has been resolved (recovered or completed, or finally
+> missed), at which point the habit is rescanned and the milestone is
+> caught retroactively. This is the same "don't award on unconfirmed
+> data" rule applied to the whole habit, not just the triggering day.
 
 ## Spending a Shield
 

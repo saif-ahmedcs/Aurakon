@@ -20,7 +20,10 @@ router.use("/:id", ownershipCheck);
 router.get(
   "/",
   asyncHandler(async (req, res) => {
-    const habits = await habitService.listHabitsWithPending(req.user.id);
+    const habits = await habitService.listHabitsWithPending(
+      req.user.id,
+      req.user.timezone,
+    );
     res.status(200).json(habits);
   }),
 );

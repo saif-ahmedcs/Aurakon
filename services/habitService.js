@@ -18,7 +18,7 @@ const {
   BadRequestError,
 } = require("../utils/AppErrors");
 
-async function listHabitsWithPending(userId) {
+async function listHabitsWithPending(userId, timezone) {
   const rows = await habitModel.findAllByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
   const pendingByHabitId = new Map();
@@ -29,10 +29,28 @@ async function listHabitsWithPending(userId) {
     pendingByHabitId.set(row.habit_id, list);
   }
 
-  return rows.map((habit) => ({
-    ...habit,
-    pendingReviews: pendingByHabitId.get(habit.id) || [],
-  }));
+  const asOfDate = todayInTimezone(timezone);
+
+  return Promise.all(
+    rows.map(async (habit) => {
+      const logRows = await habitLogModel.getLogsForHabit(habit.id);
+      const logs = logRows.map((row) => ({
+        date: row.log_date,
+        status: row.status,
+      }));
+      const { currentStreak, longestStreak } = calculateHabitStreaks(
+        logs,
+        asOfDate,
+      );
+
+      return {
+        ...habit,
+        currentStreak,
+        longestStreak,
+        pendingReviews: pendingByHabitId.get(habit.id) || [],
+      };
+    }),
+  );
 }
 
 async function createHabit(title, userId, difficulty, timezone) {
