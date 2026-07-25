@@ -32,12 +32,21 @@ async function finalizeDay(userId, date, tx, timezone) {
       continue;
     }
 
+    const rawLogs = await habitLogModel.getLogsForHabit(habit.id, tx);
+    const logs = rawLogs.map((log) => ({
+      date: log.log_date,
+      status: log.status,
+    }));
+
+    const dayBeforeGap = addUtcDays(date, -1);
+    const { currentStreak } = calculateHabitStreaks(logs, dayBeforeGap);
+
     const existingSession = await pendingReviewSessionModel.findActiveByHabit(
       habit.id,
       tx,
     );
 
-    if (existingSession) {
+    if (currentStreak > 0) {
       await pendingReviewSessionService.addMissedDay(
         userId,
         habit.id,
@@ -48,26 +57,35 @@ async function finalizeDay(userId, date, tx, timezone) {
       continue;
     }
 
-    const rawLogs = await habitLogModel.getLogsForHabit(habit.id, tx);
-    const logs = rawLogs.map((log) => ({
-      date: log.log_date,
-      status: log.status,
-    }));
-
-    const dayBeforeGap = addUtcDays(date, -1);
-    const { currentStreak } = calculateHabitStreaks(logs, dayBeforeGap);
-
-    if (currentStreak > 0) {
-      await pendingReviewSessionService.addMissedDay(
-        userId,
-        habit.id,
-        date,
+    if (existingSession) {
+      const expiredLogs = await habitLogModel.expirePendingLogsForSession(
+        existingSession.id,
         tx,
-        timezone,
       );
-    } else {
-      await habitLogModel.insertMissedLog(habit.id, date, tx);
+      await pendingReviewSessionModel.resolve(existingSession.id, tx);
+
+      if (expiredLogs.length > 0) {
+        const earliestDate = expiredLogs.map((row) => row.logDate).sort()[0];
+        const refreshedRawLogs = await habitLogModel.getLogsForHabit(
+          habit.id,
+          tx,
+        );
+        const refreshedLogs = refreshedRawLogs.map((row) => ({
+          date: row.log_date,
+          status: row.status,
+        }));
+        await guardianShieldService.reconcileShieldsFromDate(
+          userId,
+          habit.id,
+          refreshedLogs,
+          earliestDate,
+          tx,
+          timezone,
+        );
+      }
     }
+
+    await habitLogModel.insertMissedLog(habit.id, date, tx);
   }
 
   await dailyAuraStatsService.recalculateDailyAuraStats(
