@@ -10,6 +10,7 @@ async function checkAndAwardConsistencyBonus(
   consecutiveFullDays,
   milestoneDate,
   tx,
+  requiredHabitCount,
 ) {
   const eligibility = checkBonusEligibility(consecutiveFullDays);
   const awardedAt = milestoneDate;
@@ -27,7 +28,13 @@ async function checkAndAwardConsistencyBonus(
     if (alreadyAwarded) continue;
 
     try {
-      await xpBonusLogModel.insertBonusAward(userId, bonusType, awardedAt, tx);
+      await xpBonusLogModel.insertBonusAward(
+        userId,
+        bonusType,
+        awardedAt,
+        requiredHabitCount,
+        tx,
+      );
     } catch (err) {
       if (err.code === "ER_DUP_ENTRY") {
         continue;
@@ -50,6 +57,7 @@ async function reconcileBonusesFromDate(userId, fromDate, tx) {
       userId,
       award.awarded_at,
       tx,
+      award.required_habit_count,
     );
     const eligibility = checkBonusEligibility(streakAtDate);
 
@@ -82,7 +90,14 @@ async function reconcileBonusesFromDate(userId, fromDate, tx) {
       date,
       tx,
     );
-    await checkAndAwardConsistencyBonus(userId, streakAtDate, date, tx);
+    const stats = await dailyAuraStatsModel.getByDate(userId, date, tx);
+    await checkAndAwardConsistencyBonus(
+      userId,
+      streakAtDate,
+      date,
+      tx,
+      stats.total_habits,
+    );
   }
 }
 

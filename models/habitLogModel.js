@@ -272,6 +272,19 @@ async function getStatusesForUserAndDate(
   return rows;
 }
 
+async function countPresentStatusesForDate(userId, logDate, db = pool) {
+  const [rows] = await db.query(
+    `SELECT COUNT(*) AS count
+     FROM habit_logs
+     JOIN habits ON habits.id = habit_logs.habit_id
+     WHERE habits.user_id = ?
+       AND habit_logs.log_date = ?
+       AND habit_logs.status IN ('completed', 'recovered', 'shielded')`,
+    [userId, logDate],
+  );
+  return Number(rows[0].count);
+}
+
 module.exports = {
   expireStaleReviewsForUser,
   getHabitsMissingLogForDate,
@@ -291,4 +304,5 @@ module.exports = {
   insertLog,
   findAllByHabit,
   getStatusesForUserAndDate,
+  countPresentStatusesForDate,
 };

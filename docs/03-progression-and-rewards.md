@@ -59,9 +59,9 @@ relevant data changes:
 - `full_completion`
 - `aura_energy`
 
-`full_completion` is always evaluated against the user's **current**
-active habit set. Adding a habit immediately affects that day's completion
-requirement, but previously awarded Bonus XP is never revoked.
+full_completion is always based on the user's current active habits. Adding or archiving a habit immediately updates the day's completion requirement. If archiving removes an incomplete habit and all remaining active habits are completed, the day becomes a normal full-completion day, with streaks, levels, and bonus eligibility recalculated automatically.
+
+Bonus XP is intentionally independent of this live value. Each award permanently stores the required habit count at the time it was granted (xp_bonus_log.required_habit_count) and is revalidated against that day's immutable habit_logs, not the live completed_habits value. As a result, adding or archiving habits can never revoke a bonus; only genuine completion reversals (e.g. an undo, a pending review expiring to missed, or a shielded day reverting to missed) can invalidate it.
 
 ## Bonus XP (Consistency Bonus)
 
@@ -71,6 +71,5 @@ requirement, but previously awarded Bonus XP is never revoked.
 - Multiple bonuses may stack on the same day (e.g. day 210).
 - Stored per `(user, bonus_type, awarded_date)`, allowing the same
   milestone to be earned again after a future streak rebuild.
-- Any retroactive change (such as recovering a pending review or reverting
-  a shielded day to `missed`) triggers forward reconciliation, revoking
-  invalid bonuses and awarding newly eligible ones.
+- Any retroactive change (e.g. recovering a pending review or reverting a shielded day to `missed`) triggers forward reconciliation, which revokes invalid bonuses and awards newly eligible ones.
+- Reconciliation validates each bonus against the habit count frozen at award time, so bonuses can only be revoked by a reduction in that day's completions—not by later adding habits that raise the day's requirement.

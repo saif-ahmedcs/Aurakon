@@ -25,17 +25,23 @@ async function countByUserAndType(
   return Number(rows[0].count);
 }
 
-async function insertBonusAward(userId, bonusType, awardedAt, db = pool) {
+async function insertBonusAward(
+  userId,
+  bonusType,
+  awardedAt,
+  requiredHabitCount,
+  db = pool,
+) {
   await db.query(
-    `INSERT INTO xp_bonus_log (user_id, bonus_type, awarded_at)
-     VALUES (?, ?, ?)`,
-    [userId, bonusType, awardedAt],
+    `INSERT INTO xp_bonus_log (user_id, bonus_type, awarded_at, required_habit_count)
+     VALUES (?, ?, ?, ?)`,
+    [userId, bonusType, awardedAt, requiredHabitCount],
   );
 }
 
 async function findAwardsFromDate(userId, fromDate, db = pool) {
   const [rows] = await db.query(
-    `SELECT bonus_type, DATE(awarded_at) AS awarded_at FROM xp_bonus_log
+    `SELECT bonus_type, awarded_at, required_habit_count FROM xp_bonus_log
      WHERE user_id = ? AND awarded_at >= ?`,
     [userId, fromDate],
   );

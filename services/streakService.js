@@ -1,14 +1,11 @@
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
+const habitLogModel = require("../models/habitLogModel");
 const {
   MS_PER_DAY,
   parseToUTCDay,
   formatUTCDay,
 } = require("../utils/dateUtils");
-
-function toDateOnly(date) {
-  return date instanceof Date ? date.toISOString().slice(0, 10) : date;
-}
 
 async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
   const progress =
@@ -19,8 +16,8 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
     return progress.global_daily_streak;
   }
 
-  const lastDay = parseToUTCDay(toDateOnly(lastDate));
-  const today = parseToUTCDay(toDateOnly(asOfDate));
+  const lastDay = parseToUTCDay(lastDate);
+  const today = parseToUTCDay(asOfDate);
   const diffDays = (today - lastDay) / MS_PER_DAY;
 
   if (diffDays > 1) {
@@ -45,7 +42,7 @@ async function recalculateGlobalStreak(userId, tx) {
     true,
   );
   const trueDays = [
-    ...new Set(rows.map((row) => parseToUTCDay(toDateOnly(row.stat_date)))),
+    ...new Set(rows.map((row) => parseToUTCDay(row.stat_date))),
   ].sort((a, b) => a - b);
 
   if (trueDays.length === 0) {
@@ -75,23 +72,29 @@ async function recalculateGlobalStreak(userId, tx) {
   return runLength;
 }
 
-async function getStreakAsOfDate(userId, date, tx) {
+async function getStreakAsOfDate(userId, date, tx, requiredHabitCount = null) {
   const rows = await dailyAuraStatsModel.getFullCompletionDatesUpTo(
     userId,
     date,
     tx,
   );
-  const trueDays = [
-    ...new Set(rows.map((row) => parseToUTCDay(toDateOnly(row.stat_date)))),
-  ].sort((a, b) => a - b);
+  const trueDaySet = new Set(rows.map((row) => parseToUTCDay(row.stat_date)));
+  const targetDay = parseToUTCDay(date);
 
-  if (trueDays.length === 0) return 0;
-
-  const targetDay = parseToUTCDay(toDateOnly(date));
-  if (trueDays[trueDays.length - 1] !== targetDay) {
-    return 0;
+  if (!trueDaySet.has(targetDay) && requiredHabitCount !== null) {
+    const presentCount = await habitLogModel.countPresentStatusesForDate(
+      userId,
+      date,
+      tx,
+    );
+    if (presentCount >= requiredHabitCount) {
+      trueDaySet.add(targetDay);
+    }
   }
 
+  if (!trueDaySet.has(targetDay)) return 0;
+
+  const trueDays = [...trueDaySet].sort((a, b) => a - b);
   let runLength = 1;
   for (let i = trueDays.length - 1; i > 0; i--) {
     if (trueDays[i] - trueDays[i - 1] === MS_PER_DAY) {

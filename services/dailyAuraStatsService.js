@@ -47,6 +47,7 @@ async function recalculateDailyAuraStats(userId, date, tx, timezone) {
       streakAtDate,
       date,
       tx,
+      totalHabits,
     );
   }
   return { totalHabits, completedHabits, fullCompletion };

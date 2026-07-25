@@ -76,7 +76,8 @@ CREATE TABLE xp_bonus_log (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   bonus_type ENUM('7day','30day') NOT NULL,
-  awarded_at DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP()),
+  awarded_at DATE NOT NULL,
+  required_habit_count INT NOT NULL DEFAULT 0,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   UNIQUE KEY unique_user_bonus_awarded (user_id, bonus_type, awarded_at)
 );

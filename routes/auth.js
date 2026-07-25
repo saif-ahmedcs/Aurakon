@@ -11,6 +11,7 @@ const {
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
+  updateTimezoneSchema,
 } = require("../middleware/schemas/authSchemas");
 const {
   registerLimiter,

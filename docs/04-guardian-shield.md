@@ -19,7 +19,7 @@ streak, it doesn't fake a completion.
 > _Design note:_ "Zero open pending reviews" means for the _whole
 > habit_, not just the specific day that reached the milestone. If day
 > 30 hits the milestone but an earlier day for the same habit is still
-> pending_review, the shield is _not_ granted yet — even after day
+> pending*review, the shield is \_not* granted yet — even after day
 > 30 itself is resolved. It stays deferred until every pending review
 > for that habit has been resolved (recovered or completed, or finally
 > missed), at which point the habit is rescanned and the milestone is
@@ -53,7 +53,9 @@ streak, it doesn't fake a completion.
 
 Archiving a habit takes effect immediately.
 
-Once a habit is archived, it is removed from the active habit set for the current local day and all future days. As a result, it no longer contributes to `total_habits`, `completed_habits`, `full_completion`, or any other active-habit calculations. This may affect future global streak and consistency bonus eligibility.
+Archived habits are immediately removed from the active habit set, so they no longer contribute to total_habits, completed_habits, or full_completion. This can make today newly qualify as a full-completion day if the archived habit was the only incomplete one.
+
+Archiving does not modify historical habit_logs. Bonus XP reconciliation uses these immutable logs rather than the live active-habit counts, ensuring previously earned bonuses remain valid unless the original completion itself is later reversed.
 
 However, archiving a habit does **not** trigger Guardian Shield reconciliation for shields that were already earned from that habit. Previously awarded Guardian Shields are immutable and are never revoked as a result of archiving or deleting the habit.
 
