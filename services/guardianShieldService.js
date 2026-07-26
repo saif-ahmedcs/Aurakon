@@ -99,6 +99,11 @@ async function reconcileShieldsFromDate(
   tx,
   timezone,
 ) {
+  const habit = await habitModel.findById(habitId, userId, tx);
+  if (!habit) {
+    return;
+  }
+
   const deferredSince = await habitModel.getShieldDeferredSince(habitId, tx);
   const effectiveFromDate =
     deferredSince && deferredSince < fromDate ? deferredSince : fromDate;
@@ -171,8 +176,7 @@ async function reconcileShieldsFromDate(
     await recalculateShieldBalance(userId, tx);
   }
 
-  const habit = await habitModel.findById(habitId, userId, tx);
-  if (!habit || !isShieldEligibleDifficulty(habit.difficulty)) {
+  if (!isShieldEligibleDifficulty(habit.difficulty)) {
     return;
   }
 
