@@ -46,7 +46,7 @@ async function finalizeDay(userId, date, tx, timezone) {
       tx,
     );
 
-    if (currentStreak > 0) {
+    if (currentStreak > 0 || existingSession) {
       await pendingReviewSessionService.addMissedDay(
         userId,
         habit.id,
@@ -55,34 +55,6 @@ async function finalizeDay(userId, date, tx, timezone) {
         timezone,
       );
       continue;
-    }
-
-    if (existingSession) {
-      const expiredLogs = await habitLogModel.expirePendingLogsForSession(
-        existingSession.id,
-        tx,
-      );
-      await pendingReviewSessionModel.resolve(existingSession.id, tx);
-
-      if (expiredLogs.length > 0) {
-        const earliestDate = expiredLogs.map((row) => row.logDate).sort()[0];
-        const refreshedRawLogs = await habitLogModel.getLogsForHabit(
-          habit.id,
-          tx,
-        );
-        const refreshedLogs = refreshedRawLogs.map((row) => ({
-          date: row.log_date,
-          status: row.status,
-        }));
-        await guardianShieldService.reconcileShieldsFromDate(
-          userId,
-          habit.id,
-          refreshedLogs,
-          earliestDate,
-          tx,
-          timezone,
-        );
-      }
     }
 
     await habitLogModel.insertMissedLog(habit.id, date, tx);
