@@ -32,6 +32,16 @@ async function finalizeDay(userId, date, tx, timezone) {
       continue;
     }
 
+    const existingLog = await habitLogModel.findByHabitAndDate(
+      habit.id,
+      date,
+      tx,
+    );
+
+    if (existingLog) {
+      continue;
+    }
+
     const rawLogs = await habitLogModel.getLogsForHabit(habit.id, tx);
     const logs = rawLogs.map((log) => ({
       date: log.log_date,

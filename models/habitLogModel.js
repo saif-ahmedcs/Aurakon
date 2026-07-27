@@ -7,7 +7,7 @@ async function expireStaleReviewsForUser(userId, cutoffDate, db = pool) {
      JOIN habits ON habits.id = habit_logs.habit_id
      WHERE habits.user_id = ?
        AND habit_logs.status = 'pending_review'
-       AND habit_logs.log_date <= ?`,
+       AND habit_logs.log_date <= ? FOR UPDATE`,
     [userId, cutoffDate],
   );
 
@@ -16,9 +16,10 @@ async function expireStaleReviewsForUser(userId, cutoffDate, db = pool) {
   }
 
   const staleIds = staleLogs.map((row) => row.id);
-  await db.query(`UPDATE habit_logs SET status = 'missed' WHERE id IN (?)`, [
-    staleIds,
-  ]);
+  await db.query(
+    `UPDATE habit_logs SET status = 'missed' WHERE id IN (?) AND status = 'pending_review'`,
+    [staleIds],
+  );
 
   const sessionIds = [
     ...new Set(staleLogs.map((row) => row.review_session_id)),
@@ -84,7 +85,7 @@ async function insertMissedLog(habitId, logDate, db = pool) {
 async function expirePendingLogsForSession(sessionId, db = pool) {
   const [rows] = await db.query(
     `SELECT id, habit_id, log_date FROM habit_logs
-     WHERE review_session_id = ? AND status = 'pending_review'`,
+     WHERE review_session_id = ? AND status = 'pending_review' FOR UPDATE`,
     [sessionId],
   );
 
@@ -93,9 +94,10 @@ async function expirePendingLogsForSession(sessionId, db = pool) {
   }
 
   const ids = rows.map((row) => row.id);
-  await db.query(`UPDATE habit_logs SET status = 'missed' WHERE id IN (?)`, [
-    ids,
-  ]);
+  await db.query(
+    `UPDATE habit_logs SET status = 'missed' WHERE id IN (?) AND status = 'pending_review'`,
+    [ids],
+  );
 
   return rows.map((row) => ({ habitId: row.habit_id, logDate: row.log_date }));
 }
@@ -132,8 +134,7 @@ async function findPendingByHabitAndDate(habitId, logDate, userId, db = pool) {
        AND habit_logs.habit_id = ?
        AND habit_logs.log_date = ?
        AND habits.user_id = ?
-       AND habits.archived_at IS NULL
-     FOR UPDATE`,
+       AND habits.archived_at IS NULL FOR UPDATE`,
     [habitId, logDate, userId],
   );
   return rows[0] || null;
@@ -149,7 +150,7 @@ async function resolveDecision(habitLogId, status, db = pool) {
   return result.affectedRows;
 }
 
-async function findPendingByHabit(habitId, db = pool) {
+async function findPendingByHabit(habitId, db = pool, forUpdate = false) {
   const [rows] = await db.query(
     `SELECT habit_logs.id,
             habit_logs.habit_id,
@@ -160,7 +161,7 @@ async function findPendingByHabit(habitId, db = pool) {
      JOIN habits ON habit_logs.habit_id = habits.id
      WHERE habit_logs.status = 'pending_review'
        AND habit_logs.habit_id = ?
-       AND habits.archived_at IS NULL`,
+       AND habits.archived_at IS NULL${forUpdate ? " FOR UPDATE" : ""}`,
     [habitId],
   );
   return rows[0] || null;

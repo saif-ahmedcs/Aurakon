@@ -35,7 +35,7 @@ async function findAwardsFromDate(habitId, fromDate, db = pool) {
     `SELECT id, milestone, streak_start_date, awarded_at, status, spent_habit_log_id
      FROM guardian_shield_log
      WHERE habit_id = ? AND awarded_at >= ?
-     ORDER BY awarded_at ASC, id ASC`,
+     ORDER BY awarded_at ASC, id ASC FOR UPDATE`,
     [habitId, fromDate],
   );
   return rows;
@@ -47,8 +47,7 @@ async function findOldestAvailableForUser(userId, db = pool) {
      FROM guardian_shield_log
      WHERE user_id = ? AND status = 'available'
      ORDER BY awarded_at ASC, id ASC
-     LIMIT 1
-     FOR UPDATE`,
+     LIMIT 1 FOR UPDATE`,
     [userId],
   );
   return rows[0] || null;
@@ -74,10 +73,10 @@ async function countAvailable(userId, db = pool, forUpdate = false) {
   return rows[0].count;
 }
 
-async function deleteAward(id, db = pool) {
+async function deleteAward(id, expectedStatus, db = pool) {
   const [result] = await db.query(
-    `DELETE FROM guardian_shield_log WHERE id = ?`,
-    [id],
+    `DELETE FROM guardian_shield_log WHERE id = ? AND status = ?`,
+    [id, expectedStatus],
   );
   return result.affectedRows;
 }

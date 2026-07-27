@@ -77,6 +77,10 @@ async function getShieldDeferredSince(id, db = pool) {
   return rows[0] ? rows[0].shield_deferred_since : null;
 }
 
+async function lockForShieldDeferral(id, db = pool) {
+  await db.query("SELECT id FROM habits WHERE id = ? FOR UPDATE", [id]);
+}
+
 async function recordShieldDeferral(id, date, db = pool) {
   await db.query(
     `UPDATE habits
@@ -87,10 +91,18 @@ async function recordShieldDeferral(id, date, db = pool) {
 }
 
 async function clearShieldDeferral(id, db = pool) {
-  await db.query(
-    "UPDATE habits SET shield_deferred_since = NULL WHERE id = ?",
+  const [result] = await db.query(
+    `UPDATE habits
+     SET shield_deferred_since = NULL
+     WHERE id = ?
+       AND NOT EXISTS (
+         SELECT 1 FROM habit_logs
+         WHERE habit_logs.habit_id = habits.id
+           AND habit_logs.status = 'pending_review'
+       )`,
     [id],
   );
+  return result.affectedRows;
 }
 
 module.exports = {
@@ -103,6 +115,7 @@ module.exports = {
   countByUser,
   getEarliestCreatedAt,
   getShieldDeferredSince,
+  lockForShieldDeferral,
   recordShieldDeferral,
   clearShieldDeferral,
 };

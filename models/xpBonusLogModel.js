@@ -42,7 +42,7 @@ async function insertBonusAward(
 async function findAwardsFromDate(userId, fromDate, db = pool) {
   const [rows] = await db.query(
     `SELECT bonus_type, awarded_at, required_habit_count FROM xp_bonus_log
-     WHERE user_id = ? AND awarded_at >= ?`,
+     WHERE user_id = ? AND awarded_at >= ? FOR UPDATE`,
     [userId, fromDate],
   );
   return rows;

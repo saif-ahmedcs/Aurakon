@@ -36,9 +36,12 @@ async function earnShieldIfEligible(
     return false;
   }
 
+  await habitModel.lockForShieldDeferral(habitId, tx);
+
   const stillPendingReview = await habitLogModel.findPendingByHabit(
     habitId,
     tx,
+    true,
   );
 
   if (stillPendingReview) {
@@ -172,7 +175,7 @@ async function reconcileShieldsFromDate(
       }
     }
 
-    await guardianShieldLogModel.deleteAward(award.id, tx);
+    await guardianShieldLogModel.deleteAward(award.id, award.status, tx);
     await recalculateShieldBalance(userId, tx);
   }
 
@@ -209,9 +212,12 @@ async function reconcileShieldsFromDate(
     }
   }
 
+  await habitModel.lockForShieldDeferral(habitId, tx);
+
   const stillPendingReview = await habitLogModel.findPendingByHabit(
     habitId,
     tx,
+    true,
   );
   if (!stillPendingReview) {
     await habitModel.clearShieldDeferral(habitId, tx);
