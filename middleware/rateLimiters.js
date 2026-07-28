@@ -1,4 +1,5 @@
 const rateLimit = require("express-rate-limit");
+const { ipKeyGenerator } = require("express-rate-limit");
 
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -17,7 +18,7 @@ const resendVerificationLimiter = rateLimit({
   max: 5,
   keyGenerator: (req) => {
     const email = (req.body?.email ?? "").toLowerCase().trim();
-    return `${req.ip}:${email}`;
+    return `${ipKeyGenerator(req.ip)}:${email}`;
   },
   message: {
     error: "too many resend attempts, please try again later",
@@ -29,7 +30,7 @@ const loginLimiter = rateLimit({
   max: 10,
   keyGenerator: (req) => {
     const email = (req.body?.email ?? "").toLowerCase().trim();
-    return `${req.ip}:${email}`;
+    return `${ipKeyGenerator(req.ip)}:${email}`;
   },
   message: { error: "too many login attempts, please try again later" },
 });
@@ -39,7 +40,7 @@ const forgotPasswordLimiter = rateLimit({
   max: 5,
   keyGenerator: (req) => {
     const email = (req.body?.email ?? "").toLowerCase().trim();
-    return `${req.ip}:${email}`;
+    return `${ipKeyGenerator(req.ip)}:${email}`;
   },
   message: {
     error: "too many requests, please try again later",

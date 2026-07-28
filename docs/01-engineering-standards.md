@@ -22,3 +22,14 @@ The user's configured timezone is the source of truth. It may be updated manuall
 > Historical daily_aura_stats rows and anything derived from them stay
 > keyed to the day boundaries that were in effect when they were
 > recorded and are never recalculated after a timezone change.
+
+## 4. Email delivery
+
+Transactional emails (verification, resend verification, password reset) are sent via Gmail SMTP (`services/emailService.js`) using `GMAIL_USER` and `GMAIL_APP_PASSWORD` from `.env`.
+
+- Gmail SMTP was chosen as a zero-cost solution, avoiding provider signup, billing, or business-domain requirements.
+- `sendEmail()` is fire-and-forget: `authEvents.emit(...)` does not await delivery. Email failures do **not** fail the API request and are only logged via `[emailService]`.
+- Deliverability is best to Gmail addresses. Other providers (Outlook, Yahoo, etc.) may place emails in spam because the sender has no established reputation.
+- Every email includes both `html` and a derived `text` version to improve deliverability.
+
+> **Design note:** The application is provider-agnostic. Changing the email provider only requires replacing the transporter in `emailService.js`.
