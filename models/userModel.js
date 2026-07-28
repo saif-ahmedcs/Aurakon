@@ -72,6 +72,16 @@ async function updateTimezone(userId, timezone, db = pool) {
   ]);
 }
 
+async function findByValidVerificationToken(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id FROM users
+     WHERE email_verification_token_hash = ?
+       AND email_verification_expires > UTC_TIMESTAMP()`,
+    [tokenHash],
+  );
+  return rows[0] || null;
+}
+
 async function verifyEmail(tokenHash) {
   const [result] = await pool.query(
     `UPDATE users
@@ -202,6 +212,55 @@ async function clearOwnExpiredResetToken(userId) {
   return result.affectedRows;
 }
 
+async function setDeleteToken(userId, tokenHash, expiresAt, db = pool) {
+  await db.query(
+    `UPDATE users
+     SET delete_token_hash = ?,
+         delete_token_expires = ?
+     WHERE id = ?`,
+    [tokenHash, expiresAt, userId],
+  );
+}
+
+async function findByValidDeleteToken(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, email FROM users
+     WHERE delete_token_hash = ?
+       AND delete_token_expires > UTC_TIMESTAMP()`,
+    [tokenHash],
+  );
+  return rows[0] || null;
+}
+
+async function findValidDeleteTokenForUser(userId, tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id FROM users
+     WHERE id = ?
+       AND delete_token_hash = ?
+       AND delete_token_expires > UTC_TIMESTAMP()
+     FOR UPDATE`,
+    [userId, tokenHash],
+  );
+  return rows[0] || null;
+}
+
+async function clearExpiredDeleteToken(tokenHash, db = pool) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET delete_token_hash = NULL,
+         delete_token_expires = NULL
+     WHERE delete_token_hash = ?
+       AND delete_token_expires <= UTC_TIMESTAMP()`,
+    [tokenHash],
+  );
+  return result.affectedRows;
+}
+
+async function deleteById(userId, db = pool) {
+  const [result] = await db.query(`DELETE FROM users WHERE id = ?`, [userId]);
+  return result.affectedRows;
+}
+
 module.exports = {
   findByEmailForRegistration,
   createUser,
@@ -209,11 +268,11 @@ module.exports = {
   findById,
   getTimezone,
   updateTimezone,
+  findByValidVerificationToken,
   verifyEmail,
   findForResend,
   setVerificationToken,
   findForLogin,
-  findPasswordHashById,
   clearExpiredVerificationToken,
   clearExpiredResetToken,
   clearOwnExpiredResetToken,
@@ -221,4 +280,9 @@ module.exports = {
   setResetToken,
   findByValidResetToken,
   updatePasswordAndClearResetToken,
+  setDeleteToken,
+  findByValidDeleteToken,
+  findValidDeleteTokenForUser,
+  clearExpiredDeleteToken,
+  deleteById,
 };

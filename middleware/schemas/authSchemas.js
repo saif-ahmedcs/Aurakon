@@ -46,12 +46,21 @@ const updateTimezoneSchema = z.object({
   }),
 });
 
+const confirmEmailVerificationSchema = z.object({
+  token: z.string().min(1),
+});
+
+const confirmDeleteAccountSchema = z.object({
+  token: z.string().min(1),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
-  changePasswordSchema,
   updateTimezoneSchema,
+  confirmEmailVerificationSchema,
+  confirmDeleteAccountSchema,
 };

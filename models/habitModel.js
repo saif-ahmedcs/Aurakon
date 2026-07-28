@@ -105,6 +105,13 @@ async function clearShieldDeferral(id, db = pool) {
   return result.affectedRows;
 }
 
+async function deleteAllByUser(userId, db = pool) {
+  const [result] = await db.query("DELETE FROM habits WHERE user_id = ?", [
+    userId,
+  ]);
+  return result.affectedRows;
+}
+
 module.exports = {
   findAllByUser,
   findById,
@@ -118,4 +125,5 @@ module.exports = {
   lockForShieldDeferral,
   recordShieldDeferral,
   clearShieldDeferral,
+  deleteAllByUser,
 };

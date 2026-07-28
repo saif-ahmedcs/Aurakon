@@ -3,6 +3,7 @@ const { runInTransaction } = require("../db");
 const hashToken = require("../utils/hashToken");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
+const habitModel = require("../models/habitModel");
 const authEvents = require("../events/authEvents");
 const {
   BCRYPT_SALT_ROUNDS,
@@ -21,6 +22,7 @@ const {
   generateRefreshToken,
   generateEmailVerificationToken,
   generatePasswordResetToken,
+  generateAccountDeletionToken,
 } = require("../utils/tokenUtils");
 
 // ------------- REGISTER --------------
@@ -75,8 +77,28 @@ async function register(email, password, username) {
   return resultUser;
 }
 
-// ------------- VERIFY EMAIL --------------
-async function verifyEmail(token) {
+// ------------- CHECK EMAIL VERIFICATION TOKEN --------------
+async function checkVerificationToken(token) {
+  if (!token) {
+    throw new BadRequestError("token is required");
+  }
+
+  const tokenHash = hashToken(token);
+  const user = await userModel.findByValidVerificationToken(tokenHash);
+
+  if (!user) {
+    await userModel.clearExpiredVerificationToken(tokenHash);
+    throw new BadRequestError("invalid or expired token");
+  }
+
+  return {
+    message:
+      "Token verified. Submit a final confirmation to verify your email.",
+  };
+}
+
+// ------------- CONFIRM EMAIL VERIFICATION --------------
+async function confirmEmailVerification(token) {
   if (!token) {
     throw new BadRequestError("token is required");
   }
@@ -307,16 +329,86 @@ async function updateTimezone(userId, timezone) {
   return { timezone };
 }
 
+// ------------- REQUEST ACCOUNT DELETION --------------
+async function requestAccountDeletion(userId) {
+  const user = await userModel.findById(userId);
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
+
+  const { rawToken, tokenHash, expiresAt } = generateAccountDeletionToken();
+  await userModel.setDeleteToken(userId, tokenHash, expiresAt);
+
+  authEvents.emit("ACCOUNT_DELETION_REQUESTED", {
+    email: user.email,
+    rawToken,
+  });
+
+  return {
+    message:
+      "A confirmation email has been sent to your registered email address.",
+  };
+}
+
+// ------------- VERIFY ACCOUNT DELETION TOKEN --------------
+async function verifyAccountDeletionToken(token) {
+  if (!token) {
+    throw new BadRequestError("token is required");
+  }
+
+  const tokenHash = hashToken(token);
+  const user = await userModel.findByValidDeleteToken(tokenHash);
+
+  if (!user) {
+    await userModel.clearExpiredDeleteToken(tokenHash);
+    throw new BadRequestError("invalid or expired token");
+  }
+
+  return {
+    message:
+      "Token verified. Submit a final confirmation to permanently delete your account.",
+  };
+}
+
+// ------------- CONFIRM ACCOUNT DELETION --------------
+async function confirmAccountDeletion(userId, token) {
+  if (!token) {
+    throw new BadRequestError("token is required");
+  }
+
+  const tokenHash = hashToken(token);
+
+  await runInTransaction(async (tx) => {
+    const validToken = await userModel.findValidDeleteTokenForUser(
+      userId,
+      tokenHash,
+      tx,
+    );
+
+    if (!validToken) {
+      throw new BadRequestError("invalid or expired token");
+    }
+
+    await habitModel.deleteAllByUser(userId, tx);
+    await userModel.deleteById(userId, tx);
+  });
+
+  return { message: "Account permanently deleted." };
+}
+
 module.exports = {
   login,
   register,
-  verifyEmail,
+  checkVerificationToken,
+  confirmEmailVerification,
   resendVerification,
   forgotPassword,
   resetPassword,
-  changePassword,
   refresh,
   logout,
   logoutAll,
   updateTimezone,
+  requestAccountDeletion,
+  verifyAccountDeletionToken,
+  confirmAccountDeletion,
 };

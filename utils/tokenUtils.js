@@ -6,6 +6,7 @@ const {
   ACCESS_TOKEN_EXPIRES_IN,
   EMAIL_VERIFICATION_MAX_AGE_MS,
   PASSWORD_RESET_MAX_AGE_MS,
+  ACCOUNT_DELETION_MAX_AGE_MS,
 } = require("./constants");
 
 function generateAccessToken(user) {
@@ -40,9 +41,18 @@ function generatePasswordResetToken() {
   return { rawToken, tokenHash, expiresAt };
 }
 
+function generateAccountDeletionToken() {
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + ACCOUNT_DELETION_MAX_AGE_MS);
+
+  return { rawToken, tokenHash, expiresAt };
+}
+
 module.exports = {
   generateAccessToken,
   generateRefreshToken,
   generateEmailVerificationToken,
   generatePasswordResetToken,
+  generateAccountDeletionToken,
 };

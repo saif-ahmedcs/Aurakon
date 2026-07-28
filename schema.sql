@@ -9,6 +9,8 @@ CREATE TABLE users (
   username VARCHAR(20) NOT NULL,
   reset_token_hash CHAR(64) NULL,
   reset_token_expires DATETIME NULL,
+  delete_token_hash CHAR(64) NULL,
+  delete_token_expires DATETIME NULL,
   total_xp INT NOT NULL DEFAULT 0,
   current_level INT NOT NULL DEFAULT 0,
   global_daily_streak INT NOT NULL DEFAULT 0,

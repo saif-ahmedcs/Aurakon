@@ -47,10 +47,31 @@ const forgotPasswordLimiter = rateLimit({
   },
 });
 
+const deleteAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) =>
+    req.user?.id ? req.user.id.toString() : ipKeyGenerator(req.ip),
+  message: {
+    error: "too many account deletion requests, please try again later",
+  },
+});
+
+const deleteAccountVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    error:
+      "too many account deletion verification attempts, please try again later",
+  },
+});
+
 module.exports = {
   registerLimiter,
   verifyEmailLimiter,
   resendVerificationLimiter,
   loginLimiter,
   forgotPasswordLimiter,
+  deleteAccountLimiter,
+  deleteAccountVerifyLimiter,
 };

@@ -11,7 +11,9 @@ const {
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
-  changePasswordSchema,
+  updateTimezoneSchema,
+  confirmEmailVerificationSchema,
+  confirmDeleteAccountSchema,
 } = require("../middleware/schemas/authSchemas");
 const {
   registerLimiter,
@@ -19,6 +21,8 @@ const {
   resendVerificationLimiter,
   loginLimiter,
   forgotPasswordLimiter,
+  deleteAccountLimiter,
+  deleteAccountVerifyLimiter,
 } = require("../middleware/rateLimiters");
 
 const router = express.Router();
@@ -42,7 +46,20 @@ router.get(
   asyncHandler(async (req, res) => {
     const { token } = req.query;
 
-    const result = await authService.verifyEmail(token);
+    const result = await authService.checkVerificationToken(token);
+
+    res.status(200).json(result);
+  }),
+);
+
+router.post(
+  "/verify-email/confirm",
+  verifyEmailLimiter,
+  validate(confirmEmailVerificationSchema),
+  asyncHandler(async (req, res) => {
+    const { token } = req.body;
+
+    const result = await authService.confirmEmailVerification(token);
 
     res.status(200).json(result);
   }),
@@ -166,6 +183,38 @@ router.patch(
   asyncHandler(async (req, res) => {
     const { timezone } = req.body;
     const result = await authService.updateTimezone(req.user.id, timezone);
+    res.status(200).json(result);
+  }),
+);
+
+router.post(
+  "/delete-account/request",
+  auth,
+  deleteAccountLimiter,
+  asyncHandler(async (req, res) => {
+    const result = await authService.requestAccountDeletion(req.user.id);
+    res.status(200).json(result);
+  }),
+);
+
+router.get(
+  "/delete-account/verify",
+  deleteAccountVerifyLimiter,
+  asyncHandler(async (req, res) => {
+    const { token } = req.query;
+    const result = await authService.verifyAccountDeletionToken(token);
+    res.status(200).json(result);
+  }),
+);
+
+router.post(
+  "/delete-account/confirm",
+  auth,
+  validate(confirmDeleteAccountSchema),
+  asyncHandler(async (req, res) => {
+    const { token } = req.body;
+    const result = await authService.confirmAccountDeletion(req.user.id, token);
+    res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json(result);
   }),
 );

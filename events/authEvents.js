@@ -38,4 +38,18 @@ authEvents.on("PASSWORD_RESET_REQUESTED", ({ email, rawToken }) => {
   });
 });
 
+authEvents.on("ACCOUNT_DELETION_REQUESTED", ({ email, rawToken }) => {
+  console.log(`[ACCOUNT_DELETION_REQUESTED] recipient=${email}`);
+
+  emailService.sendEmail({
+    to: email,
+    subject: "Confirm account deletion",
+    html: `<p>Hello,</p>
+           <p>Click the link below to confirm permanent deletion of your Aurakon account. This action cannot be undone.</p>
+           <p><a href="${process.env.APP_BASE_URL}/api/auth/delete-account/verify?token=${rawToken}">
+           Confirm account deletion</a></p>
+           <p>If you did not request this, you can ignore this message and your account will remain unchanged.</p>`,
+  });
+});
+
 module.exports = authEvents;
