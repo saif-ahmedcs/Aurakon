@@ -110,6 +110,58 @@ async function getUsernameChangedAt(userId, db = pool) {
   return rows[0] ? rows[0].username_changed_at : null;
 }
 
+async function findForEmailChange(userId, db = pool) {
+  const [rows] = await db.query(
+    "SELECT id, email, password_hash FROM users WHERE id = ?",
+    [userId],
+  );
+  return rows[0] || null;
+}
+
+async function setPendingEmailChange(
+  userId,
+  pendingEmail,
+  tokenHash,
+  expiresAt,
+  db = pool,
+) {
+  await db.query(
+    `UPDATE users
+     SET pending_email = ?,
+         email_change_token_hash = ?,
+         email_change_token_expires = ?
+     WHERE id = ?`,
+    [pendingEmail, tokenHash, expiresAt, userId],
+  );
+}
+
+async function applyEmailChange(tokenHash, db = pool) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET email = pending_email,
+         pending_email = NULL,
+         email_change_token_hash = NULL,
+         email_change_token_expires = NULL
+     WHERE email_change_token_hash = ?
+       AND email_change_token_expires > UTC_TIMESTAMP()`,
+    [tokenHash],
+  );
+  return result.affectedRows;
+}
+
+async function clearExpiredEmailChangeToken(tokenHash, db = pool) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET pending_email = NULL,
+         email_change_token_hash = NULL,
+         email_change_token_expires = NULL
+     WHERE email_change_token_hash = ?
+       AND email_change_token_expires <= UTC_TIMESTAMP()`,
+    [tokenHash],
+  );
+  return result.affectedRows;
+}
+
 async function findByValidVerificationToken(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id FROM users
@@ -335,6 +387,10 @@ module.exports = {
   updateTimezone,
   updateUsernameIfEligible,
   getUsernameChangedAt,
+  findForEmailChange,
+  setPendingEmailChange,
+  applyEmailChange,
+  clearExpiredEmailChangeToken,
   findByValidVerificationToken,
   verifyEmail,
   findForResend,

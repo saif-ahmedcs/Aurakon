@@ -50,6 +50,11 @@ const updateTimezoneSchema = z.object({
   }),
 });
 
+const requestEmailChangeSchema = z.object({
+  newEmail: z.string().trim().email(),
+  currentPassword: z.string().min(1),
+});
+
 const updateUsernameSchema = z.object({
   username: z.string().trim().min(3).max(20),
 });
@@ -70,6 +75,7 @@ module.exports = {
   resetPasswordSchema,
   resendVerificationSchema,
   updateTimezoneSchema,
+  requestEmailChangeSchema,
   updateUsernameSchema,
   confirmEmailVerificationSchema,
   confirmDeleteAccountSchema,

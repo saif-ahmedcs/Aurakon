@@ -38,6 +38,20 @@ authEvents.on("PASSWORD_RESET_REQUESTED", ({ email, rawToken }) => {
   });
 });
 
+authEvents.on("EMAIL_CHANGE_REQUESTED", ({ email, rawToken }) => {
+  console.log(`[EMAIL_CHANGE_REQUESTED] recipient=${email}`);
+
+  emailService.sendEmail({
+    to: email,
+    subject: "Confirm your new Aurakon email address",
+    html: `<p>Hello,</p>
+           <p>Click the link below to confirm this email address for your Aurakon account.</p>
+           <p><a href="${process.env.APP_BASE_URL}/api/auth/verify-email-change?token=${rawToken}">
+           Confirm my new email</a></p>
+           <p>If you did not request this, you can ignore this message.</p>`,
+  });
+});
+
 authEvents.on("ACCOUNT_DELETION_REQUESTED", ({ email, rawToken }) => {
   console.log(`[ACCOUNT_DELETION_REQUESTED] recipient=${email}`);
 

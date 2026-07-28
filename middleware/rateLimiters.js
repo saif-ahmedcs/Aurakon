@@ -47,6 +47,25 @@ const forgotPasswordLimiter = rateLimit({
   },
 });
 
+const changeEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) =>
+    req.user?.id ? req.user.id.toString() : ipKeyGenerator(req.ip),
+  message: {
+    error: "too many email change requests, please try again later",
+  },
+});
+
+const verifyEmailChangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    error:
+      "too many email change verification attempts, please try again later",
+  },
+});
+
 const deleteAccountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -72,6 +91,8 @@ module.exports = {
   resendVerificationLimiter,
   loginLimiter,
   forgotPasswordLimiter,
+  changeEmailLimiter,
+  verifyEmailChangeLimiter,
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
 };

@@ -19,7 +19,10 @@ CREATE TABLE users (
   shield_balance INT NOT NULL DEFAULT 0,
   timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
   username_changed_at DATETIME NULL,
-  password_changed_at DATETIME NULL
+  password_changed_at DATETIME NULL,
+  pending_email VARCHAR(255) NULL,
+  email_change_token_hash CHAR(64) NULL,
+  email_change_token_expires DATETIME NULL
 );
 
 CREATE TABLE habits (

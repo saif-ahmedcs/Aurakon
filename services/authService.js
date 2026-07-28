@@ -23,6 +23,7 @@ const {
   generateAccessToken,
   generateRefreshToken,
   generateEmailVerificationToken,
+  generateEmailChangeToken,
   generatePasswordResetToken,
   generateAccountDeletionToken,
 } = require("../utils/tokenUtils");
@@ -373,6 +374,74 @@ async function updateUsername(userId, username) {
   return { username };
 }
 
+// ------------- REQUEST EMAIL CHANGE --------------
+async function requestEmailChange(userId, newEmail, currentPassword) {
+  const normalizedEmail = newEmail.toLowerCase();
+
+  const user = await userModel.findForEmailChange(userId);
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
+
+  const passwordMatch = await bcrypt.compare(
+    currentPassword,
+    user.password_hash,
+  );
+  if (!passwordMatch) {
+    throw new UnauthorizedError("invalid current password");
+  }
+
+  if (normalizedEmail === user.email) {
+    throw new BadRequestError("new email must be different from current email");
+  }
+
+  const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
+
+  await runInTransaction(async (tx) => {
+    const existing = await userModel.findByEmailForRegistration(
+      normalizedEmail,
+      tx,
+    );
+    if (existing) {
+      throw new ConflictError("email already in use");
+    }
+
+    await userModel.setPendingEmailChange(
+      userId,
+      normalizedEmail,
+      tokenHash,
+      expiresAt,
+      tx,
+    );
+  });
+
+  authEvents.emit("EMAIL_CHANGE_REQUESTED", {
+    email: normalizedEmail,
+    rawToken,
+  });
+
+  return {
+    message: "A verification email has been sent to your new email address.",
+  };
+}
+
+// ------------- CONFIRM EMAIL CHANGE --------------
+async function confirmEmailChange(token) {
+  if (!token) {
+    throw new BadRequestError("token is required");
+  }
+
+  const tokenHash = hashToken(token);
+  const affectedRows = await userModel.applyEmailChange(tokenHash);
+
+  if (affectedRows === 0) {
+    await userModel.clearExpiredEmailChangeToken(tokenHash);
+    throw new BadRequestError("invalid or expired token");
+  }
+
+  return { message: "email changed successfully" };
+}
+
 // ------------- REQUEST ACCOUNT DELETION --------------
 async function requestAccountDeletion(userId) {
   const user = await userModel.findById(userId);
@@ -469,6 +538,8 @@ module.exports = {
   logoutAll,
   updateTimezone,
   updateUsername,
+  requestEmailChange,
+  confirmEmailChange,
   requestAccountDeletion,
   verifyAccountDeletionToken,
   confirmAccountDeletion,

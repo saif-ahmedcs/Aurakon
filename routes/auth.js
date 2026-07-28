@@ -13,6 +13,8 @@ const {
   changePasswordSchema,
   resendVerificationSchema,
   updateTimezoneSchema,
+  setGenderSchema,
+  requestEmailChangeSchema,
   updateUsernameSchema,
   confirmEmailVerificationSchema,
   confirmDeleteAccountSchema,
@@ -23,6 +25,8 @@ const {
   resendVerificationLimiter,
   loginLimiter,
   forgotPasswordLimiter,
+  changeEmailLimiter,
+  verifyEmailChangeLimiter,
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
 } = require("../middleware/rateLimiters");
@@ -207,6 +211,32 @@ router.patch(
   asyncHandler(async (req, res) => {
     const { username } = req.body;
     const result = await authService.updateUsername(req.user.id, username);
+    res.status(200).json(result);
+  }),
+);
+
+router.patch(
+  "/email",
+  auth,
+  changeEmailLimiter,
+  validate(requestEmailChangeSchema),
+  asyncHandler(async (req, res) => {
+    const { newEmail, currentPassword } = req.body;
+    const result = await authService.requestEmailChange(
+      req.user.id,
+      newEmail,
+      currentPassword,
+    );
+    res.status(200).json(result);
+  }),
+);
+
+router.get(
+  "/verify-email-change",
+  verifyEmailChangeLimiter,
+  asyncHandler(async (req, res) => {
+    const { token } = req.query;
+    const result = await authService.confirmEmailChange(token);
     res.status(200).json(result);
   }),
 );
