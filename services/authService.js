@@ -396,6 +396,15 @@ async function confirmAccountDeletion(userId, token) {
   return { message: "Account permanently deleted." };
 }
 
+// ------------- GET CURRENT USER --------------
+async function getCurrentUser(userId) {
+  const user = await userModel.findById(userId);
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
+  return user;
+}
+
 module.exports = {
   login,
   register,
@@ -411,4 +420,5 @@ module.exports = {
   requestAccountDeletion,
   verifyAccountDeletionToken,
   confirmAccountDeletion,
+  getCurrentUser,
 };

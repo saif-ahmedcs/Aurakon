@@ -219,4 +219,13 @@ router.post(
   }),
 );
 
+router.get(
+  "/me",
+  auth,
+  asyncHandler(async (req, res) => {
+    const user = await authService.getCurrentUser(req.user.id);
+    res.status(200).json({ ...user, timezone: req.user.timezone });
+  }),
+);
+
 module.exports = router;
