@@ -1,6 +1,7 @@
 const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const auth = require("../middleware/authenticate");
+const requireGender = require("../middleware/requireGender");
 const finalizeReviews = require("../middleware/finalizeReviews");
 const titleService = require("../services/titleService");
 const streakService = require("../services/streakService");
@@ -10,6 +11,7 @@ const { todayInTimezone } = require("../utils/timezone");
 
 const router = express.Router();
 router.use(auth);
+router.use(requireGender);
 router.use(finalizeReviews);
 
 router.get(
@@ -29,9 +31,15 @@ router.get(
       progress,
     );
     const title = titleService.resolveCurrentTitle(progress.total_xp);
+    const { titles, nextRank } = titleService.getTitleProgress(
+      progress.total_xp,
+    );
+
     res.status(200).json({
       totalXp: progress.total_xp,
       title,
+      titles,
+      nextRank,
       level: progress.current_level,
       auraEnergyToday: todayStats ? todayStats.aura_energy : 0,
       globalDailyStreak: reconciledStreak,

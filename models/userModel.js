@@ -31,6 +31,10 @@ async function createUser(
   }
 }
 
+async function setGender(userId, gender, db = pool) {
+  await db.query("UPDATE users SET gender = ? WHERE id = ?", [gender, userId]);
+}
+
 async function reclaimUnverified(
   userId,
   passwordHash,
@@ -52,17 +56,26 @@ async function reclaimUnverified(
 
 async function findById(id, db = pool) {
   const [rows] = await db.query(
-    "SELECT id, email, username FROM users WHERE id = ?",
+    "SELECT id, email, username, gender FROM users WHERE id = ?",
     [id],
   );
   return rows[0] || null;
 }
 
-async function getTimezone(id, db = pool) {
-  const [rows] = await db.query("SELECT timezone FROM users WHERE id = ?", [
-    id,
-  ]);
-  return rows[0] ? rows[0].timezone : null;
+async function getAccountInfo(id, db = pool) {
+  const [rows] = await db.query(
+    "SELECT email, created_at, gender, timezone FROM users WHERE id = ?",
+    [id],
+  );
+  return rows[0] || null;
+}
+
+async function getAuthProfile(id, db = pool) {
+  const [rows] = await db.query(
+    "SELECT timezone, gender FROM users WHERE id = ?",
+    [id],
+  );
+  return rows[0] || null;
 }
 
 async function updateTimezone(userId, timezone, db = pool) {
@@ -314,9 +327,11 @@ async function deleteById(userId, db = pool) {
 module.exports = {
   findByEmailForRegistration,
   createUser,
+  setGender,
   reclaimUnverified,
   findById,
-  getTimezone,
+  getAccountInfo,
+  getAuthProfile,
   updateTimezone,
   updateUsernameIfEligible,
   getUsernameChangedAt,

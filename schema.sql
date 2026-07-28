@@ -7,6 +7,7 @@ CREATE TABLE users (
   email_verification_token_hash CHAR(64) NULL,
   email_verification_expires DATETIME NULL,
   username VARCHAR(20) NOT NULL,
+  gender ENUM('male','female') NULL,
   reset_token_hash CHAR(64) NULL,
   reset_token_expires DATETIME NULL,
   delete_token_hash CHAR(64) NULL,

@@ -11,6 +11,10 @@ const registerSchema = z.object({
   username: z.string().trim().min(3).max(20),
 });
 
+const setGenderSchema = z.object({
+  gender: z.enum(["male", "female"]),
+});
+
 const loginSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1),
@@ -60,6 +64,7 @@ const confirmDeleteAccountSchema = z.object({
 
 module.exports = {
   registerSchema,
+  setGenderSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,

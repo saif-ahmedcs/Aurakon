@@ -42,6 +42,17 @@ router.post(
   }),
 );
 
+router.patch(
+  "/gender",
+  auth,
+  validate(setGenderSchema),
+  asyncHandler(async (req, res) => {
+    const { gender } = req.body;
+    const result = await authService.setGender(req.user.id, gender);
+    res.status(200).json(result);
+  }),
+);
+
 router.get(
   "/verify-email",
   verifyEmailLimiter,
@@ -236,8 +247,8 @@ router.get(
   "/me",
   auth,
   asyncHandler(async (req, res) => {
-    const user = await authService.getCurrentUser(req.user.id);
-    res.status(200).json({ ...user, timezone: req.user.timezone });
+    const result = await authService.getCurrentUser(req.user.id);
+    res.status(200).json(result);
   }),
 );
 

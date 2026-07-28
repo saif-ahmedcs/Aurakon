@@ -2,6 +2,7 @@ const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const habitService = require("../services/habitService");
 const auth = require("../middleware/authenticate");
+const requireGender = require("../middleware/requireGender");
 const finalizeReviews = require("../middleware/finalizeReviews");
 const ownershipCheck = require("../middleware/ownership");
 const validate = require("../middleware/validate");
@@ -14,6 +15,7 @@ const {
 
 const router = express.Router();
 router.use(auth);
+router.use(requireGender);
 router.use(finalizeReviews);
 router.use("/:id", ownershipCheck);
 

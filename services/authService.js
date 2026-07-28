@@ -204,6 +204,12 @@ async function login(email, password) {
   return { accessToken, rawRefreshToken };
 }
 
+// ------------- SET GENDER --------------
+async function setGender(userId, gender) {
+  await userModel.setGender(userId, gender);
+  return { gender };
+}
+
 // ------------- FORGOT PASSWORD --------------
 async function forgotPassword(email) {
   const normalizedEmail = email.toLowerCase();
@@ -434,17 +440,24 @@ async function confirmAccountDeletion(userId, token) {
   return { message: "Account permanently deleted." };
 }
 
-// ------------- GET CURRENT USER --------------
+// ------------- GET CURRENT USER (MY ACCOUNT) --------------
 async function getCurrentUser(userId) {
-  const user = await userModel.findById(userId);
-  if (!user) {
+  const account = await userModel.getAccountInfo(userId);
+  if (!account) {
     throw new UnauthorizedError("user not found");
   }
-  return user;
+
+  return {
+    email: account.email,
+    createdAt: account.created_at,
+    gender: account.gender,
+    timezone: account.timezone,
+  };
 }
 
 module.exports = {
   login,
+  setGender,
   register,
   checkVerificationToken,
   confirmEmailVerification,

@@ -23,8 +23,12 @@ async function auth(req, res, next) {
   }
 
   try {
-    const timezone = await userModel.getTimezone(decoded.sub);
-    req.user = { id: decoded.sub, timezone: timezone || DEFAULT_TIMEZONE };
+    const profile = await userModel.getAuthProfile(decoded.sub);
+    req.user = {
+      id: decoded.sub,
+      timezone: (profile && profile.timezone) || DEFAULT_TIMEZONE,
+      gender: profile ? profile.gender : null,
+    };
     next();
   } catch (err) {
     next(err);
