@@ -46,6 +46,10 @@ const updateTimezoneSchema = z.object({
   }),
 });
 
+const updateUsernameSchema = z.object({
+  username: z.string().trim().min(3).max(20),
+});
+
 const confirmEmailVerificationSchema = z.object({
   token: z.string().min(1),
 });
@@ -61,6 +65,7 @@ module.exports = {
   resetPasswordSchema,
   resendVerificationSchema,
   updateTimezoneSchema,
+  updateUsernameSchema,
   confirmEmailVerificationSchema,
   confirmDeleteAccountSchema,
 };

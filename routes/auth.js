@@ -10,8 +10,10 @@ const {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
   resendVerificationSchema,
   updateTimezoneSchema,
+  updateUsernameSchema,
   confirmEmailVerificationSchema,
   confirmDeleteAccountSchema,
 } = require("../middleware/schemas/authSchemas");
@@ -183,6 +185,17 @@ router.patch(
   asyncHandler(async (req, res) => {
     const { timezone } = req.body;
     const result = await authService.updateTimezone(req.user.id, timezone);
+    res.status(200).json(result);
+  }),
+);
+
+router.patch(
+  "/username",
+  auth,
+  validate(updateUsernameSchema),
+  asyncHandler(async (req, res) => {
+    const { username } = req.body;
+    const result = await authService.updateUsername(req.user.id, username);
     res.status(200).json(result);
   }),
 );

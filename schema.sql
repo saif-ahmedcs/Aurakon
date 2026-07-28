@@ -16,7 +16,9 @@ CREATE TABLE users (
   global_daily_streak INT NOT NULL DEFAULT 0,
   last_full_completion_date DATE NULL,
   shield_balance INT NOT NULL DEFAULT 0,
-  timezone VARCHAR(64) NOT NULL DEFAULT 'UTC'
+  timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+  username_changed_at DATETIME NULL,
+  password_changed_at DATETIME NULL
 );
 
 CREATE TABLE habits (

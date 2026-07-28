@@ -9,6 +9,8 @@ const {
   BCRYPT_SALT_ROUNDS,
   VERIFICATION_COOLDOWN_MS,
   MAX_ACTIVE_SESSIONS,
+  USERNAME_CHANGE_COOLDOWN_MS,
+  PASSWORD_CHANGE_COOLDOWN_MS,
 } = require("../utils/constants");
 const {
   BadRequestError,
@@ -267,7 +269,22 @@ async function changePassword(userId, currentPassword, newPassword) {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
-  await userModel.updatePasswordAndClearResetToken(userId, passwordHash);
+
+  const applied = await userModel.updatePasswordIfEligible(
+    userId,
+    passwordHash,
+    PASSWORD_CHANGE_COOLDOWN_MS,
+  );
+
+  if (!applied) {
+    const lastChangedAt = await userModel.getPasswordChangedAt(userId);
+    const nextEligibleAt = new Date(
+      new Date(lastChangedAt).getTime() + PASSWORD_CHANGE_COOLDOWN_MS,
+    );
+    throw new TooManyRequestsError(
+      `password can only be changed once every 30 days. Try again after ${nextEligibleAt.toISOString()}.`,
+    );
+  }
 
   return { message: "password changed successfully" };
 }
@@ -327,6 +344,27 @@ async function logoutAll(rawRefreshToken) {
 async function updateTimezone(userId, timezone) {
   await userModel.updateTimezone(userId, timezone);
   return { timezone };
+}
+
+// ------------- UPDATE USERNAME --------------
+async function updateUsername(userId, username) {
+  const applied = await userModel.updateUsernameIfEligible(
+    userId,
+    username,
+    USERNAME_CHANGE_COOLDOWN_MS,
+  );
+
+  if (!applied) {
+    const lastChangedAt = await userModel.getUsernameChangedAt(userId);
+    const nextEligibleAt = new Date(
+      new Date(lastChangedAt).getTime() + USERNAME_CHANGE_COOLDOWN_MS,
+    );
+    throw new TooManyRequestsError(
+      `username can only be changed once every 15 days. Try again after ${nextEligibleAt.toISOString()}.`,
+    );
+  }
+
+  return { username };
 }
 
 // ------------- REQUEST ACCOUNT DELETION --------------
@@ -417,6 +455,7 @@ module.exports = {
   logout,
   logoutAll,
   updateTimezone,
+  updateUsername,
   requestAccountDeletion,
   verifyAccountDeletionToken,
   confirmAccountDeletion,

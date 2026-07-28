@@ -72,6 +72,31 @@ async function updateTimezone(userId, timezone, db = pool) {
   ]);
 }
 
+async function updateUsernameIfEligible(
+  userId,
+  username,
+  cooldownMs,
+  db = pool,
+) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET username = ?, username_changed_at = UTC_TIMESTAMP()
+     WHERE id = ?
+       AND (username_changed_at IS NULL
+            OR username_changed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)`,
+    [username, userId, Math.floor(cooldownMs / 1000)],
+  );
+  return result.affectedRows > 0;
+}
+
+async function getUsernameChangedAt(userId, db = pool) {
+  const [rows] = await db.query(
+    "SELECT username_changed_at FROM users WHERE id = ?",
+    [userId],
+  );
+  return rows[0] ? rows[0].username_changed_at : null;
+}
+
 async function findByValidVerificationToken(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id FROM users
@@ -157,6 +182,31 @@ async function updatePasswordAndClearResetToken(
     [passwordHash, userId, tokenHash],
   );
   return result.affectedRows > 0;
+}
+
+async function updatePasswordIfEligible(
+  userId,
+  passwordHash,
+  cooldownMs,
+  db = pool,
+) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET password_hash = ?, password_changed_at = UTC_TIMESTAMP()
+     WHERE id = ?
+       AND (password_changed_at IS NULL
+            OR password_changed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)`,
+    [passwordHash, userId, Math.floor(cooldownMs / 1000)],
+  );
+  return result.affectedRows > 0;
+}
+
+async function getPasswordChangedAt(userId, db = pool) {
+  const [rows] = await db.query(
+    "SELECT password_changed_at FROM users WHERE id = ?",
+    [userId],
+  );
+  return rows[0] ? rows[0].password_changed_at : null;
 }
 
 async function findForLogin(email) {
@@ -268,6 +318,8 @@ module.exports = {
   findById,
   getTimezone,
   updateTimezone,
+  updateUsernameIfEligible,
+  getUsernameChangedAt,
   findByValidVerificationToken,
   verifyEmail,
   findForResend,
@@ -280,6 +332,8 @@ module.exports = {
   setResetToken,
   findByValidResetToken,
   updatePasswordAndClearResetToken,
+  updatePasswordIfEligible,
+  getPasswordChangedAt,
   setDeleteToken,
   findByValidDeleteToken,
   findValidDeleteTokenForUser,
