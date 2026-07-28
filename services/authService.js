@@ -227,6 +227,29 @@ async function resetPassword(token, newPassword) {
   return { message: "password reset successfully" };
 }
 
+// ------------- CHANGE PASSWORD --------------
+async function changePassword(userId, currentPassword, newPassword) {
+  const user = await userModel.findPasswordHashById(userId);
+
+  if (!user) {
+    throw new UnauthorizedError("invalid current password");
+  }
+
+  const passwordMatch = await bcrypt.compare(
+    currentPassword,
+    user.password_hash,
+  );
+
+  if (!passwordMatch) {
+    throw new UnauthorizedError("invalid current password");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+  await userModel.updatePasswordAndClearResetToken(userId, passwordHash);
+
+  return { message: "password changed successfully" };
+}
+
 // ------------- REFRESH --------------
 async function refresh(rawRefreshToken) {
   if (!rawRefreshToken) {
@@ -291,6 +314,7 @@ module.exports = {
   resendVerification,
   forgotPassword,
   resetPassword,
+  changePassword,
   refresh,
   logout,
   logoutAll,

@@ -11,7 +11,7 @@ const {
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
-  updateTimezoneSchema,
+  changePasswordSchema,
 } = require("../middleware/schemas/authSchemas");
 const {
   registerLimiter,
@@ -102,6 +102,23 @@ router.post(
     const { token, newPassword } = req.body;
 
     const result = await authService.resetPassword(token, newPassword);
+
+    res.status(200).json(result);
+  }),
+);
+
+router.post(
+  "/change-password",
+  auth,
+  validate(changePasswordSchema),
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    const result = await authService.changePassword(
+      req.user.id,
+      currentPassword,
+      newPassword,
+    );
 
     res.status(200).json(result);
   }),

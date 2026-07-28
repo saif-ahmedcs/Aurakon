@@ -32,6 +32,14 @@ const resendVerificationSchema = z.object({
   email: z.string().trim().email(),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).refine(isPasswordValid, {
+    message:
+      "password must be at least 8 characters and contain at least one letter and one number",
+  }),
+});
+
 const updateTimezoneSchema = z.object({
   timezone: z.string().min(1).refine(isValidTimezone, {
     message: "invalid IANA timezone",
@@ -44,5 +52,6 @@ module.exports = {
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
+  changePasswordSchema,
   updateTimezoneSchema,
 };

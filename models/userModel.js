@@ -157,6 +157,14 @@ async function findForLogin(email) {
   return rows[0] || null;
 }
 
+async function findPasswordHashById(userId) {
+  const [rows] = await pool.query(
+    "SELECT password_hash FROM users WHERE id = ?",
+    [userId],
+  );
+  return rows[0] || null;
+}
+
 async function clearExpiredVerificationToken(tokenHash) {
   const [result] = await pool.query(
     `UPDATE users
@@ -205,6 +213,7 @@ module.exports = {
   findForResend,
   setVerificationToken,
   findForLogin,
+  findPasswordHashById,
   clearExpiredVerificationToken,
   clearExpiredResetToken,
   clearOwnExpiredResetToken,
