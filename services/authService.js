@@ -207,6 +207,17 @@ async function login(email, password) {
 
 // ------------- SET GENDER --------------
 async function setGender(userId, gender) {
+  const user = await userModel.findById(userId);
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
+
+  if (user.gender) {
+    throw new BadRequestError(
+      "gender has already been set and cannot be changed",
+    );
+  }
+
   await userModel.setGender(userId, gender);
   return { gender };
 }
@@ -283,6 +294,17 @@ async function changePassword(userId, currentPassword, newPassword) {
 
   if (!passwordMatch) {
     throw new UnauthorizedError("invalid current password");
+  }
+
+  if (!passwordMatch) {
+    throw new UnauthorizedError("invalid current password");
+  }
+
+  const sameAsCurrent = await bcrypt.compare(newPassword, user.password_hash);
+  if (sameAsCurrent) {
+    throw new BadRequestError(
+      "new password must be different from the current password",
+    );
   }
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
@@ -369,12 +391,31 @@ async function logoutAll(rawRefreshToken) {
 
 // ------------- UPDATE TIMEZONE --------------
 async function updateTimezone(userId, timezone) {
+  const user = await userModel.getAccountInfo(userId);
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
+
+  if (user.timezone === timezone) {
+    return { timezone };
+  }
+
   await userModel.updateTimezone(userId, timezone);
   return { timezone };
 }
 
 // ------------- UPDATE USERNAME --------------
 async function updateUsername(userId, username) {
+  const user = await userModel.findById(userId);
+
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
+
+  if (user.username === username) {
+    throw new BadRequestError("username is unchanged");
+  }
+
   const applied = await userModel.updateUsernameIfEligible(
     userId,
     username,
