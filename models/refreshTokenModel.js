@@ -1,7 +1,7 @@
 const { pool } = require("../db");
 
-async function insert(userId, tokenHash, expiresAt) {
-  await pool.query(
+async function insert(userId, tokenHash, expiresAt, db = pool) {
+  await db.query(
     `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, created_at)
      VALUES (?, ?, ?, UTC_TIMESTAMP())`,
     [userId, tokenHash, expiresAt],
@@ -34,8 +34,8 @@ async function deleteAllByUserId(userId, db = pool) {
   return result.affectedRows;
 }
 
-async function deleteExpiredForUser(userId) {
-  const [result] = await pool.query(
+async function deleteExpiredForUser(userId, db = pool) {
+  const [result] = await db.query(
     `DELETE FROM refresh_tokens WHERE user_id = ? AND expires_at < UTC_TIMESTAMP()`,
     [userId],
   );
@@ -51,16 +51,16 @@ async function lockActiveForUser(userId, db = pool) {
   );
 }
 
-async function countActiveByUserId(userId) {
-  const [rows] = await pool.query(
+async function countActiveByUserId(userId, db = pool) {
+  const [rows] = await db.query(
     `SELECT COUNT(*) AS count FROM refresh_tokens WHERE user_id = ? AND expires_at > UTC_TIMESTAMP()`,
     [userId],
   );
   return rows[0].count;
 }
 
-async function deleteOldestByUserId(userId) {
-  const [result] = await pool.query(
+async function deleteOldestByUserId(userId, db = pool) {
+  const [result] = await db.query(
     `DELETE FROM refresh_tokens
      WHERE id = (
        SELECT id FROM (
