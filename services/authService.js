@@ -445,6 +445,49 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
   };
 }
 
+// ------------- RESEND EMAIL CHANGE VERIFICATION --------------
+async function resendEmailChangeVerification(userId) {
+  const result = await runInTransaction(async (tx) => {
+    const user = await userModel.findPendingEmailChange(userId, tx);
+
+    if (!user || !user.pending_email) {
+      throw new BadRequestError("no pending email change request");
+    }
+
+    if (user.email_change_token_expires) {
+      const issuedAt =
+        new Date(user.email_change_token_expires).getTime() -
+        EMAIL_CHANGE_MAX_AGE_MS;
+      if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
+        throw new TooManyRequestsError(
+          "Please wait before requesting another verification email.",
+        );
+      }
+    }
+
+    const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
+
+    await userModel.setPendingEmailChange(
+      userId,
+      user.pending_email,
+      tokenHash,
+      expiresAt,
+      tx,
+    );
+
+    return { rawToken, pendingEmail: user.pending_email };
+  });
+
+  authEvents.emit("EMAIL_CHANGE_REQUESTED", {
+    email: result.pendingEmail,
+    rawToken: result.rawToken,
+  });
+
+  return {
+    message: "A verification email has been sent to your new email address.",
+  };
+}
+
 // ------------- CHECK EMAIL CHANGE TOKEN --------------
 async function checkEmailChangeToken(token) {
   if (!token) {
@@ -596,6 +639,7 @@ module.exports = {
   updateTimezone,
   updateUsername,
   requestEmailChange,
+  resendEmailChangeVerification,
   checkEmailChangeToken,
   confirmEmailChange,
   requestAccountDeletion,

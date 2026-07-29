@@ -118,6 +118,15 @@ async function findForEmailChange(userId, db = pool) {
   return rows[0] || null;
 }
 
+async function findPendingEmailChange(userId, db = pool) {
+  const [rows] = await db.query(
+    `SELECT pending_email, email_change_token_expires
+     FROM users WHERE id = ? FOR UPDATE`,
+    [userId],
+  );
+  return rows[0] || null;
+}
+
 async function setPendingEmailChange(
   userId,
   pendingEmail,
@@ -410,6 +419,7 @@ module.exports = {
   updateUsernameIfEligible,
   getUsernameChangedAt,
   findForEmailChange,
+  findPendingEmailChange,
   setPendingEmailChange,
   applyEmailChange,
   clearExpiredEmailChangeToken,

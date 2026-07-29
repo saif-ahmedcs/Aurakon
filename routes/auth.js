@@ -232,6 +232,16 @@ router.patch(
   }),
 );
 
+router.post(
+  "/email/resend",
+  auth,
+  changeEmailLimiter,
+  asyncHandler(async (req, res) => {
+    const result = await authService.resendEmailChangeVerification(req.user.id);
+    res.status(200).json(result);
+  }),
+);
+
 router.get(
   "/verify-email-change",
   verifyEmailChangeLimiter,
