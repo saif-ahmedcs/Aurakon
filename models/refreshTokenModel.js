@@ -26,8 +26,8 @@ async function deleteByTokenHash(tokenHash) {
   return result.affectedRows;
 }
 
-async function deleteAllByUserId(userId) {
-  const [result] = await pool.query(
+async function deleteAllByUserId(userId, db = pool) {
+  const [result] = await db.query(
     `DELETE FROM refresh_tokens WHERE user_id = ?`,
     [userId],
   );

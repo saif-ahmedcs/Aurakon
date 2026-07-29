@@ -245,11 +245,18 @@ async function resetPassword(token, newPassword) {
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
-  const applied = await userModel.updatePasswordAndClearResetToken(
-    user.id,
-    tokenHash,
-    passwordHash,
-  );
+  const applied = await runInTransaction(async (tx) => {
+    const updated = await userModel.updatePasswordAndClearResetToken(
+      user.id,
+      tokenHash,
+      passwordHash,
+      tx,
+    );
+    if (updated) {
+      await refreshTokenModel.deleteAllByUserId(user.id, tx);
+    }
+    return updated;
+  });
 
   if (!applied) {
     throw new BadRequestError("invalid or expired token");
@@ -277,11 +284,18 @@ async function changePassword(userId, currentPassword, newPassword) {
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
-  const applied = await userModel.updatePasswordIfEligible(
-    userId,
-    passwordHash,
-    PASSWORD_CHANGE_COOLDOWN_MS,
-  );
+  const applied = await runInTransaction(async (tx) => {
+    const updated = await userModel.updatePasswordIfEligible(
+      userId,
+      passwordHash,
+      PASSWORD_CHANGE_COOLDOWN_MS,
+      tx,
+    );
+    if (updated) {
+      await refreshTokenModel.deleteAllByUserId(userId, tx);
+    }
+    return updated;
+  });
 
   if (!applied) {
     const lastChangedAt = await userModel.getPasswordChangedAt(userId);

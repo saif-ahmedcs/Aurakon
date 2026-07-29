@@ -235,8 +235,9 @@ async function updatePasswordAndClearResetToken(
   userId,
   tokenHash,
   passwordHash,
+  db = pool,
 ) {
-  const [result] = await pool.query(
+  const [result] = await db.query(
     `UPDATE users
      SET password_hash = ?,
          reset_token_hash = NULL,
