@@ -63,6 +63,10 @@ const confirmEmailVerificationSchema = z.object({
   token: z.string().min(1),
 });
 
+const confirmEmailChangeSchema = z.object({
+  token: z.string().min(1),
+});
+
 const confirmDeleteAccountSchema = z.object({
   token: z.string().min(1),
 });
@@ -78,5 +82,6 @@ module.exports = {
   requestEmailChangeSchema,
   updateUsernameSchema,
   confirmEmailVerificationSchema,
+  confirmEmailChangeSchema,
   confirmDeleteAccountSchema,
 };

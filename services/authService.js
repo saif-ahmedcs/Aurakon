@@ -439,6 +439,26 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
   };
 }
 
+// ------------- CHECK EMAIL CHANGE TOKEN --------------
+async function checkEmailChangeToken(token) {
+  if (!token) {
+    throw new BadRequestError("token is required");
+  }
+
+  const tokenHash = hashToken(token);
+  const user = await userModel.findByValidEmailChangeToken(tokenHash);
+
+  if (!user) {
+    await userModel.clearExpiredEmailChangeToken(tokenHash);
+    throw new BadRequestError("invalid or expired token");
+  }
+
+  return {
+    message:
+      "Token verified. Submit a final confirmation to change your email.",
+  };
+}
+
 // ------------- CONFIRM EMAIL CHANGE --------------
 async function confirmEmailChange(token) {
   if (!token) {
@@ -553,6 +573,7 @@ module.exports = {
   updateTimezone,
   updateUsername,
   requestEmailChange,
+  checkEmailChangeToken,
   confirmEmailChange,
   requestAccountDeletion,
   verifyAccountDeletionToken,

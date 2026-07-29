@@ -172,6 +172,16 @@ async function findByValidVerificationToken(tokenHash, db = pool) {
   return rows[0] || null;
 }
 
+async function findByValidEmailChangeToken(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id FROM users
+     WHERE email_change_token_hash = ?
+       AND email_change_token_expires > UTC_TIMESTAMP()`,
+    [tokenHash],
+  );
+  return rows[0] || null;
+}
+
 async function verifyEmail(tokenHash) {
   const [result] = await pool.query(
     `UPDATE users
@@ -393,6 +403,7 @@ module.exports = {
   applyEmailChange,
   clearExpiredEmailChangeToken,
   findByValidVerificationToken,
+  findByValidEmailChangeToken,
   verifyEmail,
   findForResend,
   setVerificationToken,

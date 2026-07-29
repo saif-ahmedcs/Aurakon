@@ -18,6 +18,7 @@ const {
   updateUsernameSchema,
   confirmEmailVerificationSchema,
   confirmDeleteAccountSchema,
+  confirmEmailChangeSchema,
 } = require("../middleware/schemas/authSchemas");
 const {
   registerLimiter,
@@ -236,6 +237,17 @@ router.get(
   verifyEmailChangeLimiter,
   asyncHandler(async (req, res) => {
     const { token } = req.query;
+    const result = await authService.checkEmailChangeToken(token);
+    res.status(200).json(result);
+  }),
+);
+
+router.post(
+  "/verify-email-change/confirm",
+  verifyEmailChangeLimiter,
+  validate(confirmEmailChangeSchema),
+  asyncHandler(async (req, res) => {
+    const { token } = req.body;
     const result = await authService.confirmEmailChange(token);
     res.status(200).json(result);
   }),
