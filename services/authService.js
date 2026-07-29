@@ -316,10 +316,6 @@ async function changePassword(userId, currentPassword, newPassword) {
     throw new UnauthorizedError("invalid current password");
   }
 
-  if (!passwordMatch) {
-    throw new UnauthorizedError("invalid current password");
-  }
-
   const sameAsCurrent = await bcrypt.compare(newPassword, user.password_hash);
   if (sameAsCurrent) {
     throw new BadRequestError(
@@ -484,7 +480,10 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
       tx,
     );
     if (existing) {
-      throw new ConflictError("email already in use");
+      if (existing.is_verified) {
+        throw new ConflictError("email already in use");
+      }
+      await userModel.deleteById(existing.id, tx);
     }
 
     await userModel.setPendingEmailChange(
@@ -589,19 +588,34 @@ async function confirmEmailChange(token) {
   }
 
   const tokenHash = hashToken(token);
+  let matchedUser = null;
 
-  const oldEmail = await runInTransaction(async (tx) => {
-    const user = await userModel.findByValidEmailChangeTokenWithEmail(
-      tokenHash,
-      tx,
-    );
-    if (!user) return null;
+  let oldEmail;
+  try {
+    oldEmail = await runInTransaction(async (tx) => {
+      const user = await userModel.findByValidEmailChangeTokenWithEmail(
+        tokenHash,
+        tx,
+      );
+      if (!user) return null;
+      matchedUser = user;
 
-    const affectedRows = await userModel.applyEmailChange(tokenHash, tx);
-    if (affectedRows === 0) return null;
+      const affectedRows = await userModel.applyEmailChange(tokenHash, tx);
+      if (affectedRows === 0) return null;
 
-    return user.email;
-  });
+      return user.email;
+    });
+  } catch (err) {
+    if (err.code === "ER_DUP_ENTRY") {
+      if (matchedUser) {
+        await userModel.cancelPendingEmailChange(matchedUser.id);
+      }
+      throw new ConflictError(
+        "This email address is no longer available. Please request a new email change.",
+      );
+    }
+    throw err;
+  }
 
   if (!oldEmail) {
     await userModel.clearExpiredEmailChangeToken(tokenHash);
