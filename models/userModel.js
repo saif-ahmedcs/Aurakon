@@ -182,6 +182,17 @@ async function findByValidEmailChangeToken(tokenHash, db = pool) {
   return rows[0] || null;
 }
 
+async function findByValidEmailChangeTokenWithEmail(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, email FROM users
+     WHERE email_change_token_hash = ?
+       AND email_change_token_expires > UTC_TIMESTAMP()
+     FOR UPDATE`,
+    [tokenHash],
+  );
+  return rows[0] || null;
+}
+
 async function verifyEmail(tokenHash) {
   const [result] = await pool.query(
     `UPDATE users
@@ -360,7 +371,7 @@ async function findByValidDeleteToken(tokenHash, db = pool) {
 
 async function findValidDeleteTokenForUser(userId, tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id FROM users
+    `SELECT id, email FROM users
      WHERE id = ?
        AND delete_token_hash = ?
        AND delete_token_expires > UTC_TIMESTAMP()
@@ -404,6 +415,7 @@ module.exports = {
   clearExpiredEmailChangeToken,
   findByValidVerificationToken,
   findByValidEmailChangeToken,
+  findByValidEmailChangeTokenWithEmail,
   verifyEmail,
   findForResend,
   setVerificationToken,

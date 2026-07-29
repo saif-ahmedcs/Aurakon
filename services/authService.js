@@ -262,6 +262,9 @@ async function resetPassword(token, newPassword) {
     throw new BadRequestError("invalid or expired token");
   }
 
+  const updatedUser = await userModel.findById(user.id);
+  authEvents.emit("PASSWORD_RESET_COMPLETED", { email: updatedUser.email });
+
   return { message: "password reset successfully" };
 }
 
@@ -306,6 +309,9 @@ async function changePassword(userId, currentPassword, newPassword) {
       `password can only be changed once every 30 days. Try again after ${nextEligibleAt.toISOString()}.`,
     );
   }
+
+  const updatedUser = await userModel.findById(userId);
+  authEvents.emit("PASSWORD_CHANGED", { email: updatedUser.email });
 
   return { message: "password changed successfully" };
 }
@@ -466,12 +472,26 @@ async function confirmEmailChange(token) {
   }
 
   const tokenHash = hashToken(token);
-  const affectedRows = await userModel.applyEmailChange(tokenHash);
 
-  if (affectedRows === 0) {
+  const oldEmail = await runInTransaction(async (tx) => {
+    const user = await userModel.findByValidEmailChangeTokenWithEmail(
+      tokenHash,
+      tx,
+    );
+    if (!user) return null;
+
+    const affectedRows = await userModel.applyEmailChange(tokenHash, tx);
+    if (affectedRows === 0) return null;
+
+    return user.email;
+  });
+
+  if (!oldEmail) {
     await userModel.clearExpiredEmailChangeToken(tokenHash);
     throw new BadRequestError("invalid or expired token");
   }
+
+  authEvents.emit("EMAIL_CHANGED", { email: oldEmail });
 
   return { message: "email changed successfully" };
 }
@@ -525,7 +545,7 @@ async function confirmAccountDeletion(userId, token) {
 
   const tokenHash = hashToken(token);
 
-  await runInTransaction(async (tx) => {
+  const email = await runInTransaction(async (tx) => {
     const validToken = await userModel.findValidDeleteTokenForUser(
       userId,
       tokenHash,
@@ -538,7 +558,10 @@ async function confirmAccountDeletion(userId, token) {
 
     await habitModel.deleteAllByUser(userId, tx);
     await userModel.deleteById(userId, tx);
+    return validToken.email;
   });
+
+  authEvents.emit("ACCOUNT_DELETED", { email });
 
   return { message: "Account permanently deleted." };
 }

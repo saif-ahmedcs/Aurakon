@@ -66,4 +66,51 @@ authEvents.on("ACCOUNT_DELETION_REQUESTED", ({ email, rawToken }) => {
   });
 });
 
+authEvents.on("PASSWORD_CHANGED", ({ email }) => {
+  console.log(`[PASSWORD_CHANGED] recipient=${email}`);
+
+  emailService.sendEmail({
+    to: email,
+    subject: "Your Aurakon password was changed",
+    html: `<p>Hello,</p>
+           <p>Your Aurakon account password was just changed.</p>
+           <p>If you did not make this change, please reset your password immediately and contact support.</p>`,
+  });
+});
+
+authEvents.on("PASSWORD_RESET_COMPLETED", ({ email }) => {
+  console.log(`[PASSWORD_RESET_COMPLETED] recipient=${email}`);
+
+  emailService.sendEmail({
+    to: email,
+    subject: "Your Aurakon password was reset",
+    html: `<p>Hello,</p>
+           <p>Your Aurakon account password was just reset.</p>
+           <p>If you did not make this change, please contact support immediately.</p>`,
+  });
+});
+
+authEvents.on("EMAIL_CHANGED", ({ email }) => {
+  console.log(`[EMAIL_CHANGED] recipient=${email}`);
+
+  emailService.sendEmail({
+    to: email,
+    subject: "Your Aurakon account email was changed",
+    html: `<p>Hello,</p>
+           <p>The email address on your Aurakon account was just changed away from this address.</p>
+           <p>If you did not make this change, please contact support immediately.</p>`,
+  });
+});
+
+authEvents.on("ACCOUNT_DELETED", ({ email }) => {
+  console.log(`[ACCOUNT_DELETED] recipient=${email}`);
+
+  emailService.sendEmail({
+    to: email,
+    subject: "Your Aurakon account has been deleted",
+    html: `<p>Hello,</p>
+           <p>Your Aurakon account has been permanently deleted, as requested.</p>`,
+  });
+});
+
 module.exports = authEvents;
