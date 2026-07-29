@@ -130,6 +130,17 @@ router.post(
   }),
 );
 
+router.get(
+  "/reset-password",
+  asyncHandler(async (req, res) => {
+    const { token } = req.query;
+
+    const result = await authService.checkResetToken(token);
+
+    res.status(200).json(result);
+  }),
+);
+
 router.post(
   "/reset-password",
   validate(resetPasswordSchema),

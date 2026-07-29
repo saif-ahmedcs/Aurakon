@@ -11,6 +11,7 @@ const {
   MAX_ACTIVE_SESSIONS,
   USERNAME_CHANGE_COOLDOWN_MS,
   PASSWORD_CHANGE_COOLDOWN_MS,
+  EMAIL_CHANGE_MAX_AGE_MS,
 } = require("../utils/constants");
 const {
   BadRequestError,
@@ -242,6 +243,25 @@ async function forgotPassword(email) {
   });
 
   return GENERIC_FORGOT_PASSWORD_RESPONSE;
+}
+
+// ------------- CHECK RESET PASSWORD TOKEN --------------
+async function checkResetToken(token) {
+  if (!token) {
+    throw new BadRequestError("token is required");
+  }
+
+  const tokenHash = hashToken(token);
+  const user = await userModel.findByValidResetToken(tokenHash);
+
+  if (!user) {
+    await userModel.clearExpiredResetToken(tokenHash);
+    throw new BadRequestError("invalid or expired token");
+  }
+
+  return {
+    message: "Token verified. Submit a new password to complete the reset.",
+  };
 }
 
 // ------------- RESET PASSWORD --------------
@@ -699,6 +719,7 @@ module.exports = {
   confirmEmailVerification,
   resendVerification,
   forgotPassword,
+  checkResetToken,
   resetPassword,
   refresh,
   logout,

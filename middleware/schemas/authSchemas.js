@@ -78,6 +78,7 @@ module.exports = {
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
+  changePasswordSchema,
   updateTimezoneSchema,
   requestEmailChangeSchema,
   updateUsernameSchema,

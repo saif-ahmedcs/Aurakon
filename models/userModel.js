@@ -456,6 +456,7 @@ module.exports = {
   findForResend,
   setVerificationToken,
   findForLogin,
+  findPasswordHashById,
   clearExpiredVerificationToken,
   clearExpiredResetToken,
   clearOwnExpiredResetToken,
