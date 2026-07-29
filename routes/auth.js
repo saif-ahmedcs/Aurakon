@@ -242,6 +242,15 @@ router.post(
   }),
 );
 
+router.post(
+  "/email/cancel",
+  auth,
+  asyncHandler(async (req, res) => {
+    const result = await authService.cancelEmailChange(req.user.id);
+    res.status(200).json(result);
+  }),
+);
+
 router.get(
   "/verify-email-change",
   verifyEmailChangeLimiter,
@@ -269,6 +278,15 @@ router.post(
   deleteAccountLimiter,
   asyncHandler(async (req, res) => {
     const result = await authService.requestAccountDeletion(req.user.id);
+    res.status(200).json(result);
+  }),
+);
+
+router.post(
+  "/delete-account/cancel",
+  auth,
+  asyncHandler(async (req, res) => {
+    const result = await authService.cancelAccountDeletion(req.user.id);
     res.status(200).json(result);
   }),
 );

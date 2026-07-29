@@ -144,6 +144,19 @@ async function setPendingEmailChange(
   );
 }
 
+async function cancelPendingEmailChange(userId, db = pool) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET pending_email = NULL,
+         email_change_token_hash = NULL,
+         email_change_token_expires = NULL
+     WHERE id = ?
+       AND pending_email IS NOT NULL`,
+    [userId],
+  );
+  return result.affectedRows > 0;
+}
+
 async function applyEmailChange(tokenHash, db = pool) {
   const [result] = await db.query(
     `UPDATE users
@@ -368,6 +381,18 @@ async function setDeleteToken(userId, tokenHash, expiresAt, db = pool) {
   );
 }
 
+async function cancelPendingAccountDeletion(userId, db = pool) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET delete_token_hash = NULL,
+         delete_token_expires = NULL
+     WHERE id = ?
+       AND delete_token_hash IS NOT NULL`,
+    [userId],
+  );
+  return result.affectedRows > 0;
+}
+
 async function findByValidDeleteToken(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, email FROM users
@@ -421,6 +446,7 @@ module.exports = {
   findForEmailChange,
   findPendingEmailChange,
   setPendingEmailChange,
+  cancelPendingEmailChange,
   applyEmailChange,
   clearExpiredEmailChangeToken,
   findByValidVerificationToken,
@@ -440,6 +466,7 @@ module.exports = {
   updatePasswordIfEligible,
   getPasswordChangedAt,
   setDeleteToken,
+  cancelPendingAccountDeletion,
   findByValidDeleteToken,
   findValidDeleteTokenForUser,
   clearExpiredDeleteToken,

@@ -529,6 +529,19 @@ async function resendEmailChangeVerification(userId) {
   };
 }
 
+// ------------- CANCEL EMAIL CHANGE --------------
+async function cancelEmailChange(userId) {
+  const cancelled = await runInTransaction(async (tx) => {
+    return userModel.cancelPendingEmailChange(userId, tx);
+  });
+
+  if (!cancelled) {
+    throw new BadRequestError("no pending email change request");
+  }
+
+  return { message: "pending email change cancelled" };
+}
+
 // ------------- CHECK EMAIL CHANGE TOKEN --------------
 async function checkEmailChangeToken(token) {
   if (!token) {
@@ -599,6 +612,19 @@ async function requestAccountDeletion(userId) {
     message:
       "A confirmation email has been sent to your registered email address.",
   };
+}
+
+// ------------- CANCEL ACCOUNT DELETION --------------
+async function cancelAccountDeletion(userId) {
+  const cancelled = await runInTransaction(async (tx) => {
+    return userModel.cancelPendingAccountDeletion(userId, tx);
+  });
+
+  if (!cancelled) {
+    throw new BadRequestError("no pending account deletion request");
+  }
+
+  return { message: "pending account deletion cancelled" };
 }
 
 // ------------- VERIFY ACCOUNT DELETION TOKEN --------------
@@ -682,8 +708,10 @@ module.exports = {
   requestEmailChange,
   resendEmailChangeVerification,
   checkEmailChangeToken,
+  cancelEmailChange,
   confirmEmailChange,
   requestAccountDeletion,
+  cancelAccountDeletion,
   verifyAccountDeletionToken,
   confirmAccountDeletion,
   getCurrentUser,
