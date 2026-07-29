@@ -233,6 +233,17 @@ async function forgotPassword(email) {
       return;
     }
 
+    if (user.reset_token_expires) {
+      const issuedAt =
+        new Date(user.reset_token_expires).getTime() -
+        PASSWORD_RESET_MAX_AGE_MS;
+      if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
+        throw new TooManyRequestsError(
+          "Please wait before requesting another password reset email.",
+        );
+      }
+    }
+
     const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
 
     await userModel.setResetToken(user.id, tokenHash, expiresAt, tx);
@@ -281,6 +292,7 @@ async function resetPassword(token, newPassword) {
       user.id,
       tokenHash,
       passwordHash,
+      PASSWORD_CHANGE_COOLDOWN_MS,
       tx,
     );
     if (updated) {
@@ -290,7 +302,19 @@ async function resetPassword(token, newPassword) {
   });
 
   if (!applied) {
-    throw new BadRequestError("invalid or expired token");
+    const stillValidToken = await userModel.findByValidResetToken(tokenHash);
+    if (!stillValidToken) {
+      await userModel.clearExpiredResetToken(tokenHash);
+      throw new BadRequestError("invalid or expired token");
+    }
+
+    const lastChangedAt = await userModel.getPasswordChangedAt(user.id);
+    const nextEligibleAt = new Date(
+      new Date(lastChangedAt).getTime() + PASSWORD_CHANGE_COOLDOWN_MS,
+    );
+    throw new TooManyRequestsError(
+      `password can only be changed once every 30 days. Try again after ${nextEligibleAt.toISOString()}.`,
+    );
   }
 
   const updatedUser = await userModel.findById(user.id);
@@ -304,7 +328,7 @@ async function changePassword(userId, currentPassword, newPassword) {
   const user = await userModel.findPasswordHashById(userId);
 
   if (!user) {
-    throw new UnauthorizedError("invalid current password");
+    throw new UnauthorizedError("user not found");
   }
 
   const passwordMatch = await bcrypt.compare(
@@ -334,6 +358,7 @@ async function changePassword(userId, currentPassword, newPassword) {
     );
     if (updated) {
       await refreshTokenModel.deleteAllByUserId(userId, tx);
+      await userModel.clearResetToken(userId, tx);
     }
     return updated;
   });
