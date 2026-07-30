@@ -259,7 +259,6 @@ async function updatePasswordAndClearResetToken(
   userId,
   tokenHash,
   passwordHash,
-  cooldownMs,
   db = pool,
 ) {
   const [result] = await db.query(
@@ -270,27 +269,16 @@ async function updatePasswordAndClearResetToken(
          reset_token_expires = NULL
      WHERE id = ?
        AND reset_token_hash = ?
-       AND reset_token_expires > UTC_TIMESTAMP()
-       AND (password_changed_at IS NULL
-            OR password_changed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)`,
-    [passwordHash, userId, tokenHash, Math.floor(cooldownMs / 1000)],
+       AND reset_token_expires > UTC_TIMESTAMP()`,
+    [passwordHash, userId, tokenHash],
   );
   return result.affectedRows > 0;
 }
 
-async function updatePasswordIfEligible(
-  userId,
-  passwordHash,
-  cooldownMs,
-  db = pool,
-) {
+async function updatePasswordIfEligible(userId, passwordHash, db = pool) {
   const [result] = await db.query(
-    `UPDATE users
-     SET password_hash = ?, password_changed_at = UTC_TIMESTAMP()
-     WHERE id = ?
-       AND (password_changed_at IS NULL
-            OR password_changed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)`,
-    [passwordHash, userId, Math.floor(cooldownMs / 1000)],
+    `UPDATE users SET password_hash = ?, password_changed_at = UTC_TIMESTAMP() WHERE id = ?`,
+    [passwordHash, userId],
   );
   return result.affectedRows > 0;
 }

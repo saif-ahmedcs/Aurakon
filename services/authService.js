@@ -10,7 +10,6 @@ const {
   VERIFICATION_COOLDOWN_MS,
   MAX_ACTIVE_SESSIONS,
   USERNAME_CHANGE_COOLDOWN_MS,
-  PASSWORD_CHANGE_COOLDOWN_MS,
   EMAIL_CHANGE_MAX_AGE_MS,
   EMAIL_VERIFICATION_MAX_AGE_MS,
 } = require("../utils/constants");
@@ -221,17 +220,6 @@ async function forgotPassword(email) {
       return;
     }
 
-    if (user.reset_token_expires) {
-      const issuedAt =
-        new Date(user.reset_token_expires).getTime() -
-        PASSWORD_RESET_MAX_AGE_MS;
-      if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
-        throw new TooManyRequestsError(
-          "Please wait before requesting another password reset email.",
-        );
-      }
-    }
-
     const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
 
     await userModel.setResetToken(user.id, tokenHash, expiresAt, tx);
@@ -280,7 +268,6 @@ async function resetPassword(token, newPassword) {
       user.id,
       tokenHash,
       passwordHash,
-      PASSWORD_CHANGE_COOLDOWN_MS,
       tx,
     );
     if (updated) {
@@ -290,19 +277,8 @@ async function resetPassword(token, newPassword) {
   });
 
   if (!applied) {
-    const stillValidToken = await userModel.findByValidResetToken(tokenHash);
-    if (!stillValidToken) {
-      await userModel.clearExpiredResetToken(tokenHash);
-      throw new BadRequestError("invalid or expired token");
-    }
-
-    const lastChangedAt = await userModel.getPasswordChangedAt(user.id);
-    const nextEligibleAt = new Date(
-      new Date(lastChangedAt).getTime() + PASSWORD_CHANGE_COOLDOWN_MS,
-    );
-    throw new TooManyRequestsError(
-      `password can only be changed once every 30 days. Try again after ${nextEligibleAt.toISOString()}.`,
-    );
+    await userModel.clearExpiredResetToken(tokenHash);
+    throw new BadRequestError("invalid or expired token");
   }
 
   const updatedUser = await userModel.findById(user.id);
@@ -337,29 +313,11 @@ async function changePassword(userId, currentPassword, newPassword) {
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
-  const applied = await runInTransaction(async (tx) => {
-    const updated = await userModel.updatePasswordIfEligible(
-      userId,
-      passwordHash,
-      PASSWORD_CHANGE_COOLDOWN_MS,
-      tx,
-    );
-    if (updated) {
-      await refreshTokenModel.deleteAllByUserId(userId, tx);
-      await userModel.clearResetToken(userId, tx);
-    }
-    return updated;
+  await runInTransaction(async (tx) => {
+    await userModel.updatePasswordIfEligible(userId, passwordHash, tx);
+    await refreshTokenModel.deleteAllByUserId(userId, tx);
+    await userModel.clearResetToken(userId, tx);
   });
-
-  if (!applied) {
-    const lastChangedAt = await userModel.getPasswordChangedAt(userId);
-    const nextEligibleAt = new Date(
-      new Date(lastChangedAt).getTime() + PASSWORD_CHANGE_COOLDOWN_MS,
-    );
-    throw new TooManyRequestsError(
-      `password can only be changed once every 30 days. Try again after ${nextEligibleAt.toISOString()}.`,
-    );
-  }
 
   const updatedUser = await userModel.findById(userId);
   authEvents.emit("PASSWORD_CHANGED", { email: updatedUser.email });

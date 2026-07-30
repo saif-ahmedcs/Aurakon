@@ -35,16 +35,38 @@ const loginLimiter = rateLimit({
   message: { error: "too many login attempts, please try again later" },
 });
 
-const forgotPasswordLimiter = rateLimit({
+const forgotPasswordCooldownLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
-  keyGenerator: (req) => {
-    const email = (req.body?.email ?? "").toLowerCase().trim();
-    return `${ipKeyGenerator(req.ip)}:${email}`;
-  },
+  max: 1,
+  keyGenerator: (req) => (req.body?.email ?? "").toLowerCase().trim(),
   message: {
-    error: "too many requests, please try again later",
+    error: "please wait 15 minutes before requesting another reset email",
   },
+});
+
+const forgotPasswordDailyLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 3,
+  keyGenerator: (req) => (req.body?.email ?? "").toLowerCase().trim(),
+  message: { error: "maximum of 3 password reset emails per 24 hours reached" },
+});
+
+const changePasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  keyGenerator: (req) =>
+    req.user?.id ? req.user.id.toString() : ipKeyGenerator(req.ip),
+  message: {
+    error: "too many password change attempts, please try again later",
+  },
+});
+
+const changePasswordDailyLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 3,
+  keyGenerator: (req) =>
+    req.user?.id ? req.user.id.toString() : ipKeyGenerator(req.ip),
+  message: { error: "maximum of 3 password changes per 24 hours reached" },
 });
 
 const changeEmailLimiter = rateLimit({
@@ -90,7 +112,10 @@ module.exports = {
   verifyEmailLimiter,
   resendVerificationLimiter,
   loginLimiter,
-  forgotPasswordLimiter,
+  forgotPasswordCooldownLimiter,
+  forgotPasswordDailyLimiter,
+  changePasswordLimiter,
+  changePasswordDailyLimiter,
   changeEmailLimiter,
   verifyEmailChangeLimiter,
   deleteAccountLimiter,
