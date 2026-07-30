@@ -35,25 +35,6 @@ async function setGender(userId, gender, db = pool) {
   await db.query("UPDATE users SET gender = ? WHERE id = ?", [gender, userId]);
 }
 
-async function reclaimUnverified(
-  userId,
-  passwordHash,
-  username,
-  tokenHash,
-  expiresAt,
-  db = pool,
-) {
-  await db.query(
-    `UPDATE users
-     SET password_hash = ?,
-         username = ?,
-         email_verification_token_hash = ?,
-         email_verification_expires = ?
-     WHERE id = ?`,
-    [passwordHash, username, tokenHash, expiresAt, userId],
-  );
-}
-
 async function findById(id, db = pool) {
   const [rows] = await db.query(
     "SELECT id, email, username, gender FROM users WHERE id = ?",
@@ -451,7 +432,6 @@ module.exports = {
   findByEmailForRegistration,
   createUser,
   setGender,
-  reclaimUnverified,
   findById,
   getAccountInfo,
   getAuthProfile,

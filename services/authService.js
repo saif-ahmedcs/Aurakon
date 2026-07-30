@@ -12,6 +12,7 @@ const {
   USERNAME_CHANGE_COOLDOWN_MS,
   PASSWORD_CHANGE_COOLDOWN_MS,
   EMAIL_CHANGE_MAX_AGE_MS,
+  EMAIL_VERIFICATION_MAX_AGE_MS,
 } = require("../utils/constants");
 const {
   BadRequestError,
@@ -44,20 +45,7 @@ async function register(email, password, username) {
     );
 
     if (existing) {
-      if (existing.is_verified) {
-        throw new ConflictError("email already registered");
-      }
-
-      await userModel.reclaimUnverified(
-        existing.id,
-        passwordHash,
-        trimmedUsername,
-        tokenHash,
-        expiresAt,
-        tx,
-      );
-
-      return await userModel.findById(existing.id, tx);
+      throw new ConflictError("email already registered");
     }
 
     const newUserId = await userModel.createUser(
@@ -135,7 +123,7 @@ async function resendVerification(email) {
     if (user.email_verification_expires) {
       const issuedAt =
         new Date(user.email_verification_expires).getTime() -
-        24 * 60 * 60 * 1000;
+        EMAIL_VERIFICATION_MAX_AGE_MS;
       if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
         throw new TooManyRequestsError(
           "Please wait before requesting another verification email.",
