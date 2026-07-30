@@ -24,10 +24,13 @@ async function auth(req, res, next) {
 
   try {
     const profile = await userModel.getAuthProfile(decoded.sub);
+    if (!profile) {
+      return res.status(401).json({ error: "invalid or expired token" });
+    }
     req.user = {
       id: decoded.sub,
-      timezone: (profile && profile.timezone) || DEFAULT_TIMEZONE,
-      gender: profile ? profile.gender : null,
+      timezone: profile.timezone || DEFAULT_TIMEZONE,
+      gender: profile.gender,
     };
     next();
   } catch (err) {

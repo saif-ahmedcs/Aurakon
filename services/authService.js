@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const { runInTransaction } = require("../db");
 const hashToken = require("../utils/hashToken");
+const { hasCooldownElapsed } = require("../utils/cooldown");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const habitModel = require("../models/habitModel");
@@ -12,6 +13,9 @@ const {
   USERNAME_CHANGE_COOLDOWN_MS,
   EMAIL_CHANGE_MAX_AGE_MS,
   EMAIL_VERIFICATION_MAX_AGE_MS,
+  PASSWORD_RESET_MAX_AGE_MS,
+  PASSWORD_RESET_COOLDOWN_MS,
+  ACCOUNT_DELETION_MAX_AGE_MS,
 } = require("../utils/constants");
 const {
   BadRequestError,
@@ -119,17 +123,17 @@ async function resendVerification(email) {
       return;
     }
 
-    if (user.email_verification_expires) {
-      const issuedAt =
-        new Date(user.email_verification_expires).getTime() -
-        EMAIL_VERIFICATION_MAX_AGE_MS;
-      if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
-        throw new TooManyRequestsError(
-          "Please wait before requesting another verification email.",
-        );
-      }
+    if (
+      !hasCooldownElapsed(
+        user.email_verification_expires,
+        EMAIL_VERIFICATION_MAX_AGE_MS,
+        VERIFICATION_COOLDOWN_MS,
+      )
+    ) {
+      throw new TooManyRequestsError(
+        "Please wait before requesting another verification email.",
+      );
     }
-
     const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
     await userModel.setVerificationToken(user.id, tokenHash, expiresAt, tx);
@@ -196,9 +200,6 @@ async function login(email, password) {
 // ------------- SET GENDER --------------
 async function setGender(userId, gender) {
   const user = await userModel.findById(userId);
-  if (!user) {
-    throw new UnauthorizedError("user not found");
-  }
 
   if (user.gender) {
     throw new BadRequestError(
@@ -218,6 +219,18 @@ async function forgotPassword(email) {
     const user = await userModel.findForPasswordReset(normalizedEmail, tx);
     if (!user || !user.is_verified) {
       return;
+    }
+
+    if (
+      !hasCooldownElapsed(
+        user.reset_token_expires,
+        PASSWORD_RESET_MAX_AGE_MS,
+        PASSWORD_RESET_COOLDOWN_MS,
+      )
+    ) {
+      throw new TooManyRequestsError(
+        "Please wait before requesting another password reset email.",
+      );
     }
 
     const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
@@ -290,10 +303,6 @@ async function resetPassword(token, newPassword) {
 // ------------- CHANGE PASSWORD --------------
 async function changePassword(userId, currentPassword, newPassword) {
   const user = await userModel.findPasswordHashById(userId);
-
-  if (!user) {
-    throw new UnauthorizedError("user not found");
-  }
 
   const passwordMatch = await bcrypt.compare(
     currentPassword,
@@ -379,9 +388,6 @@ async function logoutAll(rawRefreshToken) {
 // ------------- UPDATE TIMEZONE --------------
 async function updateTimezone(userId, timezone) {
   const user = await userModel.getAccountInfo(userId);
-  if (!user) {
-    throw new UnauthorizedError("user not found");
-  }
 
   if (user.timezone === timezone) {
     return { timezone };
@@ -394,10 +400,6 @@ async function updateTimezone(userId, timezone) {
 // ------------- UPDATE USERNAME --------------
 async function updateUsername(userId, username) {
   const user = await userModel.findById(userId);
-
-  if (!user) {
-    throw new UnauthorizedError("user not found");
-  }
 
   if (user.username === username) {
     throw new BadRequestError("username is unchanged");
@@ -424,12 +426,7 @@ async function updateUsername(userId, username) {
 
 // ------------- REQUEST EMAIL CHANGE --------------
 async function requestEmailChange(userId, newEmail, currentPassword) {
-  const normalizedEmail = newEmail.toLowerCase();
-
   const user = await userModel.findForEmailChange(userId);
-  if (!user) {
-    throw new UnauthorizedError("user not found");
-  }
 
   const passwordMatch = await bcrypt.compare(
     currentPassword,
@@ -451,10 +448,7 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
       tx,
     );
     if (existing) {
-      if (existing.is_verified) {
-        throw new ConflictError("email already in use");
-      }
-      await userModel.deleteById(existing.id, tx);
+      throw new ConflictError("email already registered");
     }
 
     await userModel.setPendingEmailChange(
@@ -485,15 +479,16 @@ async function resendEmailChangeVerification(userId) {
       throw new BadRequestError("no pending email change request");
     }
 
-    if (user.email_change_token_expires) {
-      const issuedAt =
-        new Date(user.email_change_token_expires).getTime() -
-        EMAIL_CHANGE_MAX_AGE_MS;
-      if (Date.now() - issuedAt < VERIFICATION_COOLDOWN_MS) {
-        throw new TooManyRequestsError(
-          "Please wait before requesting another verification email.",
-        );
-      }
+    if (
+      !hasCooldownElapsed(
+        user.email_change_token_expires,
+        EMAIL_CHANGE_MAX_AGE_MS,
+        VERIFICATION_COOLDOWN_MS,
+      )
+    ) {
+      throw new TooManyRequestsError(
+        "Please wait before requesting another verification email.",
+      );
     }
 
     const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
@@ -600,18 +595,28 @@ async function confirmEmailChange(token) {
 
 // ------------- REQUEST ACCOUNT DELETION --------------
 async function requestAccountDeletion(userId) {
-  const user = await userModel.findById(userId);
-  if (!user) {
-    throw new UnauthorizedError("user not found");
-  }
-
   const { rawToken, tokenHash, expiresAt } = generateAccountDeletionToken();
-  await userModel.setDeleteToken(userId, tokenHash, expiresAt);
 
-  authEvents.emit("ACCOUNT_DELETION_REQUESTED", {
-    email: user.email,
-    rawToken,
+  const email = await runInTransaction(async (tx) => {
+    const user = await userModel.findForAccountDeletion(userId, tx);
+
+    if (
+      !hasCooldownElapsed(
+        user.delete_token_expires,
+        ACCOUNT_DELETION_MAX_AGE_MS,
+        VERIFICATION_COOLDOWN_MS,
+      )
+    ) {
+      throw new TooManyRequestsError(
+        "Please wait before requesting another account deletion email.",
+      );
+    }
+
+    await userModel.setDeleteToken(userId, tokenHash, expiresAt, tx);
+    return user.email;
   });
+
+  authEvents.emit("ACCOUNT_DELETION_REQUESTED", { email, rawToken });
 
   return {
     message:
@@ -692,9 +697,6 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
 // ------------- GET CURRENT USER (MY ACCOUNT) --------------
 async function getCurrentUser(userId) {
   const account = await userModel.getAccountInfo(userId);
-  if (!account) {
-    throw new UnauthorizedError("user not found");
-  }
 
   return {
     email: account.email,
@@ -712,6 +714,7 @@ module.exports = {
   confirmEmailVerification,
   resendVerification,
   forgotPassword,
+  changePassword,
   checkResetToken,
   resetPassword,
   refresh,

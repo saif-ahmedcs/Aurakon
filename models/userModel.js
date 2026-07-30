@@ -355,6 +355,14 @@ async function clearOwnExpiredResetToken(userId) {
   return result.affectedRows;
 }
 
+async function findForAccountDeletion(userId, db = pool) {
+  const [rows] = await db.query(
+    "SELECT id, email, delete_token_expires FROM users WHERE id = ? FOR UPDATE",
+    [userId],
+  );
+  return rows[0] || null;
+}
+
 async function setDeleteToken(userId, tokenHash, expiresAt, db = pool) {
   await db.query(
     `UPDATE users
@@ -450,6 +458,7 @@ module.exports = {
   updatePasswordAndClearResetToken,
   updatePasswordIfEligible,
   getPasswordChangedAt,
+  findForAccountDeletion,
   setDeleteToken,
   cancelPendingAccountDeletion,
   findByValidDeleteToken,
