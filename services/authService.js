@@ -274,6 +274,13 @@ async function resetPassword(token, newPassword) {
     throw new BadRequestError("invalid or expired token");
   }
 
+  const sameAsCurrent = await bcrypt.compare(newPassword, user.password_hash);
+  if (sameAsCurrent) {
+    throw new BadRequestError(
+      "new password must be different from the current password",
+    );
+  }
+
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
   const applied = await runInTransaction(async (tx) => {
@@ -402,7 +409,7 @@ async function updateUsername(userId, username) {
   const user = await userModel.findById(userId);
 
   if (user.username === username) {
-    throw new BadRequestError("username is unchanged");
+    return { username };
   }
 
   const applied = await userModel.updateUsernameIfEligible(

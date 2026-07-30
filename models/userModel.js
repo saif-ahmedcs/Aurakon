@@ -247,7 +247,7 @@ async function setResetToken(userId, tokenHash, expiresAt, db = pool) {
 
 async function findByValidResetToken(tokenHash) {
   const [rows] = await pool.query(
-    `SELECT id FROM users
+    `SELECT id, password_hash FROM users
      WHERE reset_token_hash = ?
        AND reset_token_expires > UTC_TIMESTAMP()`,
     [tokenHash],
