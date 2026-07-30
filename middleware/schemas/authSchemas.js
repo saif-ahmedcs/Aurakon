@@ -69,6 +69,7 @@ const confirmEmailChangeSchema = z.object({
 
 const confirmDeleteAccountSchema = z.object({
   token: z.string().min(1),
+  currentPassword: z.string().min(1),
 });
 
 module.exports = {

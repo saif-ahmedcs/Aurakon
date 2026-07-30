@@ -420,7 +420,7 @@ async function findByValidDeleteToken(tokenHash, db = pool) {
 
 async function findValidDeleteTokenForUser(userId, tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, email FROM users
+    `SELECT id, email, password_hash FROM users
      WHERE id = ?
        AND delete_token_hash = ?
        AND delete_token_expires > UTC_TIMESTAMP()

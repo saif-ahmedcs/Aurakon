@@ -317,8 +317,12 @@ router.post(
   auth,
   validate(confirmDeleteAccountSchema),
   asyncHandler(async (req, res) => {
-    const { token } = req.body;
-    const result = await authService.confirmAccountDeletion(req.user.id, token);
+    const { token, currentPassword } = req.body;
+    const result = await authService.confirmAccountDeletion(
+      req.user.id,
+      token,
+      currentPassword,
+    );
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json(result);
   }),

@@ -418,14 +418,14 @@ async function logout(rawRefreshToken) {
 // ------------- LOGOUT ALL --------------
 async function logoutAll(rawRefreshToken) {
   if (!rawRefreshToken) {
-    throw new UnauthorizedError("missing refresh token");
+    return;
   }
 
   const tokenHash = hashToken(rawRefreshToken);
   const stored = await refreshTokenModel.findByTokenHash(tokenHash);
 
   if (!stored || new Date(stored.expires_at) <= new Date()) {
-    throw new UnauthorizedError("invalid or expired refresh token");
+    return;
   }
   await refreshTokenModel.deleteAllByUserId(stored.user_id);
 }
@@ -707,7 +707,7 @@ async function verifyAccountDeletionToken(token) {
 }
 
 // ------------- CONFIRM ACCOUNT DELETION --------------
-async function confirmAccountDeletion(userId, token) {
+async function confirmAccountDeletion(userId, token, currentPassword) {
   if (!token) {
     throw new BadRequestError("token is required");
   }
@@ -723,6 +723,14 @@ async function confirmAccountDeletion(userId, token) {
 
     if (!validToken) {
       throw new BadRequestError("invalid or expired token");
+    }
+
+    const passwordMatch = await bcrypt.compare(
+      currentPassword,
+      validToken.password_hash,
+    );
+    if (!passwordMatch) {
+      throw new UnauthorizedError("invalid current password");
     }
 
     await habitModel.deleteAllByUser(userId, tx);
