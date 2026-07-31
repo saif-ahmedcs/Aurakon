@@ -37,6 +37,16 @@ async function cleanupConsumedConfirmationTokens() {
     [WINDOW_SECONDS],
   );
 
+  const [resetToken] = await pool.query(
+    `UPDATE users
+     SET reset_token_hash = NULL,
+         reset_token_expires = NULL,
+         reset_token_consumed_at = NULL
+     WHERE reset_token_consumed_at IS NOT NULL
+       AND reset_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
+    [WINDOW_SECONDS],
+  );
+
   const cutoff = new Date(Date.now() - CONFIRMATION_IDEMPOTENCY_WINDOW_MS);
   const deletionRecords =
     await accountDeletionConfirmationModel.deleteOlderThan(cutoff);
@@ -46,6 +56,7 @@ async function cleanupConsumedConfirmationTokens() {
       `email_verification=${emailVerification.affectedRows}, ` +
       `email_change=${emailChange.affectedRows}, ` +
       `delete_token=${deleteToken.affectedRows}, ` +
+      `reset_token=${resetToken.affectedRows}, ` +
       `account_deletion_confirmations=${deletionRecords}.`,
   );
 }

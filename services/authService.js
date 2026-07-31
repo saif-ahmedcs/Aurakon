@@ -286,43 +286,59 @@ async function checkResetToken(token) {
 
 // ------------- RESET PASSWORD --------------
 async function resetPassword(token, newPassword) {
+  if (!token) {
+    throw new BadRequestError("token is required");
+  }
+
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidResetToken(tokenHash);
+  let matchedRow = null;
 
-  if (!user) {
-    await userModel.clearExpiredResetToken(tokenHash);
-    throw new BadRequestError("invalid or expired token");
-  }
+  let outcome;
+  try {
+    outcome = await runInTransaction((tx) =>
+      confirmationTokenService.runIdempotentConfirmation({
+        findState: async (tx) => {
+          matchedRow = await userModel.findResetTokenState(tokenHash, tx);
+          return matchedRow;
+        },
+        execute: async (tokenRow, tx) => {
+          const sameAsCurrent = await bcrypt.compare(
+            newPassword,
+            tokenRow.passwordHash,
+          );
+          if (sameAsCurrent) {
+            throw new BadRequestError(
+              "new password must be different from the current password",
+            );
+          }
 
-  const sameAsCurrent = await bcrypt.compare(newPassword, user.password_hash);
-  if (sameAsCurrent) {
-    throw new BadRequestError(
-      "new password must be different from the current password",
+          const passwordHash = await bcrypt.hash(
+            newPassword,
+            BCRYPT_SALT_ROUNDS,
+          );
+          await userModel.markResetTokenConsumed(tokenRow.id, passwordHash, tx);
+          await refreshTokenModel.deleteAllByUserId(tokenRow.id, tx);
+        },
+        tx,
+      }),
     );
-  }
-
-  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
-
-  const applied = await runInTransaction(async (tx) => {
-    const updated = await userModel.updatePasswordAndClearResetToken(
-      user.id,
-      tokenHash,
-      passwordHash,
-      tx,
-    );
-    if (updated) {
-      await refreshTokenModel.deleteAllByUserId(user.id, tx);
+  } catch (err) {
+    if (
+      err instanceof BadRequestError &&
+      err.message === confirmationTokenService.INVALID_TOKEN_MESSAGE
+    ) {
+      await userModel.clearExpiredResetToken(
+        tokenHash,
+        CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+      );
     }
-    return updated;
-  });
-
-  if (!applied) {
-    await userModel.clearExpiredResetToken(tokenHash);
-    throw new BadRequestError("invalid or expired token");
+    throw err;
   }
 
-  const updatedUser = await userModel.findById(user.id);
-  authEvents.emit("PASSWORD_RESET_COMPLETED", { email: updatedUser.email });
+  if (!outcome.replay) {
+    const updatedUser = await userModel.findById(matchedRow.id);
+    authEvents.emit("PASSWORD_RESET_COMPLETED", { email: updatedUser.email });
+  }
 
   return { message: "password reset successfully" };
 }
@@ -350,7 +366,17 @@ async function changePassword(userId, currentPassword, newPassword) {
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
   await runInTransaction(async (tx) => {
-    await userModel.updatePasswordIfEligible(userId, passwordHash, tx);
+    const applied = await userModel.updatePasswordIfEligible(
+      userId,
+      passwordHash,
+      user.password_hash,
+      tx,
+    );
+    if (!applied) {
+      throw new ConflictError(
+        "password was changed concurrently, please retry",
+      );
+    }
     await refreshTokenModel.deleteAllByUserId(userId, tx);
     await userModel.clearResetToken(userId, tx);
   });
@@ -462,6 +488,8 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
   if (!passwordMatch) {
     throw new UnauthorizedError("invalid current password");
   }
+
+  const normalizedEmail = newEmail.toLowerCase();
 
   if (normalizedEmail === user.email) {
     throw new BadRequestError("new email must be different from current email");

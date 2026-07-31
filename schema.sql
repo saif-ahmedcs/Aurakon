@@ -10,6 +10,7 @@ CREATE TABLE users (
   gender ENUM('male','female') NULL,
   reset_token_hash CHAR(64) NULL,
   reset_token_expires DATETIME NULL,
+  reset_token_consumed_at DATETIME NULL,
   delete_token_hash CHAR(64) NULL,
   delete_token_expires DATETIME NULL,
   total_xp INT NOT NULL DEFAULT 0,

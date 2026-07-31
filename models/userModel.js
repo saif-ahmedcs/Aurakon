@@ -280,36 +280,51 @@ async function findByValidResetToken(tokenHash) {
   const [rows] = await pool.query(
     `SELECT id, password_hash FROM users
      WHERE reset_token_hash = ?
-       AND reset_token_expires > UTC_TIMESTAMP()`,
+       AND reset_token_expires > UTC_TIMESTAMP()
+       AND reset_token_consumed_at IS NULL`,
     [tokenHash],
   );
   return rows[0] || null;
 }
 
-async function updatePasswordAndClearResetToken(
-  userId,
-  tokenHash,
-  passwordHash,
-  db = pool,
-) {
-  const [result] = await db.query(
+async function findResetTokenState(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, password_hash, reset_token_expires, reset_token_consumed_at
+     FROM users
+     WHERE reset_token_hash = ?
+     FOR UPDATE`,
+    [tokenHash],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    passwordHash: row.password_hash,
+    expiresAt: row.reset_token_expires,
+    consumedAt: row.reset_token_consumed_at,
+  };
+}
+
+async function markResetTokenConsumed(id, passwordHash, db = pool) {
+  await db.query(
     `UPDATE users
      SET password_hash = ?,
          password_changed_at = UTC_TIMESTAMP(),
-         reset_token_hash = NULL,
-         reset_token_expires = NULL
-     WHERE id = ?
-       AND reset_token_hash = ?
-       AND reset_token_expires > UTC_TIMESTAMP()`,
-    [passwordHash, userId, tokenHash],
+         reset_token_consumed_at = UTC_TIMESTAMP()
+     WHERE id = ?`,
+    [passwordHash, id],
   );
-  return result.affectedRows > 0;
 }
 
-async function updatePasswordIfEligible(userId, passwordHash, db = pool) {
+async function updatePasswordIfEligible(
+  userId,
+  passwordHash,
+  expectedCurrentHash,
+  db = pool,
+) {
   const [result] = await db.query(
-    `UPDATE users SET password_hash = ?, password_changed_at = UTC_TIMESTAMP() WHERE id = ?`,
-    [passwordHash, userId],
+    `UPDATE users SET password_hash = ?, password_changed_at = UTC_TIMESTAMP() WHERE id = ? AND password_hash = ?`,
+    [passwordHash, userId, expectedCurrentHash],
   );
   return result.affectedRows > 0;
 }
@@ -366,14 +381,19 @@ async function clearResetToken(userId, db = pool) {
   return result.affectedRows;
 }
 
-async function clearExpiredResetToken(tokenHash) {
+async function clearExpiredResetToken(tokenHash, windowSeconds = 0) {
   const [result] = await pool.query(
     `UPDATE users
      SET reset_token_hash = NULL,
-         reset_token_expires = NULL
+         reset_token_expires = NULL,
+         reset_token_consumed_at = NULL
      WHERE reset_token_hash = ?
-       AND reset_token_expires <= UTC_TIMESTAMP()`,
-    [tokenHash],
+       AND (
+         (reset_token_consumed_at IS NULL AND reset_token_expires <= UTC_TIMESTAMP())
+         OR (reset_token_consumed_at IS NOT NULL
+             AND reset_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)
+       )`,
+    [tokenHash, windowSeconds],
   );
   return result.affectedRows;
 }
@@ -513,7 +533,8 @@ module.exports = {
   findForPasswordReset,
   setResetToken,
   findByValidResetToken,
-  updatePasswordAndClearResetToken,
+  findResetTokenState,
+  markResetTokenConsumed,
   updatePasswordIfEligible,
   getPasswordChangedAt,
   findForAccountDeletion,
