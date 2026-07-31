@@ -93,7 +93,7 @@ async function getUsernameChangedAt(userId, db = pool) {
 
 async function findForEmailChange(userId, db = pool) {
   const [rows] = await db.query(
-    "SELECT id, email, password_hash FROM users WHERE id = ?",
+    "SELECT id, email, password_hash, email_change_token_expires FROM users WHERE id = ?",
     [userId],
   );
   return rows[0] || null;
@@ -452,6 +452,22 @@ async function findByValidDeleteToken(tokenHash, db = pool) {
   return rows[0] || null;
 }
 
+async function findDeleteTokenState(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, email, delete_token_expires, delete_token_consumed_at
+     FROM users
+     WHERE delete_token_hash = ?`,
+    [tokenHash],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    expiresAt: row.delete_token_expires,
+    consumedAt: row.delete_token_consumed_at,
+  };
+}
+
 async function findDeleteTokenStateForUser(userId, tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, email, password_hash, delete_token_expires, delete_token_consumed_at
@@ -541,6 +557,7 @@ module.exports = {
   setDeleteToken,
   cancelPendingAccountDeletion,
   findByValidDeleteToken,
+  findDeleteTokenState,
   findDeleteTokenStateForUser,
   markDeleteTokenConsumed,
   clearExpiredDeleteToken,

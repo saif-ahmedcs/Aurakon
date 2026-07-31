@@ -86,11 +86,16 @@ async function checkVerificationToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidVerificationToken(tokenHash);
+  const tokenRow = await userModel.findVerificationTokenState(tokenHash);
+  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-  if (!user) {
+  if (state === "expired") {
     await userModel.clearExpiredVerificationToken(tokenHash);
     throw new BadRequestError("invalid or expired token");
+  }
+
+  if (state === "recently_consumed") {
+    return { message: "This email has already been verified." };
   }
 
   return {
@@ -272,11 +277,16 @@ async function checkResetToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidResetToken(tokenHash);
+  const tokenRow = await userModel.findResetTokenState(tokenHash);
+  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-  if (!user) {
+  if (state === "expired") {
     await userModel.clearExpiredResetToken(tokenHash);
     throw new BadRequestError("invalid or expired token");
+  }
+
+  if (state === "recently_consumed") {
+    return { message: "This password has already been reset." };
   }
 
   return {
@@ -495,6 +505,18 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
     throw new BadRequestError("new email must be different from current email");
   }
 
+  if (
+    !hasCooldownElapsed(
+      user.email_change_token_expires,
+      EMAIL_CHANGE_MAX_AGE_MS,
+      VERIFICATION_COOLDOWN_MS,
+    )
+  ) {
+    throw new TooManyRequestsError(
+      "Please wait before requesting another verification email.",
+    );
+  }
+
   const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
 
   await runInTransaction(async (tx) => {
@@ -589,11 +611,16 @@ async function checkEmailChangeToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidEmailChangeToken(tokenHash);
+  const tokenRow = await userModel.findEmailChangeTokenState(tokenHash);
+  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-  if (!user) {
+  if (state === "expired") {
     await userModel.clearExpiredEmailChangeToken(tokenHash);
     throw new BadRequestError("invalid or expired token");
+  }
+
+  if (state === "recently_consumed") {
+    return { message: "This email change has already been confirmed." };
   }
 
   return {
@@ -700,11 +727,16 @@ async function verifyAccountDeletionToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidDeleteToken(tokenHash);
+  const tokenRow = await userModel.findDeleteTokenState(tokenHash);
+  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-  if (!user) {
+  if (state === "expired") {
     await userModel.clearExpiredDeleteToken(tokenHash);
     throw new BadRequestError("invalid or expired token");
+  }
+
+  if (state === "recently_consumed") {
+    return { message: "This account deletion has already been confirmed." };
   }
 
   return {
