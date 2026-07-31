@@ -138,29 +138,55 @@ async function cancelPendingEmailChange(userId, db = pool) {
   return result.affectedRows > 0;
 }
 
-async function applyEmailChange(tokenHash, db = pool) {
-  const [result] = await db.query(
+async function findEmailChangeTokenState(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, email, pending_email, email_change_token_expires,
+            email_change_consumed_at
+     FROM users
+     WHERE email_change_token_hash = ?
+     FOR UPDATE`,
+    [tokenHash],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    pendingEmail: row.pending_email,
+    expiresAt: row.email_change_token_expires,
+    consumedAt: row.email_change_consumed_at,
+  };
+}
+
+async function markEmailChangeConsumed(id, db = pool) {
+  await db.query(
     `UPDATE users
      SET email = pending_email,
          pending_email = NULL,
-         email_change_token_hash = NULL,
-         email_change_token_expires = NULL
-     WHERE email_change_token_hash = ?
-       AND email_change_token_expires > UTC_TIMESTAMP()`,
-    [tokenHash],
+         email_change_consumed_at = UTC_TIMESTAMP()
+     WHERE id = ?`,
+    [id],
   );
-  return result.affectedRows;
 }
 
-async function clearExpiredEmailChangeToken(tokenHash, db = pool) {
+async function clearExpiredEmailChangeToken(
+  tokenHash,
+  windowSeconds,
+  db = pool,
+) {
   const [result] = await db.query(
     `UPDATE users
      SET pending_email = NULL,
          email_change_token_hash = NULL,
-         email_change_token_expires = NULL
+         email_change_token_expires = NULL,
+         email_change_consumed_at = NULL
      WHERE email_change_token_hash = ?
-       AND email_change_token_expires <= UTC_TIMESTAMP()`,
-    [tokenHash],
+       AND (
+         (email_change_consumed_at IS NULL AND email_change_token_expires <= UTC_TIMESTAMP())
+         OR (email_change_consumed_at IS NOT NULL
+             AND email_change_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)
+       )`,
+    [tokenHash, windowSeconds],
   );
   return result.affectedRows;
 }
@@ -169,7 +195,8 @@ async function findByValidVerificationToken(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id FROM users
      WHERE email_verification_token_hash = ?
-       AND email_verification_expires > UTC_TIMESTAMP()`,
+       AND email_verification_expires > UTC_TIMESTAMP()
+       AND email_verification_consumed_at IS NULL`,
     [tokenHash],
   );
   return rows[0] || null;
@@ -179,34 +206,38 @@ async function findByValidEmailChangeToken(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id FROM users
      WHERE email_change_token_hash = ?
-       AND email_change_token_expires > UTC_TIMESTAMP()`,
+       AND email_change_token_expires > UTC_TIMESTAMP()
+       AND email_change_consumed_at IS NULL`,
     [tokenHash],
   );
   return rows[0] || null;
 }
 
-async function findByValidEmailChangeTokenWithEmail(tokenHash, db = pool) {
+async function findVerificationTokenState(tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, email FROM users
-     WHERE email_change_token_hash = ?
-       AND email_change_token_expires > UTC_TIMESTAMP()
+    `SELECT id, email_verification_expires, email_verification_consumed_at
+     FROM users
+     WHERE email_verification_token_hash = ?
      FOR UPDATE`,
     [tokenHash],
   );
-  return rows[0] || null;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    expiresAt: row.email_verification_expires,
+    consumedAt: row.email_verification_consumed_at,
+  };
 }
 
-async function verifyEmail(tokenHash) {
-  const [result] = await pool.query(
+async function markVerificationConsumed(id, db = pool) {
+  await db.query(
     `UPDATE users
      SET is_verified = true,
-         email_verification_token_hash = NULL,
-         email_verification_expires = NULL
-     WHERE email_verification_token_hash = ?
-       AND email_verification_expires > UTC_TIMESTAMP()`,
-    [tokenHash],
+         email_verification_consumed_at = UTC_TIMESTAMP()
+     WHERE id = ?`,
+    [id],
   );
-  return result.affectedRows;
 }
 
 async function findForResend(email, db = pool) {
@@ -307,14 +338,19 @@ async function findPasswordHashById(userId) {
   return rows[0] || null;
 }
 
-async function clearExpiredVerificationToken(tokenHash) {
+async function clearExpiredVerificationToken(tokenHash, windowSeconds) {
   const [result] = await pool.query(
     `UPDATE users
      SET email_verification_token_hash = NULL,
-         email_verification_expires = NULL
+         email_verification_expires = NULL,
+         email_verification_consumed_at = NULL
      WHERE email_verification_token_hash = ?
-       AND email_verification_expires <= UTC_TIMESTAMP()`,
-    [tokenHash],
+       AND (
+         (email_verification_consumed_at IS NULL AND email_verification_expires <= UTC_TIMESTAMP())
+         OR (email_verification_consumed_at IS NOT NULL
+             AND email_verification_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)
+       )`,
+    [tokenHash, windowSeconds],
   );
   return result.affectedRows;
 }
@@ -389,32 +425,53 @@ async function findByValidDeleteToken(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, email FROM users
      WHERE delete_token_hash = ?
-       AND delete_token_expires > UTC_TIMESTAMP()`,
+       AND delete_token_expires > UTC_TIMESTAMP()
+       AND delete_token_consumed_at IS NULL`,
     [tokenHash],
   );
   return rows[0] || null;
 }
 
-async function findValidDeleteTokenForUser(userId, tokenHash, db = pool) {
+async function findDeleteTokenStateForUser(userId, tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, email, password_hash FROM users
+    `SELECT id, email, password_hash, delete_token_expires, delete_token_consumed_at
+     FROM users
      WHERE id = ?
        AND delete_token_hash = ?
-       AND delete_token_expires > UTC_TIMESTAMP()
      FOR UPDATE`,
     [userId, tokenHash],
   );
-  return rows[0] || null;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    passwordHash: row.password_hash,
+    expiresAt: row.delete_token_expires,
+    consumedAt: row.delete_token_consumed_at,
+  };
 }
 
-async function clearExpiredDeleteToken(tokenHash, db = pool) {
+async function markDeleteTokenConsumed(id, db = pool) {
+  await db.query(
+    `UPDATE users SET delete_token_consumed_at = UTC_TIMESTAMP() WHERE id = ?`,
+    [id],
+  );
+}
+
+async function clearExpiredDeleteToken(tokenHash, windowSeconds, db = pool) {
   const [result] = await db.query(
     `UPDATE users
      SET delete_token_hash = NULL,
-         delete_token_expires = NULL
+         delete_token_expires = NULL,
+         delete_token_consumed_at = NULL
      WHERE delete_token_hash = ?
-       AND delete_token_expires <= UTC_TIMESTAMP()`,
-    [tokenHash],
+       AND (
+         (delete_token_consumed_at IS NULL AND delete_token_expires <= UTC_TIMESTAMP())
+         OR (delete_token_consumed_at IS NOT NULL
+             AND delete_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)
+       )`,
+    [tokenHash, windowSeconds],
   );
   return result.affectedRows;
 }
@@ -438,12 +495,13 @@ module.exports = {
   findPendingEmailChange,
   setPendingEmailChange,
   cancelPendingEmailChange,
-  applyEmailChange,
+  findEmailChangeTokenState,
+  markEmailChangeConsumed,
   clearExpiredEmailChangeToken,
   findByValidVerificationToken,
   findByValidEmailChangeToken,
-  findByValidEmailChangeTokenWithEmail,
-  verifyEmail,
+  findVerificationTokenState,
+  markVerificationConsumed,
   findForResend,
   setVerificationToken,
   findForLogin,
@@ -462,7 +520,8 @@ module.exports = {
   setDeleteToken,
   cancelPendingAccountDeletion,
   findByValidDeleteToken,
-  findValidDeleteTokenForUser,
+  findDeleteTokenStateForUser,
+  markDeleteTokenConsumed,
   clearExpiredDeleteToken,
   deleteById,
 };

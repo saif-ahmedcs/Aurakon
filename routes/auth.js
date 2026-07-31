@@ -5,6 +5,7 @@ const { REFRESH_TOKEN_MAX_AGE_MS } = require("../utils/constants");
 const authService = require("../services/authService");
 const validate = require("../middleware/validate");
 const auth = require("../middleware/authenticate");
+const authAllowRecentlyDeleted = require("../middleware/authenticateAllowRecentlyDeleted");
 const {
   registerSchema,
   loginSchema,
@@ -19,6 +20,7 @@ const {
   confirmEmailVerificationSchema,
   confirmDeleteAccountSchema,
   confirmEmailChangeSchema,
+  tokenQuerySchema,
 } = require("../middleware/schemas/authSchemas");
 const {
   registerLimiter,
@@ -64,6 +66,7 @@ router.patch(
 router.get(
   "/verify-email",
   verifyEmailLimiter,
+  validate(tokenQuerySchema, "query"),
   asyncHandler(async (req, res) => {
     const { token } = req.query;
 
@@ -136,6 +139,7 @@ router.post(
 
 router.get(
   "/reset-password",
+  validate(tokenQuerySchema, "query"),
   asyncHandler(async (req, res) => {
     const { token } = req.query;
 
@@ -271,6 +275,7 @@ router.post(
 router.get(
   "/verify-email-change",
   verifyEmailChangeLimiter,
+  validate(tokenQuerySchema, "query"),
   asyncHandler(async (req, res) => {
     const { token } = req.query;
     const result = await authService.checkEmailChangeToken(token);
@@ -311,6 +316,7 @@ router.post(
 router.get(
   "/delete-account/verify",
   deleteAccountVerifyLimiter,
+  validate(tokenQuerySchema, "query"),
   asyncHandler(async (req, res) => {
     const { token } = req.query;
     const result = await authService.verifyAccountDeletionToken(token);
@@ -320,7 +326,7 @@ router.get(
 
 router.post(
   "/delete-account/confirm",
-  auth,
+  authAllowRecentlyDeleted,
   validate(confirmDeleteAccountSchema),
   asyncHandler(async (req, res) => {
     const { token, currentPassword } = req.body;

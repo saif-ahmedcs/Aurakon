@@ -22,7 +22,17 @@ CREATE TABLE users (
   password_changed_at DATETIME NULL,
   pending_email VARCHAR(255) NULL,
   email_change_token_hash CHAR(64) NULL,
-  email_change_token_expires DATETIME NULL
+  email_change_token_expires DATETIME NULL,
+  email_verification_consumed_at DATETIME NULL,
+  email_change_consumed_at DATETIME NULL,
+  delete_token_consumed_at DATETIME NULL
+);
+
+CREATE TABLE account_deletion_confirmations (
+  token_hash CHAR(64) PRIMARY KEY,
+  user_id INT NOT NULL,
+  consumed_at DATETIME NOT NULL,
+  INDEX idx_account_deletion_confirmations_user_id (user_id)
 );
 
 CREATE TABLE habits (

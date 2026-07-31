@@ -1,10 +1,12 @@
 const bcrypt = require("bcrypt");
 const { runInTransaction } = require("../db");
 const hashToken = require("../utils/hashToken");
+const confirmationTokenService = require("./confirmationTokenService");
 const { hasCooldownElapsed } = require("../utils/cooldown");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const habitModel = require("../models/habitModel");
+const accountDeletionConfirmationModel = require("../models/accountDeletionConfirmationModel");
 const authEvents = require("../events/authEvents");
 const {
   BCRYPT_SALT_ROUNDS,
@@ -16,6 +18,7 @@ const {
   PASSWORD_RESET_MAX_AGE_MS,
   PASSWORD_RESET_COOLDOWN_MS,
   ACCOUNT_DELETION_MAX_AGE_MS,
+  CONFIRMATION_IDEMPOTENCY_WINDOW_MS,
 } = require("../utils/constants");
 const {
   BadRequestError,
@@ -32,6 +35,10 @@ const {
   generatePasswordResetToken,
   generateAccountDeletionToken,
 } = require("../utils/tokenUtils");
+
+const CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS = Math.floor(
+  CONFIRMATION_IDEMPOTENCY_WINDOW_MS / 1000,
+);
 
 // ------------- REGISTER --------------
 async function register(email, password, username) {
@@ -99,11 +106,24 @@ async function confirmEmailVerification(token) {
   }
 
   const tokenHash = hashToken(token);
-  const affectedRows = await userModel.verifyEmail(tokenHash);
 
-  if (affectedRows === 0) {
-    await userModel.clearExpiredVerificationToken(tokenHash);
-    throw new BadRequestError("invalid or expired token");
+  try {
+    await runInTransaction((tx) =>
+      confirmationTokenService.runIdempotentConfirmation({
+        findState: (tx) => userModel.findVerificationTokenState(tokenHash, tx),
+        execute: (tokenRow, tx) =>
+          userModel.markVerificationConsumed(tokenRow.id, tx),
+        tx,
+      }),
+    );
+  } catch (err) {
+    if (err instanceof BadRequestError) {
+      await userModel.clearExpiredVerificationToken(
+        tokenHash,
+        CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+      );
+    }
+    throw err;
   }
 
   return { message: "email verified successfully" };
@@ -561,41 +581,42 @@ async function confirmEmailChange(token) {
   }
 
   const tokenHash = hashToken(token);
-  let matchedUser = null;
+  let matchedRow = null;
 
-  let oldEmail;
+  let outcome;
   try {
-    oldEmail = await runInTransaction(async (tx) => {
-      const user = await userModel.findByValidEmailChangeTokenWithEmail(
-        tokenHash,
+    outcome = await runInTransaction((tx) =>
+      confirmationTokenService.runIdempotentConfirmation({
+        findState: async (tx) => {
+          matchedRow = await userModel.findEmailChangeTokenState(tokenHash, tx);
+          return matchedRow;
+        },
+        execute: (tokenRow, tx) =>
+          userModel.markEmailChangeConsumed(tokenRow.id, tx),
         tx,
-      );
-      if (!user) return null;
-      matchedUser = user;
-
-      const affectedRows = await userModel.applyEmailChange(tokenHash, tx);
-      if (affectedRows === 0) return null;
-
-      return user.email;
-    });
+      }),
+    );
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") {
-      if (matchedUser) {
-        await userModel.cancelPendingEmailChange(matchedUser.id);
+      if (matchedRow) {
+        await userModel.cancelPendingEmailChange(matchedRow.id);
       }
       throw new ConflictError(
         "This email address is no longer available. Please request a new email change.",
       );
     }
+    if (err instanceof BadRequestError) {
+      await userModel.clearExpiredEmailChangeToken(
+        tokenHash,
+        CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+      );
+    }
     throw err;
   }
 
-  if (!oldEmail) {
-    await userModel.clearExpiredEmailChangeToken(tokenHash);
-    throw new BadRequestError("invalid or expired token");
+  if (!outcome.replay) {
+    authEvents.emit("EMAIL_CHANGED", { email: outcome.tokenRow.email });
   }
-
-  authEvents.emit("EMAIL_CHANGED", { email: oldEmail });
 
   return { message: "email changed successfully" };
 }
@@ -672,31 +693,56 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
 
   const tokenHash = hashToken(token);
 
-  const email = await runInTransaction(async (tx) => {
-    const validToken = await userModel.findValidDeleteTokenForUser(
+  const outcome = await runInTransaction(async (tx) => {
+    const tokenRow = await userModel.findDeleteTokenStateForUser(
       userId,
       tokenHash,
       tx,
     );
+    const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-    if (!validToken) {
-      throw new BadRequestError("invalid or expired token");
+    if (state === "active") {
+      const passwordMatch = await bcrypt.compare(
+        currentPassword,
+        tokenRow.passwordHash,
+      );
+      if (!passwordMatch) {
+        throw new UnauthorizedError("invalid current password");
+      }
+
+      await userModel.markDeleteTokenConsumed(tokenRow.id, tx);
+      await accountDeletionConfirmationModel.recordConsumption(
+        tokenHash,
+        userId,
+        tx,
+      );
+      await habitModel.deleteAllByUser(userId, tx);
+      await userModel.deleteById(userId, tx);
+
+      return { replay: false, email: tokenRow.email };
     }
 
-    const passwordMatch = await bcrypt.compare(
-      currentPassword,
-      validToken.password_hash,
+    if (state === "recently_consumed") {
+      return { replay: true, email: null };
+    }
+
+    const deletionRecord = await accountDeletionConfirmationModel.findByHash(
+      tokenHash,
+      tx,
     );
-    if (!passwordMatch) {
-      throw new UnauthorizedError("invalid current password");
+    const deletionState =
+      confirmationTokenService.classifyConfirmationToken(deletionRecord);
+
+    if (deletionState === "recently_consumed") {
+      return { replay: true, email: null };
     }
 
-    await habitModel.deleteAllByUser(userId, tx);
-    await userModel.deleteById(userId, tx);
-    return validToken.email;
+    throw new BadRequestError("invalid or expired token");
   });
 
-  authEvents.emit("ACCOUNT_DELETED", { email });
+  if (!outcome.replay) {
+    authEvents.emit("ACCOUNT_DELETED", { email: outcome.email });
+  }
 
   return { message: "Account permanently deleted." };
 }

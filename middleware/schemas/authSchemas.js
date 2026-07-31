@@ -72,6 +72,10 @@ const confirmDeleteAccountSchema = z.object({
   currentPassword: z.string().min(1),
 });
 
+const tokenQuerySchema = z.object({
+  token: z.string().min(1),
+});
+
 module.exports = {
   registerSchema,
   setGenderSchema,
@@ -86,4 +90,5 @@ module.exports = {
   confirmEmailVerificationSchema,
   confirmEmailChangeSchema,
   confirmDeleteAccountSchema,
+  tokenQuerySchema,
 };
