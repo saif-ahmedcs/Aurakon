@@ -86,9 +86,14 @@ async function checkVerificationToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidVerificationToken(tokenHash);
+  const tokenRow = await userModel.findVerificationTokenState(tokenHash);
+  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-  if (!user) {
+  if (state === "recently_consumed") {
+    return { message: "Email already verified.", alreadyCompleted: true };
+  }
+
+  if (state === "expired") {
     await userModel.clearExpiredVerificationToken(
       tokenHash,
       CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
@@ -285,9 +290,14 @@ async function checkResetToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidResetToken(tokenHash);
+  const tokenRow = await userModel.findResetTokenState(tokenHash);
+  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-  if (!user) {
+  if (state === "recently_consumed") {
+    return { message: "Password already reset.", alreadyCompleted: true };
+  }
+
+  if (state === "expired") {
     await userModel.clearExpiredResetToken(
       tokenHash,
       CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
@@ -599,9 +609,14 @@ async function checkEmailChangeToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidEmailChangeToken(tokenHash);
+  const tokenRow = await userModel.findEmailChangeTokenState(tokenHash);
+  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-  if (!user) {
+  if (state === "recently_consumed") {
+    return { message: "Email already changed.", alreadyCompleted: true };
+  }
+
+  if (state === "expired") {
     await userModel.clearExpiredEmailChangeToken(
       tokenHash,
       CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
@@ -713,20 +728,34 @@ async function verifyAccountDeletionToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const user = await userModel.findByValidDeleteToken(tokenHash);
+  const tokenRow = await userModel.findDeleteTokenState(tokenHash);
+  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-  if (!user) {
-    await userModel.clearExpiredDeleteToken(
-      tokenHash,
-      CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
-    );
-    throw new BadRequestError("invalid or expired token");
+  if (state === "recently_consumed") {
+    return { message: "Account already deleted.", alreadyCompleted: true };
   }
 
-  return {
-    message:
-      "Token verified. Submit a final confirmation to permanently delete your account.",
-  };
+  if (state === "active") {
+    return {
+      message:
+        "Token verified. Submit a final confirmation to permanently delete your account.",
+    };
+  }
+
+  const deletionRecord =
+    await accountDeletionConfirmationModel.findByHash(tokenHash);
+  const deletionState =
+    confirmationTokenService.classifyConfirmationToken(deletionRecord);
+
+  if (deletionState === "recently_consumed") {
+    return { message: "Account already deleted.", alreadyCompleted: true };
+  }
+
+  await userModel.clearExpiredDeleteToken(
+    tokenHash,
+    CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+  );
+  throw new BadRequestError("invalid or expired token");
 }
 
 // ------------- CONFIRM ACCOUNT DELETION --------------
