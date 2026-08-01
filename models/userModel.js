@@ -32,7 +32,11 @@ async function createUser(
 }
 
 async function setGender(userId, gender, db = pool) {
-  await db.query("UPDATE users SET gender = ? WHERE id = ?", [gender, userId]);
+  const [result] = await db.query(
+    "UPDATE users SET gender = ? WHERE id = ? AND gender IS NULL",
+    [gender, userId],
+  );
+  return result.affectedRows > 0;
 }
 
 async function findById(id, db = pool) {
@@ -152,6 +156,28 @@ async function findEmailChangeTokenState(tokenHash, db = pool) {
   return {
     id: row.id,
     email: row.email,
+    pendingEmail: row.pending_email,
+    expiresAt: row.email_change_token_expires,
+    consumedAt: row.email_change_consumed_at,
+  };
+}
+
+async function findEmailChangeTokenStateForUser(userId, tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, email, password_hash, pending_email,
+            email_change_token_expires, email_change_consumed_at
+     FROM users
+     WHERE id = ?
+       AND email_change_token_hash = ?
+     FOR UPDATE`,
+    [userId, tokenHash],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    email: row.email,
+    passwordHash: row.password_hash,
     pendingEmail: row.pending_email,
     expiresAt: row.email_change_token_expires,
     consumedAt: row.email_change_consumed_at,
@@ -532,6 +558,7 @@ module.exports = {
   setPendingEmailChange,
   cancelPendingEmailChange,
   findEmailChangeTokenState,
+  findEmailChangeTokenStateForUser,
   markEmailChangeConsumed,
   clearExpiredEmailChangeToken,
   findByValidVerificationToken,

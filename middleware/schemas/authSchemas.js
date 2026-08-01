@@ -3,7 +3,7 @@ const { isPasswordValid } = require("../../utils/passwordPolicy");
 const { isValidTimezone } = require("../../utils/timezone");
 
 const registerSchema = z.object({
-  email: z.string().trim().email(),
+  email: z.string().trim().email().max(255),
   password: z.string().min(8).refine(isPasswordValid, {
     message:
       "password must be at least 8 characters and contain at least one letter and one number",
@@ -51,7 +51,7 @@ const updateTimezoneSchema = z.object({
 });
 
 const requestEmailChangeSchema = z.object({
-  newEmail: z.string().trim().email(),
+  newEmail: z.string().trim().email().max(255),
   currentPassword: z.string().min(1),
 });
 

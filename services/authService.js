@@ -232,15 +232,14 @@ async function login(email, password) {
 
 // ------------- SET GENDER --------------
 async function setGender(userId, gender) {
-  const user = await userModel.findById(userId);
+  const applied = await userModel.setGender(userId, gender);
 
-  if (user.gender) {
+  if (!applied) {
     throw new BadRequestError(
       "gender has already been set and cannot be changed",
     );
   }
 
-  await userModel.setGender(userId, gender);
   return { gender };
 }
 
@@ -494,23 +493,27 @@ async function updateUsername(userId, username) {
 }
 
 // ------------- REQUEST EMAIL CHANGE --------------
-async function requestEmailChange(userId, newEmail, currentPassword) {
+async function requestEmailChange(userId, newEmail) {
   const normalizedEmail = newEmail.toLowerCase();
 
   const result = await runInTransaction(async (tx) => {
     const user = await userModel.findForEmailChange(userId, tx);
 
-    const passwordMatch = await bcrypt.compare(
-      currentPassword,
-      user.password_hash,
-    );
-    if (!passwordMatch) {
-      throw new UnauthorizedError("invalid current password");
-    }
-
     if (normalizedEmail === user.email) {
       throw new BadRequestError(
         "new email must be different from current email",
+      );
+    }
+
+    if (
+      !hasCooldownElapsed(
+        user.email_change_token_expires,
+        EMAIL_CHANGE_MAX_AGE_MS,
+        VERIFICATION_COOLDOWN_MS,
+      )
+    ) {
+      throw new TooManyRequestsError(
+        "Please wait before requesting another verification email.",
       );
     }
 
@@ -631,7 +634,7 @@ async function checkEmailChangeToken(token) {
 }
 
 // ------------- CONFIRM EMAIL CHANGE --------------
-async function confirmEmailChange(token) {
+async function confirmEmailChange(userId, token, currentPassword) {
   if (!token) {
     throw new BadRequestError("token is required");
   }
@@ -644,19 +647,29 @@ async function confirmEmailChange(token) {
     outcome = await runInTransaction((tx) =>
       confirmationTokenService.runIdempotentConfirmation({
         findState: async (tx) => {
-          matchedRow = await userModel.findEmailChangeTokenState(tokenHash, tx);
+          matchedRow = await userModel.findEmailChangeTokenStateForUser(
+            userId,
+            tokenHash,
+            tx,
+          );
           return matchedRow;
         },
-        execute: (tokenRow, tx) =>
-          userModel.markEmailChangeConsumed(tokenRow.id, tx),
+        execute: async (tokenRow, tx) => {
+          const passwordMatch = await bcrypt.compare(
+            currentPassword,
+            tokenRow.passwordHash,
+          );
+          if (!passwordMatch) {
+            throw new UnauthorizedError("invalid current password");
+          }
+          await userModel.markEmailChangeConsumed(tokenRow.id, tx);
+        },
         tx,
       }),
     );
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") {
-      if (matchedRow) {
-        await userModel.cancelPendingEmailChange(matchedRow.id);
-      }
+      await userModel.cancelPendingEmailChange(userId);
       throw new ConflictError(
         "This email address is no longer available. Please request a new email change.",
       );

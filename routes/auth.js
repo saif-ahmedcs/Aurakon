@@ -242,12 +242,8 @@ router.patch(
   changeEmailLimiter,
   validate(requestEmailChangeSchema),
   asyncHandler(async (req, res) => {
-    const { newEmail, currentPassword } = req.body;
-    const result = await authService.requestEmailChange(
-      req.user.id,
-      newEmail,
-      currentPassword,
-    );
+    const { newEmail } = req.body;
+    const result = await authService.requestEmailChange(req.user.id, newEmail);
     res.status(200).json(result);
   }),
 );
@@ -284,11 +280,16 @@ router.get(
 
 router.post(
   "/verify-email-change/confirm",
+  auth,
   verifyEmailChangeLimiter,
   validate(confirmEmailChangeSchema),
   asyncHandler(async (req, res) => {
-    const { token } = req.body;
-    const result = await authService.confirmEmailChange(token);
+    const { token, currentPassword } = req.body;
+    const result = await authService.confirmEmailChange(
+      req.user.id,
+      token,
+      currentPassword,
+    );
     res.status(200).json(result);
   }),
 );
