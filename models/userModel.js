@@ -93,7 +93,7 @@ async function getUsernameChangedAt(userId, db = pool) {
 
 async function findForEmailChange(userId, db = pool) {
   const [rows] = await db.query(
-    "SELECT id, email, password_hash, email_change_token_expires FROM users WHERE id = ?",
+    "SELECT id, email, password_hash, email_change_token_expires FROM users WHERE id = ? FOR UPDATE",
     [userId],
   );
   return rows[0] || null;

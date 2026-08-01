@@ -485,25 +485,25 @@ async function updateUsername(userId, username) {
 
 // ------------- REQUEST EMAIL CHANGE --------------
 async function requestEmailChange(userId, newEmail, currentPassword) {
-  const user = await userModel.findForEmailChange(userId);
-
-  const passwordMatch = await bcrypt.compare(
-    currentPassword,
-    user.password_hash,
-  );
-  if (!passwordMatch) {
-    throw new UnauthorizedError("invalid current password");
-  }
-
   const normalizedEmail = newEmail.toLowerCase();
 
-  if (normalizedEmail === user.email) {
-    throw new BadRequestError("new email must be different from current email");
-  }
+  const result = await runInTransaction(async (tx) => {
+    const user = await userModel.findForEmailChange(userId, tx);
 
-  const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
+    const passwordMatch = await bcrypt.compare(
+      currentPassword,
+      user.password_hash,
+    );
+    if (!passwordMatch) {
+      throw new UnauthorizedError("invalid current password");
+    }
 
-  await runInTransaction(async (tx) => {
+    if (normalizedEmail === user.email) {
+      throw new BadRequestError(
+        "new email must be different from current email",
+      );
+    }
+
     const existing = await userModel.findByEmailForRegistration(
       normalizedEmail,
       tx,
@@ -512,6 +512,8 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
       throw new ConflictError("email already registered");
     }
 
+    const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
+
     await userModel.setPendingEmailChange(
       userId,
       normalizedEmail,
@@ -519,11 +521,13 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
       expiresAt,
       tx,
     );
+
+    return { rawToken };
   });
 
   authEvents.emit("EMAIL_CHANGE_REQUESTED", {
     email: normalizedEmail,
-    rawToken,
+    rawToken: result.rawToken,
   });
 
   return {
