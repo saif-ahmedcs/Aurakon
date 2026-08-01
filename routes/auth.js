@@ -205,10 +205,9 @@ router.post(
 
 router.post(
   "/logout-all",
+  auth,
   asyncHandler(async (req, res) => {
-    const rawRefreshToken = req.cookies.refreshToken;
-
-    await authService.logoutAll(rawRefreshToken);
+    await authService.logoutAll(req.user.id);
 
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json({ message: "logged out from all devices" });

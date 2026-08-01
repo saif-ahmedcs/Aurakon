@@ -86,16 +86,14 @@ async function checkVerificationToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const tokenRow = await userModel.findVerificationTokenState(tokenHash);
-  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
+  const user = await userModel.findByValidVerificationToken(tokenHash);
 
-  if (state === "expired") {
-    await userModel.clearExpiredVerificationToken(tokenHash);
+  if (!user) {
+    await userModel.clearExpiredVerificationToken(
+      tokenHash,
+      CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+    );
     throw new BadRequestError("invalid or expired token");
-  }
-
-  if (state === "recently_consumed") {
-    return { message: "This email has already been verified." };
   }
 
   return {
@@ -141,6 +139,7 @@ const GENERIC_RESEND_RESPONSE = {
 // ------------- RESEND VERIFICATION --------------
 async function resendVerification(email) {
   const normalizedEmail = email.toLowerCase();
+  let emittedToken = null;
 
   await runInTransaction(async (tx) => {
     const user = await userModel.findForResend(normalizedEmail, tx);
@@ -163,11 +162,15 @@ async function resendVerification(email) {
 
     await userModel.setVerificationToken(user.id, tokenHash, expiresAt, tx);
 
+    emittedToken = rawToken;
+  });
+
+  if (emittedToken) {
     authEvents.emit("VERIFICATION_RESENT", {
       email: normalizedEmail,
-      rawToken,
+      rawToken: emittedToken,
     });
-  });
+  }
 
   return GENERIC_RESEND_RESPONSE;
 }
@@ -239,6 +242,7 @@ async function setGender(userId, gender) {
 // ------------- FORGOT PASSWORD --------------
 async function forgotPassword(email) {
   const normalizedEmail = email.toLowerCase();
+  let emittedToken = null;
 
   await runInTransaction(async (tx) => {
     const user = await userModel.findForPasswordReset(normalizedEmail, tx);
@@ -261,11 +265,15 @@ async function forgotPassword(email) {
     const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
 
     await userModel.setResetToken(user.id, tokenHash, expiresAt, tx);
+    emittedToken = rawToken;
+  });
+
+  if (emittedToken) {
     authEvents.emit("PASSWORD_RESET_REQUESTED", {
       email: normalizedEmail,
-      rawToken,
+      rawToken: emittedToken,
     });
-  });
+  }
 
   return GENERIC_FORGOT_PASSWORD_RESPONSE;
 }
@@ -277,16 +285,14 @@ async function checkResetToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const tokenRow = await userModel.findResetTokenState(tokenHash);
-  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
+  const user = await userModel.findByValidResetToken(tokenHash);
 
-  if (state === "expired") {
-    await userModel.clearExpiredResetToken(tokenHash);
+  if (!user) {
+    await userModel.clearExpiredResetToken(
+      tokenHash,
+      CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+    );
     throw new BadRequestError("invalid or expired token");
-  }
-
-  if (state === "recently_consumed") {
-    return { message: "This password has already been reset." };
   }
 
   return {
@@ -434,18 +440,8 @@ async function logout(rawRefreshToken) {
 }
 
 // ------------- LOGOUT ALL --------------
-async function logoutAll(rawRefreshToken) {
-  if (!rawRefreshToken) {
-    return;
-  }
-
-  const tokenHash = hashToken(rawRefreshToken);
-  const stored = await refreshTokenModel.findByTokenHash(tokenHash);
-
-  if (!stored || new Date(stored.expires_at) <= new Date()) {
-    return;
-  }
-  await refreshTokenModel.deleteAllByUserId(stored.user_id);
+async function logoutAll(userId) {
+  await refreshTokenModel.deleteAllByUserId(userId);
 }
 
 // ------------- UPDATE TIMEZONE --------------
@@ -503,18 +499,6 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
 
   if (normalizedEmail === user.email) {
     throw new BadRequestError("new email must be different from current email");
-  }
-
-  if (
-    !hasCooldownElapsed(
-      user.email_change_token_expires,
-      EMAIL_CHANGE_MAX_AGE_MS,
-      VERIFICATION_COOLDOWN_MS,
-    )
-  ) {
-    throw new TooManyRequestsError(
-      "Please wait before requesting another verification email.",
-    );
   }
 
   const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
@@ -611,16 +595,14 @@ async function checkEmailChangeToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const tokenRow = await userModel.findEmailChangeTokenState(tokenHash);
-  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
+  const user = await userModel.findByValidEmailChangeToken(tokenHash);
 
-  if (state === "expired") {
-    await userModel.clearExpiredEmailChangeToken(tokenHash);
+  if (!user) {
+    await userModel.clearExpiredEmailChangeToken(
+      tokenHash,
+      CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+    );
     throw new BadRequestError("invalid or expired token");
-  }
-
-  if (state === "recently_consumed") {
-    return { message: "This email change has already been confirmed." };
   }
 
   return {
@@ -727,16 +709,14 @@ async function verifyAccountDeletionToken(token) {
   }
 
   const tokenHash = hashToken(token);
-  const tokenRow = await userModel.findDeleteTokenState(tokenHash);
-  const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
+  const user = await userModel.findByValidDeleteToken(tokenHash);
 
-  if (state === "expired") {
-    await userModel.clearExpiredDeleteToken(tokenHash);
+  if (!user) {
+    await userModel.clearExpiredDeleteToken(
+      tokenHash,
+      CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+    );
     throw new BadRequestError("invalid or expired token");
-  }
-
-  if (state === "recently_consumed") {
-    return { message: "This account deletion has already been confirmed." };
   }
 
   return {
