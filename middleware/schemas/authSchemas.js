@@ -52,7 +52,6 @@ const updateTimezoneSchema = z.object({
 
 const requestEmailChangeSchema = z.object({
   newEmail: z.string().trim().email().max(255),
-  currentPassword: z.string().min(1),
 });
 
 const updateUsernameSchema = z.object({
@@ -65,6 +64,7 @@ const confirmEmailVerificationSchema = z.object({
 
 const confirmEmailChangeSchema = z.object({
   token: z.string().min(1),
+  currentPassword: z.string().min(1),
 });
 
 const confirmDeleteAccountSchema = z.object({

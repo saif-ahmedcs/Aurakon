@@ -22,7 +22,7 @@ function classifyConfirmationToken(tokenRow, now = Date.now()) {
   return "active";
 }
 
-async function runIdempotentConfirmation({ findState, execute, tx }) {
+async function runIdempotentConfirmation({ findState, execute, onReplay, tx }) {
   const tokenRow = await findState(tx);
   const state = classifyConfirmationToken(tokenRow);
 
@@ -33,6 +33,10 @@ async function runIdempotentConfirmation({ findState, execute, tx }) {
   if (state === "active") {
     await execute(tokenRow, tx);
     return { replay: false, tokenRow };
+  }
+
+  if (onReplay) {
+    await onReplay(tokenRow, tx);
   }
 
   return { replay: true, tokenRow };

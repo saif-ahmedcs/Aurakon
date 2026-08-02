@@ -344,6 +344,17 @@ async function resetPassword(token, newPassword) {
           await userModel.markResetTokenConsumed(tokenRow.id, passwordHash, tx);
           await refreshTokenModel.deleteAllByUserId(tokenRow.id, tx);
         },
+        onReplay: async (tokenRow) => {
+          const matchesPersisted = await bcrypt.compare(
+            newPassword,
+            tokenRow.passwordHash,
+          );
+          if (!matchesPersisted) {
+            throw new ConflictError(
+              "this token was already used to reset the password to a different value",
+            );
+          }
+        },
         tx,
       }),
     );
@@ -493,11 +504,19 @@ async function updateUsername(userId, username) {
 }
 
 // ------------- REQUEST EMAIL CHANGE --------------
-async function requestEmailChange(userId, newEmail) {
+async function requestEmailChange(userId, newEmail, currentPassword) {
   const normalizedEmail = newEmail.toLowerCase();
 
   const result = await runInTransaction(async (tx) => {
     const user = await userModel.findForEmailChange(userId, tx);
+
+    const passwordMatch = await bcrypt.compare(
+      currentPassword,
+      user.password_hash,
+    );
+    if (!passwordMatch) {
+      throw new UnauthorizedError("invalid current password");
+    }
 
     if (normalizedEmail === user.email) {
       throw new BadRequestError(
@@ -664,6 +683,15 @@ async function confirmEmailChange(userId, token, currentPassword) {
           }
           await userModel.markEmailChangeConsumed(tokenRow.id, tx);
         },
+        onReplay: async (tokenRow) => {
+          const passwordMatch = await bcrypt.compare(
+            currentPassword,
+            tokenRow.passwordHash,
+          );
+          if (!passwordMatch) {
+            throw new UnauthorizedError("invalid current password");
+          }
+        },
         tx,
       }),
     );
@@ -809,6 +837,13 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
     }
 
     if (state === "recently_consumed") {
+      const replayPasswordMatch = await bcrypt.compare(
+        currentPassword,
+        tokenRow.passwordHash,
+      );
+      if (!replayPasswordMatch) {
+        throw new UnauthorizedError("invalid current password");
+      }
       return { replay: true, email: null };
     }
 

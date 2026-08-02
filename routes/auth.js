@@ -242,8 +242,12 @@ router.patch(
   changeEmailLimiter,
   validate(requestEmailChangeSchema),
   asyncHandler(async (req, res) => {
-    const { newEmail } = req.body;
-    const result = await authService.requestEmailChange(req.user.id, newEmail);
+    const { newEmail, currentPassword } = req.body;
+    const result = await authService.requestEmailChange(
+      req.user.id,
+      newEmail,
+      currentPassword,
+    );
     res.status(200).json(result);
   }),
 );
