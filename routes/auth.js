@@ -33,6 +33,7 @@ const {
   changePasswordDailyLimiter,
   changeEmailLimiter,
   verifyEmailChangeLimiter,
+  resetPasswordVerifyLimiter,
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
 } = require("../middleware/rateLimiters");
@@ -139,6 +140,7 @@ router.post(
 
 router.get(
   "/reset-password",
+  resetPasswordVerifyLimiter,
   validate(tokenQuerySchema, "query"),
   asyncHandler(async (req, res) => {
     const { token } = req.query;
@@ -331,6 +333,7 @@ router.get(
 router.post(
   "/delete-account/confirm",
   authAllowRecentlyDeleted,
+  deleteAccountVerifyLimiter,
   validate(confirmDeleteAccountSchema),
   asyncHandler(async (req, res) => {
     const { token, currentPassword } = req.body;

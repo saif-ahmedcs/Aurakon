@@ -123,7 +123,8 @@ async function setPendingEmailChange(
     `UPDATE users
      SET pending_email = ?,
          email_change_token_hash = ?,
-         email_change_token_expires = ?
+         email_change_token_expires = ?,
+         email_change_consumed_at = NULL
      WHERE id = ?`,
     [pendingEmail, tokenHash, expiresAt, userId],
   );
@@ -134,7 +135,8 @@ async function cancelPendingEmailChange(userId, db = pool) {
     `UPDATE users
      SET pending_email = NULL,
          email_change_token_hash = NULL,
-         email_change_token_expires = NULL
+         email_change_token_expires = NULL,
+         email_change_consumed_at = NULL
      WHERE id = ?
        AND pending_email IS NOT NULL`,
     [userId],
@@ -185,14 +187,22 @@ async function findEmailChangeTokenStateForUser(userId, tokenHash, db = pool) {
 }
 
 async function markEmailChangeConsumed(id, db = pool) {
-  await db.query(
-    `UPDATE users
+  const [result] = await db.query(
+    `UPDATE users AS target
      SET email = pending_email,
          pending_email = NULL,
          email_change_consumed_at = UTC_TIMESTAMP()
-     WHERE id = ?`,
+     WHERE id = ?
+       AND pending_email IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1
+         FROM users AS existing
+         WHERE existing.email = target.pending_email
+           AND existing.id <> target.id
+       )`,
     [id],
   );
+  return result;
 }
 
 async function clearExpiredEmailChangeToken(
@@ -296,7 +306,8 @@ async function setResetToken(userId, tokenHash, expiresAt, db = pool) {
   await db.query(
     `UPDATE users
      SET reset_token_hash = ?,
-         reset_token_expires = ?
+         reset_token_expires = ?,
+         reset_token_consumed_at = NULL
      WHERE id = ?`,
     [tokenHash, expiresAt, userId],
   );
@@ -400,14 +411,15 @@ async function clearResetToken(userId, db = pool) {
   const [result] = await db.query(
     `UPDATE users
      SET reset_token_hash = NULL,
-         reset_token_expires = NULL
+         reset_token_expires = NULL,
+         reset_token_consumed_at = NULL
      WHERE id = ?`,
     [userId],
   );
   return result.affectedRows;
 }
 
-async function clearExpiredResetToken(tokenHash, windowSeconds = 0) {
+async function clearExpiredResetToken(tokenHash, windowSeconds) {
   const [result] = await pool.query(
     `UPDATE users
      SET reset_token_hash = NULL,
@@ -429,9 +441,10 @@ async function clearOwnExpiredResetToken(userId) {
     `UPDATE users
      SET reset_token_hash = NULL,
          reset_token_expires = NULL
-     WHERE id = ?
-       AND reset_token_expires <= UTC_TIMESTAMP()
-       AND reset_token_hash IS NOT NULL`,
+    WHERE id = ?
+     AND reset_token_expires <= UTC_TIMESTAMP()
+     AND reset_token_hash IS NOT NULL
+     AND reset_token_consumed_at IS NULL`,
     [userId],
   );
   return result.affectedRows;
@@ -449,7 +462,8 @@ async function setDeleteToken(userId, tokenHash, expiresAt, db = pool) {
   await db.query(
     `UPDATE users
      SET delete_token_hash = ?,
-         delete_token_expires = ?
+         delete_token_expires = ?,
+         delete_token_consumed_at = NULL
      WHERE id = ?`,
     [tokenHash, expiresAt, userId],
   );
@@ -459,7 +473,8 @@ async function cancelPendingAccountDeletion(userId, db = pool) {
   const [result] = await db.query(
     `UPDATE users
      SET delete_token_hash = NULL,
-         delete_token_expires = NULL
+         delete_token_expires = NULL,
+         delete_token_consumed_at = NULL
      WHERE id = ?
        AND delete_token_hash IS NOT NULL`,
     [userId],
@@ -482,13 +497,15 @@ async function findDeleteTokenState(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, email, delete_token_expires, delete_token_consumed_at
      FROM users
-     WHERE delete_token_hash = ?`,
+     WHERE delete_token_hash = ?
+     FOR UPDATE`,
     [tokenHash],
   );
   const row = rows[0];
   if (!row) return null;
   return {
     id: row.id,
+    email: row.email,
     expiresAt: row.delete_token_expires,
     consumedAt: row.delete_token_consumed_at,
   };

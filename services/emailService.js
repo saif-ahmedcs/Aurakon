@@ -27,7 +27,7 @@ async function sendEmail({ to, subject, html, text }) {
           .trim(),
     });
     console.log(
-      `[emailService] accepted=${JSON.stringify(info.accepted)} rejected=${JSON.stringify(info.rejected)} response=${info.response}`,
+      `[emailService] accepted=${info.accepted.length} rejected=${info.rejected.length} response=${info.response}`,
     );
     return info;
   } catch (err) {

@@ -11,11 +11,10 @@ const {
 } = require("./constants");
 
 function generateAccessToken(user) {
-  return jwt.sign(
-    { sub: user.id, email: user.email, username: user.username },
-    process.env.JWT_SECRET,
-    { expiresIn: ACCESS_TOKEN_EXPIRES_IN, algorithm: "HS256" },
-  );
+  return jwt.sign({ sub: user.id }, process.env.JWT_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+    algorithm: "HS256",
+  });
 }
 
 function generateRefreshToken() {

@@ -26,7 +26,11 @@ CREATE TABLE users (
   email_change_token_expires DATETIME NULL,
   email_verification_consumed_at DATETIME NULL,
   email_change_consumed_at DATETIME NULL,
-  delete_token_consumed_at DATETIME NULL
+  delete_token_consumed_at DATETIME NULL,
+  KEY `idx_users_email_verification_token_hash` (`email_verification_token_hash`),
+  KEY `idx_users_reset_token_hash` (`reset_token_hash`),
+  KEY `idx_users_delete_token_hash` (`delete_token_hash`),
+  KEY `idx_users_email_change_token_hash` (`email_change_token_hash`)
 );
 
 CREATE TABLE account_deletion_confirmations (

@@ -12,7 +12,8 @@ async function cleanupExpiredTokens() {
      SET reset_token_hash = NULL,
          reset_token_expires = NULL
      WHERE reset_token_hash IS NOT NULL
-       AND reset_token_expires <= UTC_TIMESTAMP()`,
+       AND reset_token_expires <= UTC_TIMESTAMP()
+       AND reset_token_consumed_at IS NULL`,
   );
 
   const [emailVerification] = await pool.query(
@@ -29,7 +30,8 @@ async function cleanupExpiredTokens() {
      SET delete_token_hash = NULL,
          delete_token_expires = NULL
      WHERE delete_token_hash IS NOT NULL
-       AND delete_token_expires <= UTC_TIMESTAMP()`,
+       AND delete_token_expires <= UTC_TIMESTAMP()
+       AND delete_token_consumed_at IS NULL`,
   );
 
   const [emailChange] = await pool.query(
@@ -38,7 +40,8 @@ async function cleanupExpiredTokens() {
          email_change_token_hash = NULL,
          email_change_token_expires = NULL
      WHERE email_change_token_hash IS NOT NULL
-       AND email_change_token_expires <= UTC_TIMESTAMP()`,
+       AND email_change_token_expires <= UTC_TIMESTAMP()
+       AND email_change_consumed_at IS NULL`,
   );
 
   console.log(

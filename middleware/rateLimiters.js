@@ -38,7 +38,10 @@ const loginLimiter = rateLimit({
 const forgotPasswordCooldownLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1,
-  keyGenerator: (req) => (req.body?.email ?? "").toLowerCase().trim(),
+  keyGenerator: (req) => {
+    const normalizedEmail = (req.body?.email ?? "").toLowerCase().trim();
+    return normalizedEmail || ipKeyGenerator(req.ip);
+  },
   message: {
     error: "please wait 15 minutes before requesting another reset email",
   },
@@ -47,7 +50,10 @@ const forgotPasswordCooldownLimiter = rateLimit({
 const forgotPasswordDailyLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 3,
-  keyGenerator: (req) => (req.body?.email ?? "").toLowerCase().trim(),
+  keyGenerator: (req) => {
+    const normalizedEmail = (req.body?.email ?? "").toLowerCase().trim();
+    return normalizedEmail || ipKeyGenerator(req.ip);
+  },
   message: { error: "maximum of 3 password reset emails per 24 hours reached" },
 });
 
@@ -88,6 +94,15 @@ const verifyEmailChangeLimiter = rateLimit({
   },
 });
 
+const resetPasswordVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    error:
+      "too many password reset verification attempts, please try again later",
+  },
+});
+
 const deleteAccountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -120,4 +135,5 @@ module.exports = {
   verifyEmailChangeLimiter,
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
+  resetPasswordVerifyLimiter,
 };

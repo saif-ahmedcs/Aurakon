@@ -46,7 +46,10 @@ async function authAllowRecentlyDeleted(req, res, next) {
       return res.status(401).json({ error: "invalid or expired token" });
     }
 
-    req.user = { id: decoded.sub };
+    req.user = {
+      id: decoded.sub,
+      timezone: DEFAULT_TIMEZONE,
+    };
     next();
   } catch (err) {
     next(err);

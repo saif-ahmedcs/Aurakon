@@ -437,6 +437,7 @@ async function refresh(rawRefreshToken) {
   }
 
   if (new Date(stored.expires_at) <= new Date()) {
+    await refreshTokenModel.deleteByTokenHash(tokenHash);
     throw new UnauthorizedError("refresh token expired");
   }
 
@@ -681,7 +682,13 @@ async function confirmEmailChange(userId, token, currentPassword) {
           if (!passwordMatch) {
             throw new UnauthorizedError("invalid current password");
           }
-          await userModel.markEmailChangeConsumed(tokenRow.id, tx);
+          const result = await userModel.markEmailChangeConsumed(
+            tokenRow.id,
+            tx,
+          );
+          if (result.affectedRows === 0) {
+            throw new BadRequestError("invalid or expired token");
+          }
         },
         onReplay: async (tokenRow) => {
           const passwordMatch = await bcrypt.compare(
@@ -807,59 +814,72 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
 
   const tokenHash = hashToken(token);
 
-  const outcome = await runInTransaction(async (tx) => {
-    const tokenRow = await userModel.findDeleteTokenStateForUser(
-      userId,
-      tokenHash,
-      tx,
-    );
-    const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
-
-    if (state === "active") {
-      const passwordMatch = await bcrypt.compare(
-        currentPassword,
-        tokenRow.passwordHash,
-      );
-      if (!passwordMatch) {
-        throw new UnauthorizedError("invalid current password");
-      }
-
-      await userModel.markDeleteTokenConsumed(tokenRow.id, tx);
-      await accountDeletionConfirmationModel.recordConsumption(
-        tokenHash,
+  let outcome;
+  try {
+    outcome = await runInTransaction(async (tx) => {
+      const tokenRow = await userModel.findDeleteTokenStateForUser(
         userId,
+        tokenHash,
         tx,
       );
-      await habitModel.deleteAllByUser(userId, tx);
-      await userModel.deleteById(userId, tx);
 
-      return { replay: false, email: tokenRow.email };
-    }
+      const state =
+        confirmationTokenService.classifyConfirmationToken(tokenRow);
 
-    if (state === "recently_consumed") {
-      const replayPasswordMatch = await bcrypt.compare(
-        currentPassword,
-        tokenRow.passwordHash,
-      );
-      if (!replayPasswordMatch) {
-        throw new UnauthorizedError("invalid current password");
+      if (state === "active") {
+        const passwordMatch = await bcrypt.compare(
+          currentPassword,
+          tokenRow.passwordHash,
+        );
+        if (!passwordMatch) {
+          throw new UnauthorizedError("invalid current password");
+        }
+
+        await userModel.markDeleteTokenConsumed(tokenRow.id, tx);
+        await accountDeletionConfirmationModel.recordConsumption(
+          tokenHash,
+          userId,
+          tx,
+        );
+        await habitModel.deleteAllByUser(userId, tx);
+        await userModel.deleteById(userId, tx);
+
+        return { replay: false, email: tokenRow.email };
       }
-      return { replay: true, email: null };
+
+      if (state === "recently_consumed") {
+        const replayPasswordMatch = await bcrypt.compare(
+          currentPassword,
+          tokenRow.passwordHash,
+        );
+        if (!replayPasswordMatch) {
+          throw new UnauthorizedError("invalid current password");
+        }
+        return { replay: true, email: null };
+      }
+
+      const deletionRecord = await accountDeletionConfirmationModel.findByHash(
+        tokenHash,
+        tx,
+      );
+      const deletionState =
+        confirmationTokenService.classifyConfirmationToken(deletionRecord);
+
+      if (deletionState === "recently_consumed") {
+        return { replay: true, email: null };
+      }
+
+      throw new BadRequestError("invalid or expired token");
+    });
+  } catch (err) {
+    if (err instanceof BadRequestError) {
+      await userModel.clearExpiredDeleteToken(
+        tokenHash,
+        CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
+      );
     }
-
-    const deletionRecord = await accountDeletionConfirmationModel.findByHash(
-      tokenHash,
-      tx,
-    );
-    const deletionState =
-      confirmationTokenService.classifyConfirmationToken(deletionRecord);
-
-    if (deletionState === "recently_consumed") {
-      return { replay: true, email: null };
-    }
-
-    throw new BadRequestError("invalid or expired token");
-  });
+    throw err;
+  }
 
   if (!outcome.replay) {
     authEvents.emit("ACCOUNT_DELETED", { email: outcome.email });

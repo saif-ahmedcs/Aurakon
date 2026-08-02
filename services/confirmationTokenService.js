@@ -23,7 +23,23 @@ function classifyConfirmationToken(tokenRow, now = Date.now()) {
 }
 
 async function runIdempotentConfirmation({ findState, execute, onReplay, tx }) {
+  if (!tx || typeof tx.query !== "function") {
+    throw new Error(
+      "transaction connection is required for idempotent confirmation",
+    );
+  }
+  if (typeof findState !== "function") {
+    throw new Error("findState callback is required");
+  }
+  if (typeof execute !== "function") {
+    throw new Error("execute callback is required");
+  }
+
   const tokenRow = await findState(tx);
+  if (tokenRow === undefined) {
+    throw new Error("findState must return a token state object or null");
+  }
+
   const state = classifyConfirmationToken(tokenRow);
 
   if (state === "expired") {
