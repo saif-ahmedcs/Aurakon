@@ -159,9 +159,7 @@ async function resendVerification(email) {
         VERIFICATION_COOLDOWN_MS,
       )
     ) {
-      throw new TooManyRequestsError(
-        "Please wait before requesting another verification email.",
-      );
+      return;
     }
     const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
 
@@ -232,6 +230,11 @@ async function login(email, password) {
 
 // ------------- SET GENDER --------------
 async function setGender(userId, gender) {
+  const user = await userModel.findById(userId);
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
+
   const applied = await userModel.setGender(userId, gender);
 
   if (!applied) {
@@ -383,6 +386,10 @@ async function resetPassword(token, newPassword) {
 async function changePassword(userId, currentPassword, newPassword) {
   const user = await userModel.findPasswordHashById(userId);
 
+  if (!user) {
+    throw new UnauthorizedError("invalid current password");
+  }
+
   const passwordMatch = await bcrypt.compare(
     currentPassword,
     user.password_hash,
@@ -418,6 +425,9 @@ async function changePassword(userId, currentPassword, newPassword) {
   });
 
   const updatedUser = await userModel.findById(userId);
+  if (!updatedUser) {
+    throw new UnauthorizedError("invalid current password");
+  }
   authEvents.emit("PASSWORD_CHANGED", { email: updatedUser.email });
 
   return { message: "password changed successfully" };
@@ -468,6 +478,9 @@ async function logoutAll(userId) {
 // ------------- UPDATE TIMEZONE --------------
 async function updateTimezone(userId, timezone) {
   const user = await userModel.getAccountInfo(userId);
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
 
   if (user.timezone === timezone) {
     return { timezone };
@@ -480,6 +493,9 @@ async function updateTimezone(userId, timezone) {
 // ------------- UPDATE USERNAME --------------
 async function updateUsername(userId, username) {
   const user = await userModel.findById(userId);
+  if (!user) {
+    throw new UnauthorizedError("user not found");
+  }
 
   if (user.username === username) {
     return { username };
@@ -493,11 +509,18 @@ async function updateUsername(userId, username) {
 
   if (!applied) {
     const lastChangedAt = await userModel.getUsernameChangedAt(userId);
+    const cooldownDays = Math.round(USERNAME_CHANGE_COOLDOWN_MS / 86400000);
+    if (!lastChangedAt) {
+      throw new TooManyRequestsError(
+        `username can only be changed once every ${cooldownDays} days.`,
+      );
+    }
+
     const nextEligibleAt = new Date(
       new Date(lastChangedAt).getTime() + USERNAME_CHANGE_COOLDOWN_MS,
     );
     throw new TooManyRequestsError(
-      `username can only be changed once every 15 days. Try again after ${nextEligibleAt.toISOString()}.`,
+      `username can only be changed once every ${cooldownDays} days. Try again after ${nextEligibleAt.toISOString()}.`,
     );
   }
 
@@ -510,6 +533,9 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
 
   const result = await runInTransaction(async (tx) => {
     const user = await userModel.findForEmailChange(userId, tx);
+    if (!user) {
+      throw new UnauthorizedError("invalid current password");
+    }
 
     const passwordMatch = await bcrypt.compare(
       currentPassword,
@@ -687,6 +713,12 @@ async function confirmEmailChange(userId, token, currentPassword) {
             tx,
           );
           if (result.affectedRows === 0) {
+            if (result.reason === "duplicate_address") {
+              await userModel.cancelPendingEmailChange(userId, tx);
+              throw new ConflictError(
+                "This email address is no longer available. Please request a new email change.",
+              );
+            }
             throw new BadRequestError("invalid or expired token");
           }
         },
@@ -731,6 +763,9 @@ async function requestAccountDeletion(userId) {
 
   const email = await runInTransaction(async (tx) => {
     const user = await userModel.findForAccountDeletion(userId, tx);
+    if (!user) {
+      throw new UnauthorizedError("user not found");
+    }
 
     if (
       !hasCooldownElapsed(
@@ -778,10 +813,6 @@ async function verifyAccountDeletionToken(token) {
   const tokenHash = hashToken(token);
   const tokenRow = await userModel.findDeleteTokenState(tokenHash);
   const state = confirmationTokenService.classifyConfirmationToken(tokenRow);
-
-  if (state === "recently_consumed") {
-    return { message: "Account already deleted.", alreadyCompleted: true };
-  }
 
   if (state === "active") {
     return {
@@ -839,23 +870,13 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
         await accountDeletionConfirmationModel.recordConsumption(
           tokenHash,
           userId,
+          tokenRow.passwordHash,
           tx,
         );
         await habitModel.deleteAllByUser(userId, tx);
         await userModel.deleteById(userId, tx);
 
         return { replay: false, email: tokenRow.email };
-      }
-
-      if (state === "recently_consumed") {
-        const replayPasswordMatch = await bcrypt.compare(
-          currentPassword,
-          tokenRow.passwordHash,
-        );
-        if (!replayPasswordMatch) {
-          throw new UnauthorizedError("invalid current password");
-        }
-        return { replay: true, email: null };
       }
 
       const deletionRecord = await accountDeletionConfirmationModel.findByHash(
@@ -866,6 +887,13 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
         confirmationTokenService.classifyConfirmationToken(deletionRecord);
 
       if (deletionState === "recently_consumed") {
+        const replayPasswordMatch = await bcrypt.compare(
+          currentPassword,
+          deletionRecord.passwordHash,
+        );
+        if (!replayPasswordMatch) {
+          throw new UnauthorizedError("invalid current password");
+        }
         return { replay: true, email: null };
       }
 
@@ -891,6 +919,9 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
 // ------------- GET CURRENT USER (MY ACCOUNT) --------------
 async function getCurrentUser(userId) {
   const account = await userModel.getAccountInfo(userId);
+  if (!account) {
+    throw new UnauthorizedError("user not found");
+  }
 
   return {
     email: account.email,

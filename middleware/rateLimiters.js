@@ -40,7 +40,8 @@ const forgotPasswordCooldownLimiter = rateLimit({
   max: 1,
   keyGenerator: (req) => {
     const normalizedEmail = (req.body?.email ?? "").toLowerCase().trim();
-    return normalizedEmail || ipKeyGenerator(req.ip);
+    const clientIp = ipKeyGenerator(req.ip);
+    return normalizedEmail ? `${normalizedEmail}:${clientIp}` : clientIp;
   },
   message: {
     error: "please wait 15 minutes before requesting another reset email",
@@ -52,7 +53,8 @@ const forgotPasswordDailyLimiter = rateLimit({
   max: 3,
   keyGenerator: (req) => {
     const normalizedEmail = (req.body?.email ?? "").toLowerCase().trim();
-    return normalizedEmail || ipKeyGenerator(req.ip);
+    const clientIp = ipKeyGenerator(req.ip);
+    return normalizedEmail ? `${normalizedEmail}:${clientIp}` : clientIp;
   },
   message: { error: "maximum of 3 password reset emails per 24 hours reached" },
 });

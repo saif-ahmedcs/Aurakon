@@ -14,17 +14,21 @@ const transporter = nodemailer.createTransport({
 
 async function sendEmail({ to, subject, html, text }) {
   try {
+    const fallbackText = html
+      .replace(
+        /<a\s+[^>]*href=["']([^"']+)["'][^>]*>/gi,
+        (_, href) => ` ${href} `,
+      )
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
     const info = await transporter.sendMail({
       from: `"Aurakon" <${process.env.GMAIL_USER}>`,
       to,
       subject,
       html,
-      text:
-        text ||
-        html
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim(),
+      text: text || fallbackText,
     });
     console.log(
       `[emailService] accepted=${info.accepted.length} rejected=${info.rejected.length} response=${info.response}`,

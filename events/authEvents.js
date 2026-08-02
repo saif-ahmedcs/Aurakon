@@ -14,6 +14,10 @@ const appBaseUrl = (() => {
     throw new Error("APP_BASE_URL is invalid");
   }
 
+  if (parsedUrl.protocol !== "https:") {
+    throw new Error("APP_BASE_URL is invalid");
+  }
+
   return parsedUrl.toString().replace(/\/$/, "");
 })();
 

@@ -57,6 +57,6 @@ async function cleanupExpiredTokens() {
 cleanupExpiredTokens()
   .catch((err) => {
     console.error("Cleanup failed:", err);
-    process.exit(1);
+    process.exitCode = 1;
   })
   .finally(() => pool.end());

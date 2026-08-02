@@ -189,20 +189,42 @@ async function findEmailChangeTokenStateForUser(userId, tokenHash, db = pool) {
 async function markEmailChangeConsumed(id, db = pool) {
   const [result] = await db.query(
     `UPDATE users AS target
-     SET email = pending_email,
-         pending_email = NULL,
-         email_change_consumed_at = UTC_TIMESTAMP()
-     WHERE id = ?
-       AND pending_email IS NOT NULL
-       AND NOT EXISTS (
-         SELECT 1
-         FROM users AS existing
-         WHERE existing.email = target.pending_email
-           AND existing.id <> target.id
-       )`,
+     LEFT JOIN users AS existing
+       ON existing.email = target.pending_email
+       AND existing.id <> target.id
+     SET target.email = target.pending_email,
+         target.pending_email = NULL,
+         target.email_change_consumed_at = UTC_TIMESTAMP()
+     WHERE target.id = ?
+       AND target.pending_email IS NOT NULL
+       AND existing.id IS NULL`,
     [id],
   );
-  return result;
+
+  if (result.affectedRows === 0) {
+    const [rows] = await db.query(
+      `SELECT pending_email FROM users WHERE id = ?`,
+      [id],
+    );
+    const row = rows[0];
+
+    if (row?.pending_email) {
+      const [conflictRows] = await db.query(
+        `SELECT id FROM users WHERE email = ? AND id <> ?`,
+        [row.pending_email, id],
+      );
+      if (conflictRows[0]) {
+        return {
+          affectedRows: result.affectedRows,
+          reason: "duplicate_address",
+        };
+      }
+    }
+
+    return { affectedRows: result.affectedRows, reason: "invalid" };
+  }
+
+  return { affectedRows: result.affectedRows, reason: null };
 }
 
 async function clearExpiredEmailChangeToken(

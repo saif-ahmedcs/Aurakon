@@ -37,7 +37,9 @@ CREATE TABLE account_deletion_confirmations (
   token_hash CHAR(64) PRIMARY KEY,
   user_id INT NOT NULL,
   consumed_at DATETIME NOT NULL,
-  INDEX idx_account_deletion_confirmations_user_id (user_id)
+  password_hash VARCHAR(255) NOT NULL,
+  INDEX idx_account_deletion_confirmations_user_id (user_id),
+  INDEX idx_account_deletion_confirmations_consumed_at (consumed_at)
 );
 
 CREATE TABLE habits (
