@@ -49,6 +49,7 @@ async function authAllowRecentlyDeleted(req, res, next) {
     req.user = {
       id: decoded.sub,
       timezone: DEFAULT_TIMEZONE,
+      gender: null,
     };
     next();
   } catch (err) {

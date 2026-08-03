@@ -386,6 +386,23 @@ async function markResetTokenConsumed(id, passwordHash, db = pool) {
   );
 }
 
+async function markResetTokenConsumedIfHashMatches(
+  id,
+  expectedCurrentHash,
+  passwordHash,
+  db = pool,
+) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET password_hash = ?,
+         password_changed_at = UTC_TIMESTAMP(),
+         reset_token_consumed_at = UTC_TIMESTAMP()
+     WHERE id = ? AND password_hash = ?`,
+    [passwordHash, id, expectedCurrentHash],
+  );
+  return result.affectedRows > 0;
+}
+
 async function updatePasswordIfEligible(
   userId,
   passwordHash,
@@ -615,6 +632,7 @@ module.exports = {
   findByValidResetToken,
   findResetTokenState,
   markResetTokenConsumed,
+  markResetTokenConsumedIfHashMatches,
   updatePasswordIfEligible,
   getPasswordChangedAt,
   findForAccountDeletion,

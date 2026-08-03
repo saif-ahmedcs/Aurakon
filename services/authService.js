@@ -320,6 +320,22 @@ async function resetPassword(token, newPassword) {
 
   const tokenHash = hashToken(token);
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+
+  const preTokenRow = await userModel.findResetTokenState(tokenHash);
+  const preState =
+    confirmationTokenService.classifyConfirmationToken(preTokenRow);
+
+  let sameAsCurrent = false;
+  let matchesPersisted = false;
+  if (preState === "active") {
+    sameAsCurrent = await bcrypt.compare(newPassword, preTokenRow.passwordHash);
+  } else if (preState === "recently_consumed") {
+    matchesPersisted = await bcrypt.compare(
+      newPassword,
+      preTokenRow.passwordHash,
+    );
+  }
+
   let matchedRow = null;
 
   let outcome;
@@ -331,25 +347,31 @@ async function resetPassword(token, newPassword) {
           return matchedRow;
         },
         execute: async (tokenRow, tx) => {
-          const sameAsCurrent = await bcrypt.compare(
-            newPassword,
-            tokenRow.passwordHash,
-          );
-          if (sameAsCurrent) {
+          const hashUnchanged =
+            tokenRow.passwordHash === preTokenRow?.passwordHash;
+          if (hashUnchanged && sameAsCurrent) {
             throw new BadRequestError(
               "new password must be different from the current password",
             );
           }
 
-          await userModel.markResetTokenConsumed(tokenRow.id, passwordHash, tx);
+          const applied = await userModel.markResetTokenConsumedIfHashMatches(
+            tokenRow.id,
+            tokenRow.passwordHash,
+            passwordHash,
+            tx,
+          );
+          if (!applied) {
+            throw new ConflictError(
+              "password was changed concurrently, please retry",
+            );
+          }
           await refreshTokenModel.deleteAllByUserId(tokenRow.id, tx);
         },
         onReplay: async (tokenRow) => {
-          const matchesPersisted = await bcrypt.compare(
-            newPassword,
-            tokenRow.passwordHash,
-          );
-          if (!matchesPersisted) {
+          const hashUnchanged =
+            tokenRow.passwordHash === preTokenRow?.passwordHash;
+          if (!hashUnchanged || !matchesPersisted) {
             throw new ConflictError(
               "this token was already used to reset the password to a different value",
             );
@@ -529,21 +551,36 @@ async function updateUsername(userId, username) {
 async function requestEmailChange(userId, newEmail, currentPassword) {
   const normalizedEmail = newEmail.toLowerCase();
 
+  const user = await userModel.findForEmailChange(userId);
+  if (!user) {
+    throw new UnauthorizedError("invalid current password");
+  }
+
+  const passwordMatch = await bcrypt.compare(
+    currentPassword,
+    user.password_hash,
+  );
+  if (!passwordMatch) {
+    throw new UnauthorizedError("invalid current password");
+  }
+
+  if (normalizedEmail === user.email) {
+    throw new BadRequestError("new email must be different from current email");
+  }
+
   const result = await runInTransaction(async (tx) => {
-    const user = await userModel.findForEmailChange(userId, tx);
-    if (!user) {
+    const lockedUser = await userModel.findForEmailChange(userId, tx);
+    if (!lockedUser) {
       throw new UnauthorizedError("invalid current password");
     }
 
-    const passwordMatch = await bcrypt.compare(
-      currentPassword,
-      user.password_hash,
-    );
-    if (!passwordMatch) {
-      throw new UnauthorizedError("invalid current password");
+    if (lockedUser.password_hash !== user.password_hash) {
+      throw new ConflictError(
+        "password was changed concurrently, please retry",
+      );
     }
 
-    if (normalizedEmail === user.email) {
+    if (normalizedEmail === lockedUser.email) {
       throw new BadRequestError(
         "new email must be different from current email",
       );
@@ -551,7 +588,7 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
 
     if (
       !hasCooldownElapsed(
-        user.email_change_token_expires,
+        lockedUser.email_change_token_expires,
         EMAIL_CHANGE_MAX_AGE_MS,
         VERIFICATION_COOLDOWN_MS,
       )
@@ -684,6 +721,22 @@ async function confirmEmailChange(userId, token, currentPassword) {
   }
 
   const tokenHash = hashToken(token);
+
+  const preTokenRow = await userModel.findEmailChangeTokenStateForUser(
+    userId,
+    tokenHash,
+  );
+  const preState =
+    confirmationTokenService.classifyConfirmationToken(preTokenRow);
+
+  let passwordMatch = false;
+  if (preState === "active" || preState === "recently_consumed") {
+    passwordMatch = await bcrypt.compare(
+      currentPassword,
+      preTokenRow.passwordHash,
+    );
+  }
+
   let matchedRow = null;
 
   let outcome;
@@ -699,11 +752,9 @@ async function confirmEmailChange(userId, token, currentPassword) {
           return matchedRow;
         },
         execute: async (tokenRow, tx) => {
-          const passwordMatch = await bcrypt.compare(
-            currentPassword,
-            tokenRow.passwordHash,
-          );
-          if (!passwordMatch) {
+          const hashUnchanged =
+            tokenRow.passwordHash === preTokenRow?.passwordHash;
+          if (!hashUnchanged || !passwordMatch) {
             throw new UnauthorizedError("invalid current password");
           }
           const result = await userModel.markEmailChangeConsumed(
@@ -720,11 +771,9 @@ async function confirmEmailChange(userId, token, currentPassword) {
           }
         },
         onReplay: async (tokenRow) => {
-          const passwordMatch = await bcrypt.compare(
-            currentPassword,
-            tokenRow.passwordHash,
-          );
-          if (!passwordMatch) {
+          const hashUnchanged =
+            tokenRow.passwordHash === preTokenRow?.passwordHash;
+          if (!hashUnchanged || !passwordMatch) {
             throw new UnauthorizedError("invalid current password");
           }
         },
@@ -846,6 +895,21 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
 
   const tokenHash = hashToken(token);
 
+  const preTokenRow = await userModel.findDeleteTokenStateForUser(
+    userId,
+    tokenHash,
+  );
+  const preState =
+    confirmationTokenService.classifyConfirmationToken(preTokenRow);
+
+  let passwordMatch = false;
+  if (preState === "active") {
+    passwordMatch = await bcrypt.compare(
+      currentPassword,
+      preTokenRow.passwordHash,
+    );
+  }
+
   let outcome;
   try {
     outcome = await runInTransaction(async (tx) => {
@@ -859,11 +923,9 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
         confirmationTokenService.classifyConfirmationToken(tokenRow);
 
       if (state === "active") {
-        const passwordMatch = await bcrypt.compare(
-          currentPassword,
-          tokenRow.passwordHash,
-        );
-        if (!passwordMatch) {
+        const hashUnchanged =
+          tokenRow.passwordHash === preTokenRow?.passwordHash;
+        if (!hashUnchanged || !passwordMatch) {
           throw new UnauthorizedError("invalid current password");
         }
 
