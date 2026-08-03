@@ -834,10 +834,7 @@ async function verifyAccountDeletionToken(token) {
     return { message: "Account already deleted.", alreadyCompleted: true };
   }
 
-  await userModel.clearExpiredDeleteToken(
-    tokenHash,
-    CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
-  );
+  await userModel.clearExpiredDeleteToken(tokenHash);
   throw new BadRequestError("invalid or expired token");
 }
 
@@ -896,10 +893,7 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
     });
   } catch (err) {
     if (err instanceof BadRequestError) {
-      await userModel.clearExpiredDeleteToken(
-        tokenHash,
-        CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
-      );
+      await userModel.clearExpiredDeleteToken(tokenHash);
     }
     throw err;
   }

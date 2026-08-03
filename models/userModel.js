@@ -499,8 +499,7 @@ async function setDeleteToken(userId, tokenHash, expiresAt, db = pool) {
   await db.query(
     `UPDATE users
      SET delete_token_hash = ?,
-         delete_token_expires = ?,
-         delete_token_consumed_at = NULL
+         delete_token_expires = ?
      WHERE id = ?`,
     [tokenHash, expiresAt, userId],
   );
@@ -510,8 +509,7 @@ async function cancelPendingAccountDeletion(userId, db = pool) {
   const [result] = await db.query(
     `UPDATE users
      SET delete_token_hash = NULL,
-         delete_token_expires = NULL,
-         delete_token_consumed_at = NULL
+         delete_token_expires = NULL
      WHERE id = ?
        AND delete_token_hash IS NOT NULL`,
     [userId],
@@ -523,8 +521,7 @@ async function findByValidDeleteToken(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, email FROM users
      WHERE delete_token_hash = ?
-       AND delete_token_expires > UTC_TIMESTAMP()
-       AND delete_token_consumed_at IS NULL`,
+       AND delete_token_expires > UTC_TIMESTAMP()`,
     [tokenHash],
   );
   return rows[0] || null;
@@ -532,7 +529,7 @@ async function findByValidDeleteToken(tokenHash, db = pool) {
 
 async function findDeleteTokenState(tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, email, delete_token_expires, delete_token_consumed_at
+    `SELECT id, email, delete_token_expires
      FROM users
      WHERE delete_token_hash = ?
      FOR UPDATE`,
@@ -544,13 +541,12 @@ async function findDeleteTokenState(tokenHash, db = pool) {
     id: row.id,
     email: row.email,
     expiresAt: row.delete_token_expires,
-    consumedAt: row.delete_token_consumed_at,
   };
 }
 
 async function findDeleteTokenStateForUser(userId, tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, email, password_hash, delete_token_expires, delete_token_consumed_at
+    `SELECT id, email, password_hash, delete_token_expires
      FROM users
      WHERE id = ?
        AND delete_token_hash = ?
@@ -564,23 +560,17 @@ async function findDeleteTokenStateForUser(userId, tokenHash, db = pool) {
     email: row.email,
     passwordHash: row.password_hash,
     expiresAt: row.delete_token_expires,
-    consumedAt: row.delete_token_consumed_at,
   };
 }
 
-async function clearExpiredDeleteToken(tokenHash, windowSeconds, db = pool) {
+async function clearExpiredDeleteToken(tokenHash, db = pool) {
   const [result] = await db.query(
     `UPDATE users
      SET delete_token_hash = NULL,
-         delete_token_expires = NULL,
-         delete_token_consumed_at = NULL
+         delete_token_expires = NULL
      WHERE delete_token_hash = ?
-       AND (
-         (delete_token_consumed_at IS NULL AND delete_token_expires <= UTC_TIMESTAMP())
-         OR (delete_token_consumed_at IS NOT NULL
-             AND delete_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)
-       )`,
-    [tokenHash, windowSeconds],
+       AND delete_token_expires <= UTC_TIMESTAMP()`,
+    [tokenHash],
   );
   return result.affectedRows;
 }

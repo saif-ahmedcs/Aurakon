@@ -35,6 +35,7 @@ async function sendEmail({
   correlationId,
 }) {
   try {
+    const transporter = getTransporter();
     const fallbackText = html
       .replace(
         /<a\s+[^>]*href=["']([^"']+)["'][^>]*>/gi,
