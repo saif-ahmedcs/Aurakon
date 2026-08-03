@@ -564,8 +564,12 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
     throw new UnauthorizedError("invalid current password");
   }
 
+  const NOOP_RESPONSE = {
+    message: "This is already your current email address.",
+  };
+
   if (normalizedEmail === user.email) {
-    throw new BadRequestError("new email must be different from current email");
+    return NOOP_RESPONSE;
   }
 
   const result = await runInTransaction(async (tx) => {
@@ -581,9 +585,7 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
     }
 
     if (normalizedEmail === lockedUser.email) {
-      throw new BadRequestError(
-        "new email must be different from current email",
-      );
+      return { rawToken: null };
     }
 
     if (
@@ -618,6 +620,10 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
 
     return { rawToken };
   });
+
+  if (!result.rawToken) {
+    return NOOP_RESPONSE;
+  }
 
   authEvents.emit("EMAIL_CHANGE_REQUESTED", {
     email: normalizedEmail,

@@ -52,8 +52,7 @@ async function cleanupExpiredTokens() {
        SET delete_token_hash = NULL,
            delete_token_expires = NULL
        WHERE delete_token_hash IS NOT NULL
-         AND delete_token_expires <= UTC_TIMESTAMP()
-         AND delete_token_consumed_at IS NULL`,
+         AND delete_token_expires <= UTC_TIMESTAMP()`,
     );
     results.deleteToken = deleteToken;
   } catch (error) {
