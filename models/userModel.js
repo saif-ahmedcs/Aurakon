@@ -187,44 +187,54 @@ async function findEmailChangeTokenStateForUser(userId, tokenHash, db = pool) {
 }
 
 async function markEmailChangeConsumed(id, db = pool) {
-  const [result] = await db.query(
-    `UPDATE users AS target
-     LEFT JOIN users AS existing
-       ON existing.email = target.pending_email
-       AND existing.id <> target.id
-     SET target.email = target.pending_email,
-         target.pending_email = NULL,
-         target.email_change_consumed_at = UTC_TIMESTAMP()
-     WHERE target.id = ?
-       AND target.pending_email IS NOT NULL
-       AND existing.id IS NULL`,
-    [id],
-  );
-
-  if (result.affectedRows === 0) {
-    const [rows] = await db.query(
-      `SELECT pending_email FROM users WHERE id = ?`,
+  try {
+    const [result] = await db.query(
+      `UPDATE users AS target
+       LEFT JOIN users AS existing
+         ON existing.email = target.pending_email
+         AND existing.id <> target.id
+       SET target.email = target.pending_email,
+           target.pending_email = NULL,
+           target.email_change_consumed_at = UTC_TIMESTAMP()
+       WHERE target.id = ?
+         AND target.pending_email IS NOT NULL
+         AND existing.id IS NULL`,
       [id],
     );
-    const row = rows[0];
 
-    if (row?.pending_email) {
-      const [conflictRows] = await db.query(
-        `SELECT id FROM users WHERE email = ? AND id <> ?`,
-        [row.pending_email, id],
+    if (result.affectedRows === 0) {
+      const [rows] = await db.query(
+        `SELECT pending_email FROM users WHERE id = ?`,
+        [id],
       );
-      if (conflictRows[0]) {
-        return {
-          affectedRows: result.affectedRows,
-          reason: "duplicate_address",
-        };
+      const row = rows[0];
+
+      if (row?.pending_email) {
+        const [conflictRows] = await db.query(
+          `SELECT id FROM users WHERE email = ? AND id <> ?`,
+          [row.pending_email, id],
+        );
+        if (conflictRows[0]) {
+          return {
+            affectedRows: result.affectedRows,
+            reason: "duplicate_address",
+          };
+        }
       }
+
+      return { affectedRows: result.affectedRows, reason: "invalid" };
     }
 
-    return { affectedRows: result.affectedRows, reason: "invalid" };
+    return { affectedRows: result.affectedRows, reason: null };
+  } catch (err) {
+    if (err.code === "ER_DUP_ENTRY") {
+      return {
+        affectedRows: 0,
+        reason: "duplicate_address",
+      };
+    }
+    throw err;
   }
-
-  return { affectedRows: result.affectedRows, reason: null };
 }
 
 async function clearExpiredEmailChangeToken(
@@ -310,7 +320,8 @@ async function setVerificationToken(userId, tokenHash, expiresAt, db = pool) {
   await db.query(
     `UPDATE users
      SET email_verification_token_hash = ?,
-         email_verification_expires = ?
+         email_verification_expires = ?,
+         email_verification_consumed_at = NULL
      WHERE id = ?`,
     [tokenHash, expiresAt, userId],
   );
@@ -335,8 +346,8 @@ async function setResetToken(userId, tokenHash, expiresAt, db = pool) {
   );
 }
 
-async function findByValidResetToken(tokenHash) {
-  const [rows] = await pool.query(
+async function findByValidResetToken(tokenHash, db = pool) {
+  const [rows] = await db.query(
     `SELECT id, password_hash FROM users
      WHERE reset_token_hash = ?
        AND reset_token_expires > UTC_TIMESTAMP()
@@ -404,16 +415,20 @@ async function findForLogin(email) {
   return rows[0] || null;
 }
 
-async function findPasswordHashById(userId) {
-  const [rows] = await pool.query(
+async function findPasswordHashById(userId, db = pool) {
+  const [rows] = await db.query(
     "SELECT password_hash FROM users WHERE id = ?",
     [userId],
   );
   return rows[0] || null;
 }
 
-async function clearExpiredVerificationToken(tokenHash, windowSeconds) {
-  const [result] = await pool.query(
+async function clearExpiredVerificationToken(
+  tokenHash,
+  windowSeconds,
+  db = pool,
+) {
+  const [result] = await db.query(
     `UPDATE users
      SET email_verification_token_hash = NULL,
          email_verification_expires = NULL,
@@ -441,8 +456,8 @@ async function clearResetToken(userId, db = pool) {
   return result.affectedRows;
 }
 
-async function clearExpiredResetToken(tokenHash, windowSeconds) {
-  const [result] = await pool.query(
+async function clearExpiredResetToken(tokenHash, windowSeconds, db = pool) {
+  const [result] = await db.query(
     `UPDATE users
      SET reset_token_hash = NULL,
          reset_token_expires = NULL,
@@ -458,8 +473,8 @@ async function clearExpiredResetToken(tokenHash, windowSeconds) {
   return result.affectedRows;
 }
 
-async function clearOwnExpiredResetToken(userId) {
-  const [result] = await pool.query(
+async function clearOwnExpiredResetToken(userId, db = pool) {
+  const [result] = await db.query(
     `UPDATE users
      SET reset_token_hash = NULL,
          reset_token_expires = NULL

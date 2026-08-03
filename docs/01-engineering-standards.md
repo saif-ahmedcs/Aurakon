@@ -25,7 +25,7 @@ The user's configured timezone is the source of truth. It may be updated manuall
 
 ## 4. Email delivery
 
-Transactional emails (verification, resend verification, password reset) are sent via Gmail SMTP (`services/emailService.js`) using `GMAIL_USER` and `GMAIL_APP_PASSWORD` from `.env`.
+Transactional emails (verification, resend verification, password reset, email-change confirmation, account-deletion confirmation) are sent via Gmail SMTP (`services/emailService.js`) using `GMAIL_USER` and `GMAIL_APP_PASSWORD` from `.env`.
 
 - Gmail SMTP was chosen as a zero-cost solution, avoiding provider signup, billing, or business-domain requirements.
 - `sendEmail()` is fire-and-forget: `authEvents.emit(...)` does not await delivery. Email failures do **not** fail the API request and are only logged via `[emailService]`.

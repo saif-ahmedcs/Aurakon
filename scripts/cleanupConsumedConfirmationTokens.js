@@ -7,57 +7,93 @@ const { CONFIRMATION_IDEMPOTENCY_WINDOW_MS } = require("../utils/constants");
 const WINDOW_SECONDS = Math.floor(CONFIRMATION_IDEMPOTENCY_WINDOW_MS / 1000);
 
 async function cleanupConsumedConfirmationTokens() {
-  const [emailVerification] = await pool.query(
-    `UPDATE users
-     SET email_verification_token_hash = NULL,
-         email_verification_expires = NULL,
-         email_verification_consumed_at = NULL
-     WHERE email_verification_consumed_at IS NOT NULL
-       AND email_verification_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
-    [WINDOW_SECONDS],
-  );
+  const results = {};
+  let hadFailure = false;
 
-  const [emailChange] = await pool.query(
-    `UPDATE users
-     SET email_change_token_hash = NULL,
-         email_change_token_expires = NULL,
-         email_change_consumed_at = NULL
-     WHERE email_change_consumed_at IS NOT NULL
-       AND email_change_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
-    [WINDOW_SECONDS],
-  );
+  try {
+    const [emailVerification] = await pool.query(
+      `UPDATE users
+       SET email_verification_token_hash = NULL,
+           email_verification_expires = NULL,
+           email_verification_consumed_at = NULL
+       WHERE email_verification_consumed_at IS NOT NULL
+         AND email_verification_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
+      [WINDOW_SECONDS],
+    );
+    results.emailVerification = emailVerification;
+  } catch (error) {
+    hadFailure = true;
+    console.error("Cleanup failed for email_verification:", error);
+  }
 
-  const [deleteToken] = await pool.query(
-    `UPDATE users
-     SET delete_token_hash = NULL,
-         delete_token_expires = NULL,
-         delete_token_consumed_at = NULL
-     WHERE delete_token_consumed_at IS NOT NULL
-       AND delete_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
-    [WINDOW_SECONDS],
-  );
+  try {
+    const [emailChange] = await pool.query(
+      `UPDATE users
+       SET email_change_token_hash = NULL,
+           email_change_token_expires = NULL,
+           email_change_consumed_at = NULL
+       WHERE email_change_consumed_at IS NOT NULL
+         AND email_change_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
+      [WINDOW_SECONDS],
+    );
+    results.emailChange = emailChange;
+  } catch (error) {
+    hadFailure = true;
+    console.error("Cleanup failed for email_change:", error);
+  }
 
-  const [resetToken] = await pool.query(
-    `UPDATE users
-     SET reset_token_hash = NULL,
-         reset_token_expires = NULL,
-         reset_token_consumed_at = NULL
-     WHERE reset_token_consumed_at IS NOT NULL
-       AND reset_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
-    [WINDOW_SECONDS],
-  );
+  try {
+    const [deleteToken] = await pool.query(
+      `UPDATE users
+       SET delete_token_hash = NULL,
+           delete_token_expires = NULL,
+           delete_token_consumed_at = NULL
+       WHERE delete_token_consumed_at IS NOT NULL
+         AND delete_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
+      [WINDOW_SECONDS],
+    );
+    results.deleteToken = deleteToken;
+  } catch (error) {
+    hadFailure = true;
+    console.error("Cleanup failed for delete_token:", error);
+  }
 
-  const cutoff = new Date(Date.now() - CONFIRMATION_IDEMPOTENCY_WINDOW_MS);
-  const deletionRecords =
-    await accountDeletionConfirmationModel.deleteOlderThan(cutoff);
+  try {
+    const [resetToken] = await pool.query(
+      `UPDATE users
+       SET reset_token_hash = NULL,
+           reset_token_expires = NULL,
+           reset_token_consumed_at = NULL
+       WHERE reset_token_consumed_at IS NOT NULL
+         AND reset_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
+      [WINDOW_SECONDS],
+    );
+    results.resetToken = resetToken;
+  } catch (error) {
+    hadFailure = true;
+    console.error("Cleanup failed for reset_token:", error);
+  }
+
+  try {
+    const cutoff = new Date(Date.now() - CONFIRMATION_IDEMPOTENCY_WINDOW_MS);
+    results.deletionRecords =
+      await accountDeletionConfirmationModel.deleteOlderThan(cutoff);
+  } catch (error) {
+    hadFailure = true;
+    console.error("Cleanup failed for account_deletion_confirmations:", error);
+  }
+
+  if (hadFailure) {
+    process.exitCode = 1;
+  }
 
   console.log(
     `Cleaned up consumed confirmation tokens: ` +
-      `email_verification=${emailVerification.affectedRows}, ` +
-      `email_change=${emailChange.affectedRows}, ` +
-      `delete_token=${deleteToken.affectedRows}, ` +
-      `reset_token=${resetToken.affectedRows}, ` +
-      `account_deletion_confirmations=${deletionRecords}.`,
+      `email_verification=${results.emailVerification?.affectedRows ?? 0}, ` +
+      `email_change=${results.emailChange?.affectedRows ?? 0}, ` +
+      `delete_token=${results.deleteToken?.affectedRows ?? 0}, ` +
+      `reset_token=${results.resetToken?.affectedRows ?? 0}, ` +
+      `account_deletion_confirmations=${results.deletionRecords ?? 0}.`,
   );
 }
 

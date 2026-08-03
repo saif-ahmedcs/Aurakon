@@ -16,14 +16,19 @@ router.get(
       userProgressModel.getProgress(req.user.id),
     ]);
 
-    const title = titleService.resolveCurrentTitle(progress.total_xp);
+    const safeProgress = progress ?? {
+      current_level: 0,
+      total_xp: 0,
+      shield_balance: 0,
+    };
+    const title = titleService.resolveCurrentTitle(safeProgress.total_xp);
 
     res.status(200).json({
       username: user.username,
-      level: progress.current_level,
-      totalXp: progress.total_xp,
+      level: safeProgress.current_level,
+      totalXp: safeProgress.total_xp,
       title,
-      shieldBalance: progress.shield_balance,
+      shieldBalance: safeProgress.shield_balance,
     });
   }),
 );

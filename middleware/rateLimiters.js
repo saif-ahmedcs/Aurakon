@@ -96,6 +96,15 @@ const verifyEmailChangeLimiter = rateLimit({
   },
 });
 
+const confirmEmailChangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    error:
+      "too many email change confirmation attempts, please try again later",
+  },
+});
+
 const resetPasswordVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -124,6 +133,15 @@ const deleteAccountVerifyLimiter = rateLimit({
   },
 });
 
+const confirmDeleteAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    error:
+      "too many account deletion confirmation attempts, please try again later",
+  },
+});
+
 module.exports = {
   registerLimiter,
   verifyEmailLimiter,
@@ -135,7 +153,9 @@ module.exports = {
   changePasswordDailyLimiter,
   changeEmailLimiter,
   verifyEmailChangeLimiter,
+  confirmEmailChangeLimiter,
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
+  confirmDeleteAccountLimiter,
   resetPasswordVerifyLimiter,
 };

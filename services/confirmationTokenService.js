@@ -9,13 +9,22 @@ function classifyConfirmationToken(tokenRow, now = Date.now()) {
   }
 
   if (tokenRow.consumedAt) {
-    const elapsedMs = now - new Date(tokenRow.consumedAt).getTime();
-    return elapsedMs <= CONFIRMATION_IDEMPOTENCY_WINDOW_MS
+    const consumedAtMs = new Date(tokenRow.consumedAt).getTime();
+
+    if (Number.isNaN(consumedAtMs)) {
+      return "expired";
+    }
+
+    return now - consumedAtMs <= CONFIRMATION_IDEMPOTENCY_WINDOW_MS
       ? "recently_consumed"
       : "expired";
   }
 
-  if (!tokenRow.expiresAt || new Date(tokenRow.expiresAt).getTime() <= now) {
+  const expiresAtMs = tokenRow.expiresAt
+    ? new Date(tokenRow.expiresAt).getTime()
+    : Number.NaN;
+
+  if (Number.isNaN(expiresAtMs) || expiresAtMs <= now) {
     return "expired";
   }
 

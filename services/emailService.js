@@ -1,18 +1,39 @@
 const nodemailer = require("nodemailer");
 
-if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-  throw new Error("Missing Gmail SMTP environment variables.");
+function enqueueRetryableEmailFailure(eventName, correlationId, error) {
+  console.error(
+    `[emailService] retryable_queue event=${eventName} correlationId=${correlationId} error=${error.message}`,
+  );
 }
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+let transporter;
 
-async function sendEmail({ to, subject, html, text }) {
+function getTransporter() {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    throw new Error("Missing Gmail SMTP environment variables.");
+  }
+
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+  }
+
+  return transporter;
+}
+
+async function sendEmail({
+  to,
+  subject,
+  html,
+  text,
+  eventName,
+  correlationId,
+}) {
   try {
     const fallbackText = html
       .replace(
@@ -30,13 +51,24 @@ async function sendEmail({ to, subject, html, text }) {
       html,
       text: text || fallbackText,
     });
+
+    if (info.rejected && info.rejected.length > 0) {
+      const error = new Error("Email rejected by provider.");
+      throw error;
+    }
+
     console.log(
       `[emailService] accepted=${info.accepted.length} rejected=${info.rejected.length} response=${info.response}`,
     );
     return info;
   } catch (err) {
-    console.error("[emailService] Failed to send email:", err.message);
-    return null;
+    const eventLabel = eventName || "unknown";
+    const correlationLabel = correlationId || "unknown";
+    console.error(
+      `[emailService] Failed to send email event=${eventLabel} correlationId=${correlationLabel}: ${err.message}`,
+    );
+    enqueueRetryableEmailFailure(eventLabel, correlationLabel, err);
+    throw err;
   }
 }
 

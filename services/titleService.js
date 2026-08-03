@@ -8,7 +8,8 @@ function resolveCurrentTitle(totalXp) {
 }
 
 function getTitleProgress(totalXp) {
-  const safeXp = Number.isFinite(totalXp) ? totalXp : 0;
+  const numericXp = Number(totalXp);
+  const safeXp = Number.isFinite(numericXp) ? numericXp : 0;
   const currentIndex = TITLE_THRESHOLDS.findIndex((t) => safeXp >= t.minXp);
   const normalizedIndex =
     currentIndex === -1 ? TITLE_THRESHOLDS.length - 1 : currentIndex;

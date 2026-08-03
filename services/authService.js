@@ -116,16 +116,19 @@ async function confirmEmailVerification(token) {
   const tokenHash = hashToken(token);
 
   try {
-    await runInTransaction((tx) =>
-      confirmationTokenService.runIdempotentConfirmation({
+    await runInTransaction(async (tx) => {
+      await confirmationTokenService.runIdempotentConfirmation({
         findState: (tx) => userModel.findVerificationTokenState(tokenHash, tx),
         execute: (tokenRow, tx) =>
           userModel.markVerificationConsumed(tokenRow.id, tx),
         tx,
-      }),
-    );
+      });
+    });
   } catch (err) {
-    if (err instanceof BadRequestError) {
+    if (
+      err instanceof BadRequestError &&
+      err.message === confirmationTokenService.INVALID_TOKEN_MESSAGE
+    ) {
       await userModel.clearExpiredVerificationToken(
         tokenHash,
         CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
@@ -200,14 +203,13 @@ async function login(email, password) {
     throw new ForbiddenError("please verify your email before logging in");
   }
 
-  await userModel.clearOwnExpiredResetToken(user.id);
-
   const accessToken = generateAccessToken(user);
 
   const { rawRefreshToken, refreshTokenHash, refreshTokenExpiresAt } =
     generateRefreshToken();
 
   await runInTransaction(async (tx) => {
+    await userModel.clearOwnExpiredResetToken(user.id, tx);
     await refreshTokenModel.deleteExpiredForUser(user.id, tx);
     await refreshTokenModel.lockActiveForUser(user.id, tx);
 
@@ -264,9 +266,7 @@ async function forgotPassword(email) {
         PASSWORD_RESET_COOLDOWN_MS,
       )
     ) {
-      throw new TooManyRequestsError(
-        "Please wait before requesting another password reset email.",
-      );
+      return;
     }
 
     const { rawToken, tokenHash, expiresAt } = generatePasswordResetToken();
@@ -319,12 +319,13 @@ async function resetPassword(token, newPassword) {
   }
 
   const tokenHash = hashToken(token);
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
   let matchedRow = null;
 
   let outcome;
   try {
-    outcome = await runInTransaction((tx) =>
-      confirmationTokenService.runIdempotentConfirmation({
+    outcome = await runInTransaction(async (tx) => {
+      return await confirmationTokenService.runIdempotentConfirmation({
         findState: async (tx) => {
           matchedRow = await userModel.findResetTokenState(tokenHash, tx);
           return matchedRow;
@@ -340,10 +341,6 @@ async function resetPassword(token, newPassword) {
             );
           }
 
-          const passwordHash = await bcrypt.hash(
-            newPassword,
-            BCRYPT_SALT_ROUNDS,
-          );
           await userModel.markResetTokenConsumed(tokenRow.id, passwordHash, tx);
           await refreshTokenModel.deleteAllByUserId(tokenRow.id, tx);
         },
@@ -359,8 +356,8 @@ async function resetPassword(token, newPassword) {
           }
         },
         tx,
-      }),
-    );
+      });
+    });
   } catch (err) {
     if (
       err instanceof BadRequestError &&
@@ -376,7 +373,9 @@ async function resetPassword(token, newPassword) {
 
   if (!outcome.replay) {
     const updatedUser = await userModel.findById(matchedRow.id);
-    authEvents.emit("PASSWORD_RESET_COMPLETED", { email: updatedUser.email });
+    if (updatedUser) {
+      authEvents.emit("PASSWORD_RESET_COMPLETED", { email: updatedUser.email });
+    }
   }
 
   return { message: "password reset successfully" };
@@ -425,10 +424,9 @@ async function changePassword(userId, currentPassword, newPassword) {
   });
 
   const updatedUser = await userModel.findById(userId);
-  if (!updatedUser) {
-    throw new UnauthorizedError("invalid current password");
+  if (updatedUser) {
+    authEvents.emit("PASSWORD_CHANGED", { email: updatedUser.email });
   }
-  authEvents.emit("PASSWORD_CHANGED", { email: updatedUser.email });
 
   return { message: "password changed successfully" };
 }
@@ -741,7 +739,10 @@ async function confirmEmailChange(userId, token, currentPassword) {
         "This email address is no longer available. Please request a new email change.",
       );
     }
-    if (err instanceof BadRequestError) {
+    if (
+      err instanceof BadRequestError &&
+      err.message === confirmationTokenService.INVALID_TOKEN_MESSAGE
+    ) {
       await userModel.clearExpiredEmailChangeToken(
         tokenHash,
         CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
@@ -870,7 +871,6 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
         await accountDeletionConfirmationModel.recordConsumption(
           tokenHash,
           userId,
-          tokenRow.passwordHash,
           tx,
         );
         await habitModel.deleteAllByUser(userId, tx);
@@ -887,13 +887,6 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
         confirmationTokenService.classifyConfirmationToken(deletionRecord);
 
       if (deletionState === "recently_consumed") {
-        const replayPasswordMatch = await bcrypt.compare(
-          currentPassword,
-          deletionRecord.passwordHash,
-        );
-        if (!replayPasswordMatch) {
-          throw new UnauthorizedError("invalid current password");
-        }
         return { replay: true, email: null };
       }
 

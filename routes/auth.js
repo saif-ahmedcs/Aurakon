@@ -33,9 +33,11 @@ const {
   changePasswordDailyLimiter,
   changeEmailLimiter,
   verifyEmailChangeLimiter,
+  confirmEmailChangeLimiter,
   resetPasswordVerifyLimiter,
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
+  confirmDeleteAccountLimiter,
 } = require("../middleware/rateLimiters");
 
 const router = express.Router();
@@ -126,9 +128,9 @@ router.post(
 
 router.post(
   "/forgot-password",
+  validate(forgotPasswordSchema),
   forgotPasswordCooldownLimiter,
   forgotPasswordDailyLimiter,
-  validate(forgotPasswordSchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body;
 
@@ -178,6 +180,7 @@ router.post(
       newPassword,
     );
 
+    res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json(result);
   }),
 );
@@ -287,7 +290,7 @@ router.get(
 router.post(
   "/verify-email-change/confirm",
   auth,
-  verifyEmailChangeLimiter,
+  confirmEmailChangeLimiter,
   validate(confirmEmailChangeSchema),
   asyncHandler(async (req, res) => {
     const { token, currentPassword } = req.body;
@@ -333,7 +336,7 @@ router.get(
 router.post(
   "/delete-account/confirm",
   authAllowRecentlyDeleted,
-  deleteAccountVerifyLimiter,
+  confirmDeleteAccountLimiter,
   validate(confirmDeleteAccountSchema),
   asyncHandler(async (req, res) => {
     const { token, currentPassword } = req.body;
