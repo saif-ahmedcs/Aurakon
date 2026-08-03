@@ -161,6 +161,7 @@ router.post(
 
     const result = await authService.resetPassword(token, newPassword);
 
+    res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json(result);
   }),
 );

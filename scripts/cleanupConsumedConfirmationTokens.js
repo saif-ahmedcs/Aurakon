@@ -43,22 +43,6 @@ async function cleanupConsumedConfirmationTokens() {
   }
 
   try {
-    const [deleteToken] = await pool.query(
-      `UPDATE users
-       SET delete_token_hash = NULL,
-           delete_token_expires = NULL,
-           delete_token_consumed_at = NULL
-       WHERE delete_token_consumed_at IS NOT NULL
-         AND delete_token_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
-      [WINDOW_SECONDS],
-    );
-    results.deleteToken = deleteToken;
-  } catch (error) {
-    hadFailure = true;
-    console.error("Cleanup failed for delete_token:", error);
-  }
-
-  try {
     const [resetToken] = await pool.query(
       `UPDATE users
        SET reset_token_hash = NULL,
@@ -91,7 +75,6 @@ async function cleanupConsumedConfirmationTokens() {
     `Cleaned up consumed confirmation tokens: ` +
       `email_verification=${results.emailVerification?.affectedRows ?? 0}, ` +
       `email_change=${results.emailChange?.affectedRows ?? 0}, ` +
-      `delete_token=${results.deleteToken?.affectedRows ?? 0}, ` +
       `reset_token=${results.resetToken?.affectedRows ?? 0}, ` +
       `account_deletion_confirmations=${results.deletionRecords ?? 0}.`,
   );

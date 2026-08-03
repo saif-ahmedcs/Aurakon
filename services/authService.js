@@ -712,7 +712,6 @@ async function confirmEmailChange(userId, token, currentPassword) {
           );
           if (result.affectedRows === 0) {
             if (result.reason === "duplicate_address") {
-              await userModel.cancelPendingEmailChange(userId, tx);
               throw new ConflictError(
                 "This email address is no longer available. Please request a new email change.",
               );
@@ -738,6 +737,10 @@ async function confirmEmailChange(userId, token, currentPassword) {
       throw new ConflictError(
         "This email address is no longer available. Please request a new email change.",
       );
+    }
+    if (err instanceof ConflictError) {
+      await userModel.cancelPendingEmailChange(userId);
+      throw err;
     }
     if (
       err instanceof BadRequestError &&
@@ -867,7 +870,6 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
           throw new UnauthorizedError("invalid current password");
         }
 
-        await userModel.markDeleteTokenConsumed(tokenRow.id, tx);
         await accountDeletionConfirmationModel.recordConsumption(
           tokenHash,
           userId,

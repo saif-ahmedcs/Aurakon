@@ -568,13 +568,6 @@ async function findDeleteTokenStateForUser(userId, tokenHash, db = pool) {
   };
 }
 
-async function markDeleteTokenConsumed(id, db = pool) {
-  await db.query(
-    `UPDATE users SET delete_token_consumed_at = UTC_TIMESTAMP() WHERE id = ?`,
-    [id],
-  );
-}
-
 async function clearExpiredDeleteToken(tokenHash, windowSeconds, db = pool) {
   const [result] = await db.query(
     `UPDATE users
@@ -640,7 +633,6 @@ module.exports = {
   findByValidDeleteToken,
   findDeleteTokenState,
   findDeleteTokenStateForUser,
-  markDeleteTokenConsumed,
   clearExpiredDeleteToken,
   deleteById,
 };
