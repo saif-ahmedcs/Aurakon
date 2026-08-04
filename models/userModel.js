@@ -259,28 +259,6 @@ async function clearExpiredEmailChangeToken(
   return result.affectedRows;
 }
 
-async function findByValidVerificationToken(tokenHash, db = pool) {
-  const [rows] = await db.query(
-    `SELECT id FROM users
-     WHERE email_verification_token_hash = ?
-       AND email_verification_expires > UTC_TIMESTAMP()
-       AND email_verification_consumed_at IS NULL`,
-    [tokenHash],
-  );
-  return rows[0] || null;
-}
-
-async function findByValidEmailChangeToken(tokenHash, db = pool) {
-  const [rows] = await db.query(
-    `SELECT id FROM users
-     WHERE email_change_token_hash = ?
-       AND email_change_token_expires > UTC_TIMESTAMP()
-       AND email_change_consumed_at IS NULL`,
-    [tokenHash],
-  );
-  return rows[0] || null;
-}
-
 async function findVerificationTokenState(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, email_verification_expires, email_verification_consumed_at
@@ -346,17 +324,6 @@ async function setResetToken(userId, tokenHash, expiresAt, db = pool) {
   );
 }
 
-async function findByValidResetToken(tokenHash, db = pool) {
-  const [rows] = await db.query(
-    `SELECT id, password_hash FROM users
-     WHERE reset_token_hash = ?
-       AND reset_token_expires > UTC_TIMESTAMP()
-       AND reset_token_consumed_at IS NULL`,
-    [tokenHash],
-  );
-  return rows[0] || null;
-}
-
 async function findResetTokenState(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, password_hash, reset_token_expires, reset_token_consumed_at
@@ -373,17 +340,6 @@ async function findResetTokenState(tokenHash, db = pool) {
     expiresAt: row.reset_token_expires,
     consumedAt: row.reset_token_consumed_at,
   };
-}
-
-async function markResetTokenConsumed(id, passwordHash, db = pool) {
-  await db.query(
-    `UPDATE users
-     SET password_hash = ?,
-         password_changed_at = UTC_TIMESTAMP(),
-         reset_token_consumed_at = UTC_TIMESTAMP()
-     WHERE id = ?`,
-    [passwordHash, id],
-  );
 }
 
 async function markResetTokenConsumedIfHashMatches(
@@ -414,14 +370,6 @@ async function updatePasswordIfEligible(
     [passwordHash, userId, expectedCurrentHash],
   );
   return result.affectedRows > 0;
-}
-
-async function getPasswordChangedAt(userId, db = pool) {
-  const [rows] = await db.query(
-    "SELECT password_changed_at FROM users WHERE id = ?",
-    [userId],
-  );
-  return rows[0] ? rows[0].password_changed_at : null;
 }
 
 async function findForLogin(email) {
@@ -534,16 +482,6 @@ async function cancelPendingAccountDeletion(userId, db = pool) {
   return result.affectedRows > 0;
 }
 
-async function findByValidDeleteToken(tokenHash, db = pool) {
-  const [rows] = await db.query(
-    `SELECT id, email FROM users
-     WHERE delete_token_hash = ?
-       AND delete_token_expires > UTC_TIMESTAMP()`,
-    [tokenHash],
-  );
-  return rows[0] || null;
-}
-
 async function findDeleteTokenState(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, email, delete_token_expires
@@ -615,8 +553,6 @@ module.exports = {
   findEmailChangeTokenStateForUser,
   markEmailChangeConsumed,
   clearExpiredEmailChangeToken,
-  findByValidVerificationToken,
-  findByValidEmailChangeToken,
   findVerificationTokenState,
   markVerificationConsumed,
   findForResend,
@@ -629,16 +565,12 @@ module.exports = {
   clearOwnExpiredResetToken,
   findForPasswordReset,
   setResetToken,
-  findByValidResetToken,
   findResetTokenState,
-  markResetTokenConsumed,
   markResetTokenConsumedIfHashMatches,
   updatePasswordIfEligible,
-  getPasswordChangedAt,
   findForAccountDeletion,
   setDeleteToken,
   cancelPendingAccountDeletion,
-  findByValidDeleteToken,
   findDeleteTokenState,
   findDeleteTokenStateForUser,
   clearExpiredDeleteToken,

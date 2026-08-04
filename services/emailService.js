@@ -1,11 +1,5 @@
 const nodemailer = require("nodemailer");
 
-function enqueueRetryableEmailFailure(eventName, correlationId, error) {
-  console.error(
-    `[emailService] retryable_queue event=${eventName} correlationId=${correlationId} error=${error.message}`,
-  );
-}
-
 let transporter;
 
 function getTransporter() {
@@ -68,7 +62,6 @@ async function sendEmail({
     console.error(
       `[emailService] Failed to send email event=${eventLabel} correlationId=${correlationLabel}: ${err.message}`,
     );
-    enqueueRetryableEmailFailure(eventLabel, correlationLabel, err);
     throw err;
   }
 }

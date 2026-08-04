@@ -326,14 +326,8 @@ async function resetPassword(token, newPassword) {
     confirmationTokenService.classifyConfirmationToken(preTokenRow);
 
   let sameAsCurrent = false;
-  let matchesPersisted = false;
   if (preState === "active") {
     sameAsCurrent = await bcrypt.compare(newPassword, preTokenRow.passwordHash);
-  } else if (preState === "recently_consumed") {
-    matchesPersisted = await bcrypt.compare(
-      newPassword,
-      preTokenRow.passwordHash,
-    );
   }
 
   let matchedRow = null;
@@ -369,9 +363,11 @@ async function resetPassword(token, newPassword) {
           await refreshTokenModel.deleteAllByUserId(tokenRow.id, tx);
         },
         onReplay: async (tokenRow) => {
-          const hashUnchanged =
-            tokenRow.passwordHash === preTokenRow?.passwordHash;
-          if (!hashUnchanged || !matchesPersisted) {
+          const matchesPersisted = await bcrypt.compare(
+            newPassword,
+            tokenRow.passwordHash,
+          );
+          if (!matchesPersisted) {
             throw new ConflictError(
               "this token was already used to reset the password to a different value",
             );
