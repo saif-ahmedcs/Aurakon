@@ -92,7 +92,8 @@ CREATE TABLE daily_aura_stats (
   completed_habits INT NOT NULL,
   full_completion BOOLEAN NOT NULL DEFAULT false,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  UNIQUE KEY unique_user_date (user_id, stat_date)
+  UNIQUE KEY unique_user_date (user_id, stat_date),
+  KEY idx_user_full_completion (user_id, full_completion, stat_date)
 );
 
 CREATE TABLE xp_bonus_log (
