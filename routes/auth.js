@@ -35,6 +35,7 @@ const {
   verifyEmailChangeLimiter,
   confirmEmailChangeLimiter,
   resetPasswordVerifyLimiter,
+  resetPasswordConfirmLimiter,
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
   confirmDeleteAccountLimiter,
@@ -128,9 +129,9 @@ router.post(
 
 router.post(
   "/forgot-password",
-  validate(forgotPasswordSchema),
   forgotPasswordCooldownLimiter,
   forgotPasswordDailyLimiter,
+  validate(forgotPasswordSchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body;
 
@@ -155,6 +156,7 @@ router.get(
 
 router.post(
   "/reset-password",
+  resetPasswordConfirmLimiter,
   validate(resetPasswordSchema),
   asyncHandler(async (req, res) => {
     const { token, newPassword } = req.body;

@@ -584,6 +584,14 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
       return { rawToken: null };
     }
 
+    const existing = await userModel.findByEmailForRegistration(
+      normalizedEmail,
+      tx,
+    );
+    if (existing) {
+      throw new ConflictError("email already registered");
+    }
+
     if (
       !hasCooldownElapsed(
         lockedUser.email_change_token_expires,
@@ -594,14 +602,6 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
       throw new TooManyRequestsError(
         "Please wait before requesting another verification email.",
       );
-    }
-
-    const existing = await userModel.findByEmailForRegistration(
-      normalizedEmail,
-      tx,
-    );
-    if (existing) {
-      throw new ConflictError("email already registered");
     }
 
     const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
@@ -958,14 +958,15 @@ async function confirmAccountDeletion(userId, token, currentPassword) {
         return { replay: false, email: tokenRow.email };
       }
 
-      const deletionRecord = await accountDeletionConfirmationModel.findByHash(
-        tokenHash,
-        tx,
-      );
+      const deletionRecord =
+        await accountDeletionConfirmationModel.findRecentByUserId(userId, tx);
       const deletionState =
         confirmationTokenService.classifyConfirmationToken(deletionRecord);
 
-      if (deletionState === "recently_consumed") {
+      if (
+        deletionState === "recently_consumed" &&
+        deletionRecord.tokenHash === tokenHash
+      ) {
         return { replay: true, email: null };
       }
 

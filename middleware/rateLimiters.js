@@ -114,6 +114,15 @@ const resetPasswordVerifyLimiter = rateLimit({
   },
 });
 
+const resetPasswordConfirmLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    error:
+      "too many password reset confirmation attempts, please try again later",
+  },
+});
+
 const deleteAccountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -158,4 +167,5 @@ module.exports = {
   deleteAccountVerifyLimiter,
   confirmDeleteAccountLimiter,
   resetPasswordVerifyLimiter,
+  resetPasswordConfirmLimiter,
 };

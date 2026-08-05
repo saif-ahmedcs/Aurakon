@@ -27,14 +27,20 @@ async function findByHash(tokenHash, db = pool) {
 
 async function findRecentByUserId(userId, db = pool) {
   const [rows] = await db.query(
-    `SELECT consumed_at FROM account_deletion_confirmations
+    `SELECT token_hash, consumed_at FROM account_deletion_confirmations
      WHERE user_id = ?
      ORDER BY consumed_at DESC
      LIMIT 1`,
     [userId],
   );
   const row = rows[0];
-  return row ? { consumedAt: row.consumed_at, expiresAt: null } : null;
+  return row
+    ? {
+        tokenHash: row.token_hash,
+        consumedAt: row.consumed_at,
+        expiresAt: null,
+      }
+    : null;
 }
 
 async function deleteOlderThan(cutoffDate, db = pool) {
