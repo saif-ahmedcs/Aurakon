@@ -30,6 +30,9 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
       progress.global_daily_streak = 0;
       return 0;
     }
+
+    const fresh = await userProgressModel.getProgress(userId, tx);
+    return fresh ? fresh.global_daily_streak : 0;
   }
 
   return progress.global_daily_streak;

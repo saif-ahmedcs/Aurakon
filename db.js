@@ -31,13 +31,20 @@ async function runInTransaction(callback) {
   for (let attempt = 1; attempt <= MAX_TRANSACTION_RETRIES; attempt++) {
     const connection = await pool.getConnection();
     let retryable = false;
+    let destroyed = false;
     try {
       await connection.beginTransaction();
       const result = await callback(connection);
       await connection.commit();
       return result;
     } catch (err) {
-      await connection.rollback();
+      try {
+        await connection.rollback();
+      } catch (rollbackErr) {
+        destroyed = true;
+        connection.destroy();
+        throw err;
+      }
       if (
         !RETRYABLE_ERROR_CODES.has(err.code) ||
         attempt === MAX_TRANSACTION_RETRIES
@@ -46,7 +53,7 @@ async function runInTransaction(callback) {
       }
       retryable = true;
     } finally {
-      connection.release();
+      if (!destroyed) connection.release();
     }
     if (retryable) {
       await sleep(attempt * 50 + Math.random() * 50);
