@@ -633,37 +633,53 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
 
 // ------------- RESEND EMAIL CHANGE VERIFICATION --------------
 async function resendEmailChangeVerification(userId) {
-  const result = await runInTransaction(async (tx) => {
-    const user = await userModel.findPendingEmailChange(userId, tx);
+  let result;
+  try {
+    result = await runInTransaction(async (tx) => {
+      const user = await userModel.findPendingEmailChange(userId, tx);
 
-    if (!user || !user.pending_email) {
-      throw new BadRequestError("no pending email change request");
-    }
+      if (!user || !user.pending_email) {
+        throw new BadRequestError("no pending email change request");
+      }
 
-    if (
-      !hasCooldownElapsed(
-        user.email_change_token_expires,
-        EMAIL_CHANGE_MAX_AGE_MS,
-        VERIFICATION_COOLDOWN_MS,
-      )
-    ) {
-      throw new TooManyRequestsError(
-        "Please wait before requesting another verification email.",
+      const existing = await userModel.findByEmailForRegistration(
+        user.pending_email,
+        tx,
       );
+      if (existing) {
+        throw new ConflictError("email already registered");
+      }
+
+      if (
+        !hasCooldownElapsed(
+          user.email_change_token_expires,
+          EMAIL_CHANGE_MAX_AGE_MS,
+          VERIFICATION_COOLDOWN_MS,
+        )
+      ) {
+        throw new TooManyRequestsError(
+          "Please wait before requesting another verification email.",
+        );
+      }
+
+      const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
+
+      await userModel.setPendingEmailChange(
+        userId,
+        user.pending_email,
+        tokenHash,
+        expiresAt,
+        tx,
+      );
+
+      return { rawToken, pendingEmail: user.pending_email };
+    });
+  } catch (err) {
+    if (err instanceof ConflictError) {
+      await userModel.cancelPendingEmailChange(userId);
     }
-
-    const { rawToken, tokenHash, expiresAt } = generateEmailChangeToken();
-
-    await userModel.setPendingEmailChange(
-      userId,
-      user.pending_email,
-      tokenHash,
-      expiresAt,
-      tx,
-    );
-
-    return { rawToken, pendingEmail: user.pending_email };
-  });
+    throw err;
+  }
 
   authEvents.emit("EMAIL_CHANGE_REQUESTED", {
     email: result.pendingEmail,
