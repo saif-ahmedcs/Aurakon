@@ -584,7 +584,7 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
       return { rawToken: null };
     }
 
-    const existing = await userModel.findByEmailForRegistration(
+    const existing = await userModel.findByEmailOrPendingEmailForUpdate(
       normalizedEmail,
       tx,
     );

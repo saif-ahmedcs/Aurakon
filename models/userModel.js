@@ -8,6 +8,14 @@ async function findByEmailForRegistration(email, db = pool) {
   return rows[0] || null;
 }
 
+async function findByEmailOrPendingEmailForUpdate(email, db = pool) {
+  const [rows] = await db.query(
+    "SELECT id FROM users WHERE email = ? OR pending_email = ? FOR UPDATE",
+    [email, email],
+  );
+  return rows[0] || null;
+}
+
 async function createUser(
   email,
   passwordHash,
@@ -537,6 +545,7 @@ async function deleteById(userId, db = pool) {
 
 module.exports = {
   findByEmailForRegistration,
+  findByEmailOrPendingEmailForUpdate,
   createUser,
   setGender,
   findById,
