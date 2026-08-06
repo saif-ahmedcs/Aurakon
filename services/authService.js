@@ -586,6 +586,7 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
 
     const existing = await userModel.findByEmailOrPendingEmailForUpdate(
       normalizedEmail,
+      userId,
       tx,
     );
     if (existing) {
