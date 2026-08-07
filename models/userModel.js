@@ -2,8 +2,8 @@ const { pool } = require("../db");
 
 async function findByEmailForRegistration(email, db = pool) {
   const [rows] = await db.query(
-    "SELECT id, is_verified FROM users WHERE (email = ? OR pending_email = ?) FOR UPDATE",
-    [email, email],
+    "SELECT id, is_verified FROM users WHERE email = ? FOR UPDATE",
+    [email],
   );
   return rows[0] || null;
 }

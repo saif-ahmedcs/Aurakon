@@ -525,7 +525,10 @@ async function updateUsername(userId, username) {
 
   if (!applied) {
     const current = await userModel.findById(userId);
-    if (current && current.username === username) {
+    if (!current) {
+      throw new UnauthorizedError("user not found");
+    }
+    if (current.username === username) {
       return { username };
     }
 
