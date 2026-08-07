@@ -643,6 +643,7 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
 // ------------- RESEND EMAIL CHANGE VERIFICATION --------------
 async function resendEmailChangeVerification(userId) {
   let result;
+  let conflictedTokenHash = null;
   try {
     result = await runInTransaction(async (tx) => {
       const user = await userModel.findPendingEmailChange(userId, tx);
@@ -657,6 +658,7 @@ async function resendEmailChangeVerification(userId) {
         tx,
       );
       if (existing) {
+        conflictedTokenHash = user.email_change_token_hash;
         throw new ConflictError("email already registered");
       }
 
@@ -686,7 +688,11 @@ async function resendEmailChangeVerification(userId) {
     });
   } catch (err) {
     if (err instanceof ConflictError) {
-      await userModel.cancelPendingEmailChange(userId);
+      await userModel.cancelPendingEmailChange(
+        userId,
+        undefined,
+        conflictedTokenHash,
+      );
     }
     throw err;
   }
@@ -810,13 +816,13 @@ async function confirmEmailChange(userId, token, currentPassword) {
     );
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") {
-      await userModel.cancelPendingEmailChange(userId);
+      await userModel.cancelPendingEmailChange(userId, undefined, tokenHash);
       throw new ConflictError(
         "This email address is no longer available. Please request a new email change.",
       );
     }
     if (err instanceof ConflictError) {
-      await userModel.cancelPendingEmailChange(userId);
+      await userModel.cancelPendingEmailChange(userId, undefined, tokenHash);
       throw err;
     }
     if (

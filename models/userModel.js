@@ -117,7 +117,7 @@ async function findForEmailChange(userId, db = pool) {
 
 async function findPendingEmailChange(userId, db = pool) {
   const [rows] = await db.query(
-    `SELECT pending_email, email_change_token_expires
+    `SELECT pending_email, email_change_token_expires, email_change_token_hash
      FROM users WHERE id = ? FOR UPDATE`,
     [userId],
   );
@@ -142,7 +142,11 @@ async function setPendingEmailChange(
   );
 }
 
-async function cancelPendingEmailChange(userId, db = pool) {
+async function cancelPendingEmailChange(
+  userId,
+  db = pool,
+  expectedTokenHash = null,
+) {
   const [result] = await db.query(
     `UPDATE users
      SET pending_email = NULL,
@@ -150,8 +154,9 @@ async function cancelPendingEmailChange(userId, db = pool) {
          email_change_token_expires = NULL,
          email_change_consumed_at = NULL
      WHERE id = ?
-       AND pending_email IS NOT NULL`,
-    [userId],
+       AND pending_email IS NOT NULL
+       ${expectedTokenHash ? "AND email_change_token_hash = ?" : ""}`,
+    expectedTokenHash ? [userId, expectedTokenHash] : [userId],
   );
   return result.affectedRows > 0;
 }
