@@ -524,6 +524,11 @@ async function updateUsername(userId, username) {
   );
 
   if (!applied) {
+    const current = await userModel.findById(userId);
+    if (current && current.username === username) {
+      return { username };
+    }
+
     const lastChangedAt = await userModel.getUsernameChangedAt(userId);
     const cooldownDays = Math.round(USERNAME_CHANGE_COOLDOWN_MS / 86400000);
     if (!lastChangedAt) {
@@ -643,8 +648,9 @@ async function resendEmailChangeVerification(userId) {
         throw new BadRequestError("no pending email change request");
       }
 
-      const existing = await userModel.findByEmailForRegistration(
+      const existing = await userModel.findByEmailOrPendingEmailForUpdate(
         user.pending_email,
+        userId,
         tx,
       );
       if (existing) {
