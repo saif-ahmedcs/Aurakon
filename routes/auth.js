@@ -293,6 +293,7 @@ router.post(
 router.post(
   "/email/cancel",
   auth,
+  accountFieldUpdateLimiter,
   asyncHandler(async (req, res) => {
     const result = await authService.cancelEmailChange(req.user.id);
     res.status(200).json(result);
@@ -339,6 +340,7 @@ router.post(
 router.post(
   "/delete-account/cancel",
   auth,
+  accountFieldUpdateLimiter,
   asyncHandler(async (req, res) => {
     const result = await authService.cancelAccountDeletion(req.user.id);
     res.status(200).json(result);
