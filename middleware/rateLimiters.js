@@ -6,14 +6,18 @@ const getClientIp = (req) => {
 };
 
 const getEmailOrIpKey = (req) => {
-  const email = req.body?.email?.toString().toLowerCase().trim();
-  return email && email.length > 0 ? email : getClientIp(req);
+  const rawEmail = req.body?.email;
+  const email =
+    typeof rawEmail === "string" ? rawEmail.toLowerCase().trim() : "";
+  return email.length > 0 ? email : getClientIp(req);
 };
 
 const getIpAndEmailKey = (req) => {
-  const email = req.body?.email?.toString().toLowerCase().trim();
+  const rawEmail = req.body?.email;
+  const email =
+    typeof rawEmail === "string" ? rawEmail.toLowerCase().trim() : "";
   const clientIp = getClientIp(req);
-  return email && email.length > 0 ? `${clientIp}:${email}` : clientIp;
+  return email.length > 0 ? `${clientIp}:${email}` : clientIp;
 };
 
 const getUserIdOrIpKey = (req) => {
@@ -68,7 +72,7 @@ const resendVerificationIpLimiter = createLimiter({
   message: { error: "too many requests, please try again later" },
 });
 
-// Authentication (Login)
+// Authentication (Login & Logout)
 const loginLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -90,6 +94,20 @@ const loginIpLimiter = createLimiter({
   max: 17,
   keyGenerator: getClientIp,
   message: { error: "too many login attempts, please try again later" },
+});
+
+const logoutIpLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  keyGenerator: getClientIp,
+  message: { error: "too many requests, please try again later" },
+});
+
+const logoutAllLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  keyGenerator: getUserIdOrIpKey,
+  message: { error: "too many requests, please try again later" },
 });
 
 // Forgot & Reset Password
@@ -214,7 +232,7 @@ const confirmDeleteAccountLimiter = createLimiter({
 // Authenticated Surface & General Operations
 const authenticatedSurfaceLimiter = createLimiter({
   windowMs: 60 * 1000,
-  max: 180,
+  max: 60,
   keyGenerator: getUserIdOrIpKey,
   message: { error: "too many requests, please slow down" },
 });
@@ -233,10 +251,10 @@ const refreshLimiter = createLimiter({
   message: { error: "too many refresh attempts, please try again later" },
 });
 
-const logoutIpLimiter = createLimiter({
+const accountFieldUpdateLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 30,
-  keyGenerator: getClientIp,
+  max: 10,
+  keyGenerator: getUserIdOrIpKey,
   message: { error: "too many requests, please try again later" },
 });
 
@@ -266,4 +284,6 @@ module.exports = {
   reviewDecisionsLimiter,
   refreshLimiter,
   logoutIpLimiter,
+  logoutAllLimiter,
+  accountFieldUpdateLimiter,
 };

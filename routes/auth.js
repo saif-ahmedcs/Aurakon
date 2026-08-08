@@ -46,6 +46,8 @@ const {
   confirmDeleteAccountLimiter,
   refreshLimiter,
   logoutIpLimiter,
+  logoutAllLimiter,
+  accountFieldUpdateLimiter,
 } = require("../middleware/rateLimiters");
 
 const router = express.Router();
@@ -67,6 +69,7 @@ router.post(
 router.patch(
   "/gender",
   auth,
+  accountFieldUpdateLimiter,
   validate(setGenderSchema),
   asyncHandler(async (req, res) => {
     const { gender } = req.body;
@@ -228,6 +231,7 @@ router.post(
 router.post(
   "/logout-all",
   auth,
+  logoutAllLimiter,
   asyncHandler(async (req, res) => {
     await authService.logoutAll(req.user.id);
 
@@ -239,6 +243,7 @@ router.post(
 router.patch(
   "/timezone",
   auth,
+  accountFieldUpdateLimiter,
   validate(updateTimezoneSchema),
   asyncHandler(async (req, res) => {
     const { timezone } = req.body;
@@ -250,6 +255,7 @@ router.patch(
 router.patch(
   "/username",
   auth,
+  accountFieldUpdateLimiter,
   validate(updateUsernameSchema),
   asyncHandler(async (req, res) => {
     const { username } = req.body;
