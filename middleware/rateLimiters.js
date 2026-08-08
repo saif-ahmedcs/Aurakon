@@ -32,6 +32,13 @@ const createLimiter = (options) => {
   });
 };
 
+const globalIpLimiter = createLimiter({
+  windowMs: 60 * 1000,
+  max: 300,
+  keyGenerator: getClientIp,
+  message: { error: "too many requests, please try again later" },
+});
+
 // Registration
 const registerLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
@@ -259,6 +266,7 @@ const accountFieldUpdateLimiter = createLimiter({
 });
 
 module.exports = {
+  globalIpLimiter,
   registerLimiter,
   registerEmailLimiter,
   verifyEmailLimiter,
