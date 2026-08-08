@@ -26,10 +26,13 @@ const {
   registerLimiter,
   verifyEmailLimiter,
   resendVerificationLimiter,
+  resendVerificationIpLimiter,
   loginLimiter,
   loginAccountLimiter,
+  loginIpLimiter,
   forgotPasswordCooldownLimiter,
   forgotPasswordDailyLimiter,
+  forgotPasswordIpLimiter,
   changePasswordLimiter,
   changePasswordDailyLimiter,
   changeEmailLimiter,
@@ -98,6 +101,7 @@ router.post(
 router.post(
   "/resend-verification",
   resendVerificationLimiter,
+  resendVerificationIpLimiter,
   validate(resendVerificationSchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body;
@@ -112,6 +116,7 @@ router.post(
   "/login",
   loginLimiter,
   loginAccountLimiter,
+  loginIpLimiter,
   validate(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
@@ -134,6 +139,7 @@ router.post(
   "/forgot-password",
   forgotPasswordCooldownLimiter,
   forgotPasswordDailyLimiter,
+  forgotPasswordIpLimiter,
   validate(forgotPasswordSchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body;

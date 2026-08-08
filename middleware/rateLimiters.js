@@ -187,6 +187,29 @@ const refreshLimiter = rateLimit({
   },
 });
 
+const loginIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  message: { error: "too many login attempts, please try again later" },
+});
+
+const forgotPasswordIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  message: {
+    error: "too many password reset requests, please try again later",
+  },
+});
+
+const resendVerificationIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  message: { error: "too many requests, please try again later" },
+});
+
 module.exports = {
   registerLimiter,
   verifyEmailLimiter,
@@ -208,4 +231,7 @@ module.exports = {
   authenticatedSurfaceLimiter,
   reviewDecisionsLimiter,
   refreshLimiter,
+  loginIpLimiter,
+  forgotPasswordIpLimiter,
+  resendVerificationIpLimiter,
 };
