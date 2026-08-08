@@ -28,10 +28,15 @@ router.get(
       today,
       progress,
     );
-    const title = titleService.resolveCurrentTitle(progress.total_xp);
+    const totalXp = Number(progress.total_xp);
+    const title = titleService.resolveCurrentTitle(totalXp);
+    const { titles, nextRank } = titleService.getTitleProgress(totalXp);
+
     res.status(200).json({
-      totalXp: progress.total_xp,
+      totalXp,
       title,
+      titles,
+      nextRank,
       level: progress.current_level,
       auraEnergyToday: todayStats ? todayStats.aura_energy : 0,
       globalDailyStreak: reconciledStreak,

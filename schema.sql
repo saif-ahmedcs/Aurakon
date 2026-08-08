@@ -7,14 +7,37 @@ CREATE TABLE users (
   email_verification_token_hash CHAR(64) NULL,
   email_verification_expires DATETIME NULL,
   username VARCHAR(20) NOT NULL,
+  gender ENUM('male','female') NULL,
   reset_token_hash CHAR(64) NULL,
   reset_token_expires DATETIME NULL,
+  reset_token_consumed_at DATETIME NULL,
+  delete_token_hash CHAR(64) NULL,
+  delete_token_expires DATETIME NULL,
   total_xp INT NOT NULL DEFAULT 0,
   current_level INT NOT NULL DEFAULT 0,
   global_daily_streak INT NOT NULL DEFAULT 0,
   last_full_completion_date DATE NULL,
   shield_balance INT NOT NULL DEFAULT 0,
-  timezone VARCHAR(64) NOT NULL DEFAULT 'UTC'
+  timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+  username_changed_at DATETIME NULL,
+  password_changed_at DATETIME NULL,
+  pending_email VARCHAR(255) NULL,
+  email_change_token_hash CHAR(64) NULL,
+  email_change_token_expires DATETIME NULL,
+  email_verification_consumed_at DATETIME NULL,
+  email_change_consumed_at DATETIME NULL,
+  KEY `idx_users_email_verification_token_hash` (`email_verification_token_hash`),
+  KEY `idx_users_reset_token_hash` (`reset_token_hash`),
+  KEY `idx_users_delete_token_hash` (`delete_token_hash`),
+  KEY `idx_users_email_change_token_hash` (`email_change_token_hash`)
+);
+
+CREATE TABLE account_deletion_confirmations (
+  token_hash CHAR(64) PRIMARY KEY,
+  user_id INT NOT NULL,
+  consumed_at DATETIME NOT NULL,
+  INDEX idx_account_deletion_confirmations_user_id (user_id),
+  INDEX idx_account_deletion_confirmations_consumed_at (consumed_at)
 );
 
 CREATE TABLE habits (
@@ -69,7 +92,8 @@ CREATE TABLE daily_aura_stats (
   completed_habits INT NOT NULL,
   full_completion BOOLEAN NOT NULL DEFAULT false,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  UNIQUE KEY unique_user_date (user_id, stat_date)
+  UNIQUE KEY unique_user_date (user_id, stat_date),
+  KEY idx_user_full_completion (user_id, full_completion, stat_date)
 );
 
 CREATE TABLE xp_bonus_log (

@@ -2,34 +2,52 @@ const { z } = require("zod");
 const { isPasswordValid } = require("../../utils/passwordPolicy");
 const { isValidTimezone } = require("../../utils/timezone");
 
+const normalizedEmailSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toLowerCase())
+  .pipe(z.email());
+
 const registerSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(8).refine(isPasswordValid, {
+  email: normalizedEmailSchema.max(255),
+  password: z.string().min(8).max(72).refine(isPasswordValid, {
     message:
       "password must be at least 8 characters and contain at least one letter and one number",
   }),
   username: z.string().trim().min(3).max(20),
 });
 
+const setGenderSchema = z.object({
+  gender: z.enum(["male", "female"]),
+});
+
 const loginSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().min(1),
+  email: normalizedEmailSchema.max(255),
+  password: z.string().min(1).max(72),
 });
 
 const forgotPasswordSchema = z.object({
-  email: z.string().trim().email(),
+  email: normalizedEmailSchema,
 });
 
 const resetPasswordSchema = z.object({
-  token: z.string().min(1),
-  newPassword: z.string().min(8).refine(isPasswordValid, {
+  token: z.string().min(1).max(255),
+  newPassword: z.string().min(8).max(72).refine(isPasswordValid, {
     message:
       "password must be at least 8 characters and contain at least one letter and one number",
   }),
 });
 
 const resendVerificationSchema = z.object({
-  email: z.string().trim().email(),
+  email: normalizedEmailSchema,
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: z.string().min(8).max(72).refine(isPasswordValid, {
+    message:
+      "password must be at least 8 characters and contain at least one letter and one number",
+  }),
 });
 
 const updateTimezoneSchema = z.object({
@@ -38,11 +56,46 @@ const updateTimezoneSchema = z.object({
   }),
 });
 
+const requestEmailChangeSchema = z.object({
+  newEmail: normalizedEmailSchema.max(255),
+  currentPassword: z.string().min(1).max(128),
+});
+
+const updateUsernameSchema = z.object({
+  username: z.string().trim().min(3).max(20),
+});
+
+const confirmEmailVerificationSchema = z.object({
+  token: z.string().min(1).max(255),
+});
+
+const confirmEmailChangeSchema = z.object({
+  token: z.string().min(1).max(255),
+  currentPassword: z.string().min(1).max(128),
+});
+
+const confirmDeleteAccountSchema = z.object({
+  token: z.string().min(1).max(255),
+  currentPassword: z.string().min(1).max(128),
+});
+
+const tokenQuerySchema = z.object({
+  token: z.string().min(1).max(255),
+});
+
 module.exports = {
   registerSchema,
+  setGenderSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   resendVerificationSchema,
+  changePasswordSchema,
   updateTimezoneSchema,
+  requestEmailChangeSchema,
+  updateUsernameSchema,
+  confirmEmailVerificationSchema,
+  confirmEmailChangeSchema,
+  confirmDeleteAccountSchema,
+  tokenQuerySchema,
 };

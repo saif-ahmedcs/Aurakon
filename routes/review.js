@@ -2,6 +2,7 @@ const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const reviewService = require("../services/reviewService");
 const auth = require("../middleware/authenticate");
+const requireGender = require("../middleware/requireGender");
 const finalizeReviews = require("../middleware/finalizeReviews");
 const validate = require("../middleware/validate");
 const {
@@ -9,6 +10,7 @@ const {
 } = require("../middleware/schemas/reviewSchemas");
 const router = express.Router();
 router.use(auth);
+router.use(requireGender);
 router.use(finalizeReviews);
 
 router.get(

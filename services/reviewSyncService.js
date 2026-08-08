@@ -80,6 +80,8 @@ async function finalizeDay(userId, date, tx, timezone) {
 
 async function evaluatePendingReviews(userId, timezone) {
   return runInTransaction(async (tx) => {
+    await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
+
     const yesterday = getPreviousLocalDate(timezone);
     const [latestStatDate, earliestCreatedAt] = await Promise.all([
       dailyAuraStatsModel.getLatestStatDate(userId, tx),

@@ -35,13 +35,13 @@ async function create(title, userId, difficulty, db = pool) {
   return rows[0];
 }
 
-async function update(id, title, difficulty) {
-  await pool.query("UPDATE habits SET title = ?, difficulty = ? WHERE id = ?", [
+async function update(id, title, difficulty, db = pool) {
+  await db.query("UPDATE habits SET title = ?, difficulty = ? WHERE id = ?", [
     title,
     difficulty,
     id,
   ]);
-  const [rows] = await pool.query("SELECT * FROM habits WHERE id = ?", [id]);
+  const [rows] = await db.query("SELECT * FROM habits WHERE id = ?", [id]);
   return rows[0];
 }
 
@@ -105,6 +105,13 @@ async function clearShieldDeferral(id, db = pool) {
   return result.affectedRows;
 }
 
+async function deleteAllByUser(userId, db = pool) {
+  const [result] = await db.query("DELETE FROM habits WHERE user_id = ?", [
+    userId,
+  ]);
+  return result.affectedRows;
+}
+
 module.exports = {
   findAllByUser,
   findById,
@@ -118,4 +125,5 @@ module.exports = {
   lockForShieldDeferral,
   recordShieldDeferral,
   clearShieldDeferral,
+  deleteAllByUser,
 };

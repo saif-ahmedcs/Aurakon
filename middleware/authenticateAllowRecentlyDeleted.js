@@ -1,8 +1,12 @@
 const jwt = require("jsonwebtoken");
 const userModel = require("../models/userModel");
+const accountDeletionConfirmationModel = require("../models/accountDeletionConfirmationModel");
+const {
+  classifyConfirmationToken,
+} = require("../services/confirmationTokenService");
 const { DEFAULT_TIMEZONE } = require("../utils/timezone");
 
-async function auth(req, res, next) {
+async function authAllowRecentlyDeleted(req, res, next) {
   const authHeader = req.headers["authorization"];
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -24,13 +28,28 @@ async function auth(req, res, next) {
 
   try {
     const profile = await userModel.getAuthProfile(decoded.sub);
-    if (!profile) {
+
+    if (profile) {
+      req.user = {
+        id: decoded.sub,
+        timezone: profile.timezone || DEFAULT_TIMEZONE,
+        gender: profile.gender,
+      };
+      return next();
+    }
+
+    const deletionRecord =
+      await accountDeletionConfirmationModel.findRecentByUserId(decoded.sub);
+    const deletionState = classifyConfirmationToken(deletionRecord);
+
+    if (deletionState !== "recently_consumed") {
       return res.status(401).json({ error: "invalid or expired token" });
     }
+
     req.user = {
       id: decoded.sub,
-      timezone: profile.timezone || DEFAULT_TIMEZONE,
-      gender: profile.gender,
+      timezone: DEFAULT_TIMEZONE,
+      gender: null,
     };
     next();
   } catch (err) {
@@ -38,4 +57,4 @@ async function auth(req, res, next) {
   }
 }
 
-module.exports = auth;
+module.exports = authAllowRecentlyDeleted;

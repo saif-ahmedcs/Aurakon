@@ -6,6 +6,7 @@ const habitsRouter = require("./routes/habits");
 const reviewRouter = require("./routes/review");
 const authRouter = require("./routes/auth");
 const progressRouter = require("./routes/progress");
+const profileRouter = require("./routes/profile");
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
@@ -33,6 +34,7 @@ app.use("/api/habits", habitsRouter);
 app.use("/api/review", reviewRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/progress", progressRouter);
+app.use("/api/profile", profileRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: "not found" });

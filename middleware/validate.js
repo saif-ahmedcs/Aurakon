@@ -16,7 +16,15 @@ function validate(schemaOrFactory, source = "body") {
       return next(err);
     }
 
-    req[source] = result.data;
+    if (source === "query") {
+      for (const key of Object.keys(req.query)) {
+        delete req.query[key];
+      }
+      Object.assign(req.query, result.data);
+    } else {
+      req[source] = result.data;
+    }
+
     next();
   };
 }
