@@ -48,6 +48,7 @@ const {
   logoutIpLimiter,
   logoutAllLimiter,
   accountFieldUpdateLimiter,
+  authenticatedSurfaceLimiter,
 } = require("../middleware/rateLimiters");
 
 const router = express.Router();
@@ -378,6 +379,7 @@ router.post(
 router.get(
   "/me",
   auth,
+  authenticatedSurfaceLimiter,
   asyncHandler(async (req, res) => {
     const result = await authService.getCurrentUser(req.user.id);
     res.status(200).json(result);

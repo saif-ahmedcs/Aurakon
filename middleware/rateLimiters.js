@@ -5,11 +5,18 @@ const getClientIp = (req) => {
   return ipKeyGenerator(req.ip);
 };
 
+const canonicalizeEmail = (email) => {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  const canonicalLocal = local.split("+")[0];
+  return `${canonicalLocal}@${domain}`;
+};
+
 const getEmailOrIpKey = (req) => {
   const rawEmail = req.body?.email;
   const email =
     typeof rawEmail === "string" ? rawEmail.toLowerCase().trim() : "";
-  return email.length > 0 ? email : getClientIp(req);
+  return email.length > 0 ? canonicalizeEmail(email) : getClientIp(req);
 };
 
 const getIpAndEmailKey = (req) => {
