@@ -24,6 +24,7 @@ const {
 } = require("../middleware/schemas/authSchemas");
 const {
   registerLimiter,
+  registerEmailLimiter,
   verifyEmailLimiter,
   resendVerificationLimiter,
   resendVerificationIpLimiter,
@@ -44,6 +45,7 @@ const {
   deleteAccountVerifyLimiter,
   confirmDeleteAccountLimiter,
   refreshLimiter,
+  logoutIpLimiter,
 } = require("../middleware/rateLimiters");
 
 const router = express.Router();
@@ -51,6 +53,7 @@ const router = express.Router();
 router.post(
   "/register",
   registerLimiter,
+  registerEmailLimiter,
   validate(registerSchema),
   asyncHandler(async (req, res) => {
     const { email, password, username } = req.body;
@@ -211,6 +214,7 @@ router.post(
 
 router.post(
   "/logout",
+  logoutIpLimiter,
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
