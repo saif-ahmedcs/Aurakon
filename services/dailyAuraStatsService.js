@@ -7,6 +7,7 @@ const { isFullDayCompletion, PRESENT_STATUSES } = require("../utils/streak");
 const { isActiveOnLocalDate } = require("../utils/timezone");
 
 async function recalculateDailyAuraStats(userId, date, tx, timezone) {
+  await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
   await dailyAuraStatsModel.lockRow(userId, date, tx);
   const allStatuses = await habitLogModel.getStatusesForUserAndDate(
     userId,
