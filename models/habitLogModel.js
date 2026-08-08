@@ -43,6 +43,20 @@ async function expireStaleReviewsForUser(userId, cutoffDate, db = pool) {
   }));
 }
 
+async function hasStaleReviewsForUser(userId, cutoffDate, db = pool) {
+  const [rows] = await db.query(
+    `SELECT 1
+     FROM habit_logs
+     JOIN habits ON habits.id = habit_logs.habit_id
+     WHERE habits.user_id = ?
+       AND habit_logs.status = 'pending_review'
+       AND habit_logs.log_date <= ?
+     LIMIT 1`,
+    [userId, cutoffDate],
+  );
+  return rows.length > 0;
+}
+
 async function getHabitsMissingLogForDate(userId, logDate, db = pool) {
   const [rows] = await db.query(
     `SELECT habits.id, habits.title, habits.created_at, habits.archived_at
@@ -288,6 +302,7 @@ async function countPresentStatusesForDate(userId, logDate, db = pool) {
 
 module.exports = {
   expireStaleReviewsForUser,
+  hasStaleReviewsForUser,
   getHabitsMissingLogForDate,
   getLogsForHabit,
   insertPendingReviewLog,

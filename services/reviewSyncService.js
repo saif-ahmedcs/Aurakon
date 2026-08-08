@@ -16,6 +16,8 @@ const {
 const { GRACE_PERIOD_DAYS } = require("../utils/pendingReviewSessionRules");
 const { calculateHabitStreaks } = require("../utils/streak");
 
+const inFlightByUser = new Map();
+
 async function finalizeDay(userId, date, tx, timezone) {
   const allCandidates = await habitLogModel.getHabitsMissingLogForDate(
     userId,
@@ -78,7 +80,42 @@ async function finalizeDay(userId, date, tx, timezone) {
   );
 }
 
+async function hasPendingWork(userId, timezone) {
+  const yesterday = getPreviousLocalDate(timezone);
+  const [latestStatDate, earliestCreatedAt] = await Promise.all([
+    dailyAuraStatsModel.getLatestStatDate(userId),
+    habitModel.getEarliestCreatedAt(userId),
+  ]);
+
+  if (!earliestCreatedAt) return false;
+
+  const earliestHabitDate = toLocalDateString(earliestCreatedAt, timezone);
+  const nextDate = latestStatDate
+    ? addUtcDays(latestStatDate, 1)
+    : earliestHabitDate;
+
+  if (nextDate <= yesterday) return true;
+
+  const cutoffDate = addUtcDays(todayInTimezone(timezone), -GRACE_PERIOD_DAYS);
+  return habitLogModel.hasStaleReviewsForUser(userId, cutoffDate);
+}
+
 async function evaluatePendingReviews(userId, timezone) {
+  const existing = inFlightByUser.get(userId);
+  if (existing) return existing;
+
+  const promise = runEvaluatePendingReviews(userId, timezone).finally(() => {
+    inFlightByUser.delete(userId);
+  });
+  inFlightByUser.set(userId, promise);
+  return promise;
+}
+
+async function runEvaluatePendingReviews(userId, timezone) {
+  if (!(await hasPendingWork(userId, timezone))) {
+    return;
+  }
+
   return runInTransaction(async (tx) => {
     await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
 
