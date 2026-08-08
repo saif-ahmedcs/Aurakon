@@ -178,6 +178,15 @@ const reviewDecisionsLimiter = rateLimit({
   },
 });
 
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  message: {
+    error: "too many refresh attempts, please try again later",
+  },
+});
+
 module.exports = {
   registerLimiter,
   verifyEmailLimiter,
@@ -198,4 +207,5 @@ module.exports = {
   resetPasswordConfirmLimiter,
   authenticatedSurfaceLimiter,
   reviewDecisionsLimiter,
+  refreshLimiter,
 };

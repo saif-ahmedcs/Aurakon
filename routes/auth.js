@@ -40,6 +40,7 @@ const {
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
   confirmDeleteAccountLimiter,
+  refreshLimiter,
 } = require("../middleware/rateLimiters");
 
 const router = express.Router();
@@ -192,6 +193,7 @@ router.post(
 
 router.post(
   "/refresh",
+  refreshLimiter,
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
