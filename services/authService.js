@@ -19,6 +19,8 @@ const {
   PASSWORD_RESET_COOLDOWN_MS,
   ACCOUNT_DELETION_MAX_AGE_MS,
   CONFIRMATION_IDEMPOTENCY_WINDOW_MS,
+  MAX_FAILED_LOGIN_ATTEMPTS,
+  LOGIN_LOCKOUT_MS,
 } = require("../utils/constants");
 const {
   BadRequestError,
@@ -193,15 +195,29 @@ async function login(email, password) {
   if (!user) {
     throw new UnauthorizedError("invalid credentials");
   }
+
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    throw new TooManyRequestsError(
+      "account temporarily locked due to too many failed login attempts",
+    );
+  }
+
   const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
   if (!passwordMatch) {
+    await userModel.registerFailedLogin(
+      user.id,
+      MAX_FAILED_LOGIN_ATTEMPTS,
+      LOGIN_LOCKOUT_MS,
+    );
     throw new UnauthorizedError("invalid credentials");
   }
 
   if (!user.is_verified) {
     throw new ForbiddenError("please verify your email before logging in");
   }
+
+  await userModel.clearFailedLogins(user.id);
 
   const accessToken = generateAccessToken(user);
 

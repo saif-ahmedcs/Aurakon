@@ -35,6 +35,15 @@ const loginLimiter = rateLimit({
   message: { error: "too many login attempts, please try again later" },
 });
 
+const loginAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => (req.body?.email ?? "").toLowerCase().trim(),
+  message: {
+    error: "too many login attempts for this account, please try again later",
+  },
+});
+
 const forgotPasswordCooldownLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1,
@@ -174,6 +183,7 @@ module.exports = {
   verifyEmailLimiter,
   resendVerificationLimiter,
   loginLimiter,
+  loginAccountLimiter,
   forgotPasswordCooldownLimiter,
   forgotPasswordDailyLimiter,
   changePasswordLimiter,

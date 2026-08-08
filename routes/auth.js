@@ -27,6 +27,7 @@ const {
   verifyEmailLimiter,
   resendVerificationLimiter,
   loginLimiter,
+  loginAccountLimiter,
   forgotPasswordCooldownLimiter,
   forgotPasswordDailyLimiter,
   changePasswordLimiter,
@@ -109,6 +110,7 @@ router.post(
 router.post(
   "/login",
   loginLimiter,
+  loginAccountLimiter,
   validate(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
