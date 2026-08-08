@@ -151,6 +151,24 @@ const confirmDeleteAccountLimiter = rateLimit({
   },
 });
 
+const authenticatedSurfaceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => req.user.id.toString(),
+  message: {
+    error: "too many requests, please slow down",
+  },
+});
+
+const reviewDecisionsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 6,
+  keyGenerator: (req) => req.user.id.toString(),
+  message: {
+    error: "too many review submissions, please slow down",
+  },
+});
+
 module.exports = {
   registerLimiter,
   verifyEmailLimiter,
@@ -168,4 +186,6 @@ module.exports = {
   confirmDeleteAccountLimiter,
   resetPasswordVerifyLimiter,
   resetPasswordConfirmLimiter,
+  authenticatedSurfaceLimiter,
+  reviewDecisionsLimiter,
 };

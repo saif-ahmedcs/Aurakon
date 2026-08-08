@@ -12,8 +12,11 @@ const {
   logDateParamSchema,
 } = require("../middleware/schemas/habitSchemas");
 
+const { authenticatedSurfaceLimiter } = require("../middleware/rateLimiters");
+
 const router = express.Router();
 router.use(auth);
+router.use(authenticatedSurfaceLimiter);
 router.use(finalizeReviews);
 router.use("/:id", ownershipCheck);
 

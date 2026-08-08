@@ -98,8 +98,10 @@ async function evaluatePendingReviews(userId, timezone) {
       ? addUtcDays(latestStatDate, 1)
       : earliestHabitDate;
 
+    let didWork = false;
     while (date <= yesterday) {
       await finalizeDay(userId, date, tx, timezone);
+      didWork = true;
       date = addUtcDays(date, 1);
     }
 
@@ -112,6 +114,9 @@ async function evaluatePendingReviews(userId, timezone) {
       cutoffDate,
       tx,
     );
+    if (expiredReviews.length > 0) {
+      didWork = true;
+    }
 
     const earliestExpiredDateByHabit = new Map();
     for (const { habitId, logDate } of expiredReviews) {
@@ -137,7 +142,9 @@ async function evaluatePendingReviews(userId, timezone) {
       );
     }
 
-    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    if (didWork) {
+      await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    }
   });
 }
 
