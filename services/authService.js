@@ -472,35 +472,52 @@ async function refresh(rawRefreshToken) {
   }
 
   const tokenHash = hashToken(rawRefreshToken);
-  const stored = await refreshTokenModel.findByTokenHash(tokenHash);
 
-  if (!stored) {
-    throw new UnauthorizedError("invalid refresh token");
-  }
+  return runInTransaction(async (tx) => {
+    const stored = await refreshTokenModel.findByTokenHashForUpdate(
+      tokenHash,
+      tx,
+    );
 
-  if (new Date(stored.expires_at) <= new Date()) {
-    await refreshTokenModel.deleteByTokenHash(tokenHash);
-    throw new UnauthorizedError("refresh token expired");
-  }
+    if (!stored) {
+      throw new UnauthorizedError("invalid refresh token");
+    }
 
-  const user = await userModel.findById(stored.user_id);
+    if (stored.used_at) {
+      await refreshTokenModel.deleteAllByUserId(stored.user_id, tx);
+      throw new UnauthorizedError("invalid refresh token");
+    }
 
-  if (!user) {
-    throw new UnauthorizedError("user not found");
-  }
+    if (new Date(stored.expires_at) <= new Date()) {
+      await refreshTokenModel.deleteByTokenHash(tokenHash, tx);
+      throw new UnauthorizedError("refresh token expired");
+    }
 
-  const accessToken = generateAccessToken(user);
+    const user = await userModel.findById(stored.user_id, tx);
 
-  const { rawRefreshToken: newRawRefreshToken, refreshTokenHash } =
-    generateRefreshToken();
+    if (!user) {
+      throw new UnauthorizedError("user not found");
+    }
 
-  await refreshTokenModel.rotateTokenHash(stored.id, refreshTokenHash);
+    const accessToken = generateAccessToken(user);
 
-  return {
-    accessToken,
-    rawRefreshToken: newRawRefreshToken,
-    refreshTokenExpiresAt: stored.expires_at,
-  };
+    const { rawRefreshToken: newRawRefreshToken, refreshTokenHash } =
+      generateRefreshToken();
+
+    await refreshTokenModel.markUsed(stored.id, tx);
+    await refreshTokenModel.insert(
+      stored.user_id,
+      refreshTokenHash,
+      stored.expires_at,
+      tx,
+    );
+
+    return {
+      accessToken,
+      rawRefreshToken: newRawRefreshToken,
+      refreshTokenExpiresAt: stored.expires_at,
+    };
+  });
 }
 
 // ------------- LOGOUT --------------

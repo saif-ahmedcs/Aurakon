@@ -18,16 +18,27 @@ async function findByTokenHash(tokenHash) {
   return rows[0] || null;
 }
 
-async function rotateTokenHash(id, newTokenHash, db = pool) {
+async function findByTokenHashForUpdate(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, user_id, expires_at, used_at
+     FROM refresh_tokens
+     WHERE token_hash = ?
+     FOR UPDATE`,
+    [tokenHash],
+  );
+  return rows[0] || null;
+}
+
+async function markUsed(id, db = pool) {
   const [result] = await db.query(
-    `UPDATE refresh_tokens SET token_hash = ? WHERE id = ?`,
-    [newTokenHash, id],
+    `UPDATE refresh_tokens SET used_at = UTC_TIMESTAMP() WHERE id = ? AND used_at IS NULL`,
+    [id],
   );
   return result.affectedRows > 0;
 }
 
-async function deleteByTokenHash(tokenHash) {
-  const [result] = await pool.query(
+async function deleteByTokenHash(tokenHash, db = pool) {
+  const [result] = await db.query(
     `DELETE FROM refresh_tokens WHERE token_hash = ?`,
     [tokenHash],
   );
@@ -86,7 +97,8 @@ async function deleteOldestByUserId(userId, db = pool) {
 module.exports = {
   insert,
   findByTokenHash,
-  rotateTokenHash,
+  findByTokenHashForUpdate,
+  markUsed,
   deleteByTokenHash,
   deleteAllByUserId,
   deleteExpiredForUser,
