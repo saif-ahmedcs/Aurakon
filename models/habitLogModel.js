@@ -80,6 +80,15 @@ async function getLogsForHabit(habitId, db = pool) {
   return rows;
 }
 
+async function getLogsForHabits(habitIds, db = pool) {
+  if (habitIds.length === 0) return [];
+  const [rows] = await db.query(
+    `SELECT habit_id, log_date, status FROM habit_logs WHERE habit_id IN (?)`,
+    [habitIds],
+  );
+  return rows;
+}
+
 async function insertPendingReviewLog(habitId, logDate, sessionId, db = pool) {
   await db.query(
     `INSERT IGNORE INTO habit_logs (habit_id, log_date, status, review_session_id, created_at)
@@ -308,6 +317,7 @@ module.exports = {
   hasStaleReviewsForUser,
   getHabitsMissingLogForDate,
   getLogsForHabit,
+  getLogsForHabits,
   insertPendingReviewLog,
   expirePendingLogsForSession,
   findAllPendingByHabit,

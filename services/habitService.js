@@ -31,26 +31,30 @@ async function listHabitsWithPending(userId, timezone) {
 
   const asOfDate = todayInTimezone(timezone);
 
-  return Promise.all(
-    rows.map(async (habit) => {
-      const logRows = await habitLogModel.getLogsForHabit(habit.id);
-      const logs = logRows.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
-      const { currentStreak, longestStreak } = calculateHabitStreaks(
-        logs,
-        asOfDate,
-      );
-
-      return {
-        ...habit,
-        currentStreak,
-        longestStreak,
-        pendingReviews: pendingByHabitId.get(habit.id) || [],
-      };
-    }),
+  const allLogRows = await habitLogModel.getLogsForHabits(
+    rows.map((habit) => habit.id),
   );
+  const logsByHabitId = new Map();
+  for (const row of allLogRows) {
+    const list = logsByHabitId.get(row.habit_id) || [];
+    list.push({ date: row.log_date, status: row.status });
+    logsByHabitId.set(row.habit_id, list);
+  }
+
+  return rows.map((habit) => {
+    const logs = logsByHabitId.get(habit.id) || [];
+    const { currentStreak, longestStreak } = calculateHabitStreaks(
+      logs,
+      asOfDate,
+    );
+
+    return {
+      ...habit,
+      currentStreak,
+      longestStreak,
+      pendingReviews: pendingByHabitId.get(habit.id) || [],
+    };
+  });
 }
 
 async function createHabit(title, userId, difficulty, timezone) {
