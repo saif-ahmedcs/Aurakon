@@ -302,8 +302,8 @@ async function undoLog(habitId, date, userId, timezone) {
   });
 }
 
-async function listLogs(habitId) {
-  return habitLogModel.findAllByHabit(habitId);
+async function listLogs(habitId, userId) {
+  return habitLogModel.findAllByHabit(habitId, userId);
 }
 
 module.exports = {

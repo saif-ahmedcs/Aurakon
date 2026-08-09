@@ -98,7 +98,7 @@ router.post(
 router.get(
   "/:id/logs",
   asyncHandler(async (req, res) => {
-    const logs = await habitService.listLogs(req.habitId);
+    const logs = await habitService.listLogs(req.habitId, req.user.id);
     res.status(200).json(logs);
   }),
 );

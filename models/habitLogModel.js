@@ -257,10 +257,13 @@ async function insertLog(habitId, logDate, db = pool) {
   return rows[0];
 }
 
-async function findAllByHabit(habitId, db = pool) {
+async function findAllByHabit(habitId, userId, db = pool) {
   const [rows] = await db.query(
-    "SELECT * FROM habit_logs WHERE habit_id = ? ORDER BY log_date ASC",
-    [habitId],
+    `SELECT habit_logs.* FROM habit_logs
+     JOIN habits ON habits.id = habit_logs.habit_id
+     WHERE habit_logs.habit_id = ? AND habits.user_id = ?
+     ORDER BY habit_logs.log_date ASC`,
+    [habitId, userId],
   );
   return rows;
 }
