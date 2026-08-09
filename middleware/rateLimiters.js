@@ -1,5 +1,6 @@
 const rateLimit = require("express-rate-limit");
 const { ipKeyGenerator } = require("express-rate-limit");
+const hashToken = require("../utils/hashToken");
 
 const getClientIp = (req) => {
   return ipKeyGenerator(req.ip);
@@ -29,6 +30,13 @@ const getIpAndEmailKey = (req) => {
 
 const getUserIdOrIpKey = (req) => {
   return req.user?.id ? req.user.id.toString() : getClientIp(req);
+};
+
+const getRefreshTokenOrIpKey = (req) => {
+  const rawToken = req.cookies?.refreshToken;
+  return typeof rawToken === "string" && rawToken.length > 0
+    ? `rt:${hashToken(rawToken)}`
+    : getClientIp(req);
 };
 
 const createLimiter = (options) => {
@@ -105,7 +113,7 @@ const loginAccountLimiter = createLimiter({
 
 const loginIpLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 17,
+  max: 25,
   keyGenerator: getClientIp,
   message: { error: "too many login attempts, please try again later" },
 });
@@ -261,7 +269,7 @@ const reviewDecisionsLimiter = createLimiter({
 const refreshLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,
   max: 40,
-  keyGenerator: getClientIp,
+  keyGenerator: getRefreshTokenOrIpKey,
   message: { error: "too many refresh attempts, please try again later" },
 });
 
