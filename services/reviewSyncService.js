@@ -16,6 +16,8 @@ const {
 const { GRACE_PERIOD_DAYS } = require("../utils/pendingReviewSessionRules");
 const { calculateHabitStreaks } = require("../utils/streak");
 
+const inFlightByUser = new Map();
+
 async function finalizeDay(userId, date, tx, timezone) {
   const allCandidates = await habitLogModel.getHabitsMissingLogForDate(
     userId,
@@ -78,18 +80,50 @@ async function finalizeDay(userId, date, tx, timezone) {
   );
 }
 
+async function hasPendingWork(userId, timezone) {
+  const yesterday = getPreviousLocalDate(timezone);
+  const [latestStatDate, earliestCreatedAt] = await Promise.all([
+    dailyAuraStatsModel.getLatestStatDate(userId),
+    habitModel.getEarliestCreatedAt(userId),
+  ]);
+
+  if (!earliestCreatedAt) return false;
+
+  const earliestHabitDate = toLocalDateString(earliestCreatedAt, timezone);
+  const nextDate = latestStatDate
+    ? addUtcDays(latestStatDate, 1)
+    : earliestHabitDate;
+
+  if (nextDate <= yesterday) return true;
+
+  const cutoffDate = addUtcDays(todayInTimezone(timezone), -GRACE_PERIOD_DAYS);
+  return habitLogModel.hasStaleReviewsForUser(userId, cutoffDate);
+}
+
 async function evaluatePendingReviews(userId, timezone) {
+  const existing = inFlightByUser.get(userId);
+  if (existing) return existing;
+
+  const promise = runEvaluatePendingReviews(userId, timezone).finally(() => {
+    inFlightByUser.delete(userId);
+  });
+  inFlightByUser.set(userId, promise);
+  return promise;
+}
+
+const CATCH_UP_BATCH_DAYS = 30;
+
+async function runCatchUpBatch(userId, timezone, yesterday) {
   return runInTransaction(async (tx) => {
     await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
 
-    const yesterday = getPreviousLocalDate(timezone);
     const [latestStatDate, earliestCreatedAt] = await Promise.all([
       dailyAuraStatsModel.getLatestStatDate(userId, tx),
       habitModel.getEarliestCreatedAt(userId, tx),
     ]);
 
     if (!earliestCreatedAt) {
-      return;
+      return { hasHabits: false, nextDate: null, didWork: false };
     }
 
     const earliestHabitDate = toLocalDateString(earliestCreatedAt, timezone);
@@ -98,10 +132,37 @@ async function evaluatePendingReviews(userId, timezone) {
       ? addUtcDays(latestStatDate, 1)
       : earliestHabitDate;
 
-    while (date <= yesterday) {
+    let didWork = false;
+    for (let i = 0; i < CATCH_UP_BATCH_DAYS && date <= yesterday; i++) {
       await finalizeDay(userId, date, tx, timezone);
+      didWork = true;
       date = addUtcDays(date, 1);
     }
+
+    return { hasHabits: true, nextDate: date, didWork };
+  });
+}
+
+async function runEvaluatePendingReviews(userId, timezone) {
+  if (!(await hasPendingWork(userId, timezone))) {
+    return;
+  }
+
+  const yesterday = getPreviousLocalDate(timezone);
+  let didWork = false;
+  let nextDate;
+
+  do {
+    const batch = await runCatchUpBatch(userId, timezone, yesterday);
+    if (!batch.hasHabits) {
+      return;
+    }
+    didWork = didWork || batch.didWork;
+    nextDate = batch.nextDate;
+  } while (nextDate <= yesterday);
+
+  return runInTransaction(async (tx) => {
+    await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
 
     const cutoffDate = addUtcDays(
       todayInTimezone(timezone),
@@ -112,6 +173,9 @@ async function evaluatePendingReviews(userId, timezone) {
       cutoffDate,
       tx,
     );
+    if (expiredReviews.length > 0) {
+      didWork = true;
+    }
 
     const earliestExpiredDateByHabit = new Map();
     for (const { habitId, logDate } of expiredReviews) {
@@ -137,7 +201,9 @@ async function evaluatePendingReviews(userId, timezone) {
       );
     }
 
-    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    if (didWork) {
+      await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    }
   });
 }
 

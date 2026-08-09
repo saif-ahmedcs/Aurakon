@@ -8,8 +8,14 @@ const validate = require("../middleware/validate");
 const {
   reviewDecisionsSchema,
 } = require("../middleware/schemas/reviewSchemas");
+const {
+  authenticatedSurfaceLimiter,
+  reviewDecisionsLimiter,
+} = require("../middleware/rateLimiters");
+
 const router = express.Router();
 router.use(auth);
+router.use(authenticatedSurfaceLimiter);
 router.use(requireGender);
 router.use(finalizeReviews);
 
@@ -23,6 +29,7 @@ router.get(
 
 router.post(
   "/decisions",
+  reviewDecisionsLimiter,
   validate(reviewDecisionsSchema),
   asyncHandler(async (req, res) => {
     const { decisions } = req.body;

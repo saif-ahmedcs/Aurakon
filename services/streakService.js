@@ -39,11 +39,7 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
 }
 
 async function recalculateGlobalStreak(userId, tx) {
-  const rows = await dailyAuraStatsModel.getFullCompletionDates(
-    userId,
-    tx,
-    true,
-  );
+  const rows = await dailyAuraStatsModel.getFullCompletionDates(userId, tx);
   const trueDays = [
     ...new Set(rows.map((row) => parseToUTCDay(row.stat_date))),
   ].sort((a, b) => a - b);

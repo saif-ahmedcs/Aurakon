@@ -8,6 +8,21 @@ const guardianShieldService = require("./guardianShieldService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
 const bonusService = require("./bonusService");
 
+const userMutexes = new Map();
+
+function runExclusive(userId, fn) {
+  const previous = userMutexes.get(userId) || Promise.resolve();
+  const run = previous.catch(() => {}).then(fn);
+  const tracked = run.catch(() => {});
+  userMutexes.set(userId, tracked);
+  tracked.finally(() => {
+    if (userMutexes.get(userId) === tracked) {
+      userMutexes.delete(userId);
+    }
+  });
+  return run;
+}
+
 function computeAutoPopupThreshold(totalHabits) {
   return totalHabits < 6 ? 3 : Math.floor(totalHabits / 2);
 }
@@ -47,6 +62,12 @@ async function getPendingReviews(userId) {
 }
 
 async function applyDecisions(decisions, userId, timezone) {
+  return runExclusive(userId, () =>
+    runApplyDecisions(decisions, userId, timezone),
+  );
+}
+
+async function runApplyDecisions(decisions, userId, timezone) {
   return runInTransaction(async (tx) => {
     const sortedDecisions = [...decisions].sort((a, b) =>
       a.missedDate < b.missedDate ? -1 : a.missedDate > b.missedDate ? 1 : 0,

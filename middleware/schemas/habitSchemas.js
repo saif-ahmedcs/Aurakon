@@ -44,4 +44,5 @@ module.exports = {
   updateHabitSchema,
   createLogSchema,
   logDateParamSchema,
+  isValidCalendarDate,
 };

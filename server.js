@@ -2,6 +2,7 @@ process.env.TZ = "UTC";
 const express = require("express");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
+const { globalIpLimiter } = require("./middleware/rateLimiters");
 const habitsRouter = require("./routes/habits");
 const reviewRouter = require("./routes/review");
 const authRouter = require("./routes/auth");
@@ -11,6 +12,8 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 const PORT = 3000;
+
+app.set("trust proxy", 1);
 
 app.use(
   helmet({
@@ -23,6 +26,7 @@ app.use(
   }),
 );
 
+app.use(globalIpLimiter);
 app.use(express.json());
 app.use(cookieParser());
 

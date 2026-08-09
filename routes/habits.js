@@ -12,8 +12,11 @@ const {
   logDateParamSchema,
 } = require("../middleware/schemas/habitSchemas");
 
+const { authenticatedSurfaceLimiter } = require("../middleware/rateLimiters");
+
 const router = express.Router();
 router.use(auth);
+router.use(authenticatedSurfaceLimiter);
 router.use(finalizeReviews);
 router.use("/:id", ownershipCheck);
 
@@ -95,7 +98,7 @@ router.post(
 router.get(
   "/:id/logs",
   asyncHandler(async (req, res) => {
-    const logs = await habitService.listLogs(req.habitId);
+    const logs = await habitService.listLogs(req.habitId, req.user.id);
     res.status(200).json(logs);
   }),
 );

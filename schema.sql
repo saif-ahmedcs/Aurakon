@@ -21,6 +21,8 @@ CREATE TABLE users (
   timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
   username_changed_at DATETIME NULL,
   password_changed_at DATETIME NULL,
+  failed_login_count INT NOT NULL DEFAULT 0,
+  locked_until DATETIME NULL,
   pending_email VARCHAR(255) NULL,
   email_change_token_hash CHAR(64) NULL,
   email_change_token_expires DATETIME NULL,
@@ -79,6 +81,7 @@ CREATE TABLE refresh_tokens (
   user_id INT NOT NULL,
   token_hash CHAR(64) NOT NULL UNIQUE,
   expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

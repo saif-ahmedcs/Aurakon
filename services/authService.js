@@ -19,6 +19,8 @@ const {
   PASSWORD_RESET_COOLDOWN_MS,
   ACCOUNT_DELETION_MAX_AGE_MS,
   CONFIRMATION_IDEMPOTENCY_WINDOW_MS,
+  MAX_FAILED_LOGIN_ATTEMPTS,
+  LOGIN_LOCKOUT_MS,
 } = require("../utils/constants");
 const {
   BadRequestError,
@@ -193,15 +195,29 @@ async function login(email, password) {
   if (!user) {
     throw new UnauthorizedError("invalid credentials");
   }
+
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    throw new TooManyRequestsError(
+      "account temporarily locked due to too many failed login attempts",
+    );
+  }
+
   const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
   if (!passwordMatch) {
+    await userModel.registerFailedLogin(
+      user.id,
+      MAX_FAILED_LOGIN_ATTEMPTS,
+      LOGIN_LOCKOUT_MS,
+    );
     throw new UnauthorizedError("invalid credentials");
   }
 
   if (!user.is_verified) {
     throw new ForbiddenError("please verify your email before logging in");
   }
+
+  await userModel.clearFailedLogins(user.id);
 
   const accessToken = generateAccessToken(user);
 
@@ -456,26 +472,52 @@ async function refresh(rawRefreshToken) {
   }
 
   const tokenHash = hashToken(rawRefreshToken);
-  const stored = await refreshTokenModel.findByTokenHash(tokenHash);
 
-  if (!stored) {
-    throw new UnauthorizedError("invalid refresh token");
-  }
+  return runInTransaction(async (tx) => {
+    const stored = await refreshTokenModel.findByTokenHashForUpdate(
+      tokenHash,
+      tx,
+    );
 
-  if (new Date(stored.expires_at) <= new Date()) {
-    await refreshTokenModel.deleteByTokenHash(tokenHash);
-    throw new UnauthorizedError("refresh token expired");
-  }
+    if (!stored) {
+      throw new UnauthorizedError("invalid refresh token");
+    }
 
-  const user = await userModel.findById(stored.user_id);
+    if (stored.used_at) {
+      await refreshTokenModel.deleteAllByUserId(stored.user_id, tx);
+      throw new UnauthorizedError("invalid refresh token");
+    }
 
-  if (!user) {
-    throw new UnauthorizedError("user not found");
-  }
+    if (new Date(stored.expires_at) <= new Date()) {
+      await refreshTokenModel.deleteByTokenHash(tokenHash, tx);
+      throw new UnauthorizedError("refresh token expired");
+    }
 
-  const accessToken = generateAccessToken(user);
+    const user = await userModel.findById(stored.user_id, tx);
 
-  return { accessToken };
+    if (!user) {
+      throw new UnauthorizedError("user not found");
+    }
+
+    const accessToken = generateAccessToken(user);
+
+    const { rawRefreshToken: newRawRefreshToken, refreshTokenHash } =
+      generateRefreshToken();
+
+    await refreshTokenModel.markUsed(stored.id, tx);
+    await refreshTokenModel.insert(
+      stored.user_id,
+      refreshTokenHash,
+      stored.expires_at,
+      tx,
+    );
+
+    return {
+      accessToken,
+      rawRefreshToken: newRawRefreshToken,
+      refreshTokenExpiresAt: stored.expires_at,
+    };
+  });
 }
 
 // ------------- LOGOUT --------------

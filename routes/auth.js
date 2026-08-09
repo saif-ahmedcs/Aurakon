@@ -24,11 +24,16 @@ const {
 } = require("../middleware/schemas/authSchemas");
 const {
   registerLimiter,
+  registerEmailLimiter,
   verifyEmailLimiter,
   resendVerificationLimiter,
+  resendVerificationIpLimiter,
   loginLimiter,
+  loginAccountLimiter,
+  loginIpLimiter,
   forgotPasswordCooldownLimiter,
   forgotPasswordDailyLimiter,
+  forgotPasswordIpLimiter,
   changePasswordLimiter,
   changePasswordDailyLimiter,
   changeEmailLimiter,
@@ -39,6 +44,11 @@ const {
   deleteAccountLimiter,
   deleteAccountVerifyLimiter,
   confirmDeleteAccountLimiter,
+  refreshLimiter,
+  logoutIpLimiter,
+  logoutAllLimiter,
+  accountFieldUpdateLimiter,
+  authenticatedSurfaceLimiter,
 } = require("../middleware/rateLimiters");
 
 const router = express.Router();
@@ -46,6 +56,7 @@ const router = express.Router();
 router.post(
   "/register",
   registerLimiter,
+  registerEmailLimiter,
   validate(registerSchema),
   asyncHandler(async (req, res) => {
     const { email, password, username } = req.body;
@@ -59,6 +70,7 @@ router.post(
 router.patch(
   "/gender",
   auth,
+  accountFieldUpdateLimiter,
   validate(setGenderSchema),
   asyncHandler(async (req, res) => {
     const { gender } = req.body;
@@ -96,6 +108,7 @@ router.post(
 router.post(
   "/resend-verification",
   resendVerificationLimiter,
+  resendVerificationIpLimiter,
   validate(resendVerificationSchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body;
@@ -109,6 +122,8 @@ router.post(
 router.post(
   "/login",
   loginLimiter,
+  loginAccountLimiter,
+  loginIpLimiter,
   validate(loginSchema),
   asyncHandler(async (req, res) => {
     const { email, password } = req.body;
@@ -131,6 +146,7 @@ router.post(
   "/forgot-password",
   forgotPasswordCooldownLimiter,
   forgotPasswordDailyLimiter,
+  forgotPasswordIpLimiter,
   validate(forgotPasswordSchema),
   asyncHandler(async (req, res) => {
     const { email } = req.body;
@@ -190,17 +206,28 @@ router.post(
 
 router.post(
   "/refresh",
+  refreshLimiter,
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
-    const result = await authService.refresh(rawRefreshToken);
+    const {
+      accessToken,
+      rawRefreshToken: newRawRefreshToken,
+      refreshTokenExpiresAt,
+    } = await authService.refresh(rawRefreshToken);
 
-    res.status(200).json(result);
+    res.cookie("refreshToken", newRawRefreshToken, {
+      ...REFRESH_COOKIE_OPTIONS,
+      expires: new Date(refreshTokenExpiresAt),
+    });
+
+    res.status(200).json({ accessToken });
   }),
 );
 
 router.post(
   "/logout",
+  logoutIpLimiter,
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
@@ -214,6 +241,7 @@ router.post(
 router.post(
   "/logout-all",
   auth,
+  logoutAllLimiter,
   asyncHandler(async (req, res) => {
     await authService.logoutAll(req.user.id);
 
@@ -225,6 +253,7 @@ router.post(
 router.patch(
   "/timezone",
   auth,
+  accountFieldUpdateLimiter,
   validate(updateTimezoneSchema),
   asyncHandler(async (req, res) => {
     const { timezone } = req.body;
@@ -236,6 +265,7 @@ router.patch(
 router.patch(
   "/username",
   auth,
+  accountFieldUpdateLimiter,
   validate(updateUsernameSchema),
   asyncHandler(async (req, res) => {
     const { username } = req.body;
@@ -273,6 +303,7 @@ router.post(
 router.post(
   "/email/cancel",
   auth,
+  accountFieldUpdateLimiter,
   asyncHandler(async (req, res) => {
     const result = await authService.cancelEmailChange(req.user.id);
     res.status(200).json(result);
@@ -319,6 +350,7 @@ router.post(
 router.post(
   "/delete-account/cancel",
   auth,
+  accountFieldUpdateLimiter,
   asyncHandler(async (req, res) => {
     const result = await authService.cancelAccountDeletion(req.user.id);
     res.status(200).json(result);
@@ -356,6 +388,7 @@ router.post(
 router.get(
   "/me",
   auth,
+  authenticatedSurfaceLimiter,
   asyncHandler(async (req, res) => {
     const result = await authService.getCurrentUser(req.user.id);
     res.status(200).json(result);

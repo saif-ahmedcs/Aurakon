@@ -9,6 +9,7 @@ const pool = mysql.createPool({
   port: process.env.DB_PORT,
   dateStrings: true,
   timezone: "Z",
+  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || "10", 10),
 });
 
 pool.on("connection", (connection) => {

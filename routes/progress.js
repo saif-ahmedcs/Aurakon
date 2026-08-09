@@ -7,9 +7,11 @@ const streakService = require("../services/streakService");
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const { todayInTimezone } = require("../utils/timezone");
+const { authenticatedSurfaceLimiter } = require("../middleware/rateLimiters");
 
 const router = express.Router();
 router.use(auth);
+router.use(authenticatedSurfaceLimiter);
 router.use(finalizeReviews);
 
 router.get(

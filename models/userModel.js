@@ -391,10 +391,30 @@ async function updatePasswordIfEligible(
 
 async function findForLogin(email) {
   const [rows] = await pool.query(
-    "SELECT id, email, username, password_hash, is_verified FROM users WHERE email = ?",
+    "SELECT id, email, username, password_hash, is_verified, failed_login_count, locked_until FROM users WHERE email = ?",
     [email],
   );
   return rows[0] || null;
+}
+
+async function registerFailedLogin(userId, maxAttempts, lockoutMs, db = pool) {
+  await db.query(
+    `UPDATE users
+     SET failed_login_count = failed_login_count + 1,
+         locked_until = CASE
+           WHEN failed_login_count + 1 >= ? THEN UTC_TIMESTAMP() + INTERVAL ? SECOND
+           ELSE locked_until
+         END
+     WHERE id = ?`,
+    [maxAttempts, Math.floor(lockoutMs / 1000), userId],
+  );
+}
+
+async function clearFailedLogins(userId, db = pool) {
+  await db.query(
+    `UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = ?`,
+    [userId],
+  );
 }
 
 async function findPasswordHashById(userId, db = pool) {
@@ -576,6 +596,8 @@ module.exports = {
   findForResend,
   setVerificationToken,
   findForLogin,
+  registerFailedLogin,
+  clearFailedLogins,
   findPasswordHashById,
   clearExpiredVerificationToken,
   clearResetToken,
