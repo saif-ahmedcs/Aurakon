@@ -8,8 +8,15 @@ const normalizedEmailSchema = z
   .transform((value) => value.toLowerCase())
   .pipe(z.email());
 
+const boundedNormalizedEmailSchema = z
+  .string()
+  .trim()
+  .max(255)
+  .transform((value) => value.toLowerCase())
+  .pipe(z.email());
+
 const registerSchema = z.object({
-  email: normalizedEmailSchema.max(255),
+  email: boundedNormalizedEmailSchema,
   password: z.string().min(8).max(72).refine(isPasswordValid, {
     message:
       "password must be at least 8 characters and contain at least one letter and one number",
@@ -22,7 +29,7 @@ const setGenderSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: normalizedEmailSchema.max(255),
+  email: boundedNormalizedEmailSchema,
   password: z.string().min(1).max(72),
 });
 
@@ -57,7 +64,7 @@ const updateTimezoneSchema = z.object({
 });
 
 const requestEmailChangeSchema = z.object({
-  newEmail: normalizedEmailSchema.max(255),
+  newEmail: boundedNormalizedEmailSchema,
   currentPassword: z.string().min(1).max(128),
 });
 
