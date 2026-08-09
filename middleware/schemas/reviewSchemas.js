@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { isValidCalendarDate } = require("./habitSchemas");
 
 const reviewDecisionsSchema = z.object({
   decisions: z
@@ -8,7 +9,8 @@ const reviewDecisionsSchema = z.object({
           habitId: z.number().int().positive(),
           missedDate: z
             .string()
-            .regex(/^\d{4}-\d{2}-\d{2}$/, "missedDate must match YYYY-MM-DD"),
+            .regex(/^\d{4}-\d{2}-\d{2}$/, "missedDate must match YYYY-MM-DD")
+            .refine(isValidCalendarDate, { message: "invalid missedDate" }),
           decision: z.enum(["completed", "missed"]),
           useShield: z.boolean().optional(),
         })
