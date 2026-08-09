@@ -111,22 +111,19 @@ async function evaluatePendingReviews(userId, timezone) {
   return promise;
 }
 
-async function runEvaluatePendingReviews(userId, timezone) {
-  if (!(await hasPendingWork(userId, timezone))) {
-    return;
-  }
+const CATCH_UP_BATCH_DAYS = 30;
 
+async function runCatchUpBatch(userId, timezone, yesterday) {
   return runInTransaction(async (tx) => {
     await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
 
-    const yesterday = getPreviousLocalDate(timezone);
     const [latestStatDate, earliestCreatedAt] = await Promise.all([
       dailyAuraStatsModel.getLatestStatDate(userId, tx),
       habitModel.getEarliestCreatedAt(userId, tx),
     ]);
 
     if (!earliestCreatedAt) {
-      return;
+      return { hasHabits: false, nextDate: null, didWork: false };
     }
 
     const earliestHabitDate = toLocalDateString(earliestCreatedAt, timezone);
@@ -136,11 +133,36 @@ async function runEvaluatePendingReviews(userId, timezone) {
       : earliestHabitDate;
 
     let didWork = false;
-    while (date <= yesterday) {
+    for (let i = 0; i < CATCH_UP_BATCH_DAYS && date <= yesterday; i++) {
       await finalizeDay(userId, date, tx, timezone);
       didWork = true;
       date = addUtcDays(date, 1);
     }
+
+    return { hasHabits: true, nextDate: date, didWork };
+  });
+}
+
+async function runEvaluatePendingReviews(userId, timezone) {
+  if (!(await hasPendingWork(userId, timezone))) {
+    return;
+  }
+
+  const yesterday = getPreviousLocalDate(timezone);
+  let didWork = false;
+  let nextDate;
+
+  do {
+    const batch = await runCatchUpBatch(userId, timezone, yesterday);
+    if (!batch.hasHabits) {
+      return;
+    }
+    didWork = didWork || batch.didWork;
+    nextDate = batch.nextDate;
+  } while (nextDate <= yesterday);
+
+  return runInTransaction(async (tx) => {
+    await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
 
     const cutoffDate = addUtcDays(
       todayInTimezone(timezone),
