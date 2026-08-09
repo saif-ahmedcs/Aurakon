@@ -1,3 +1,5 @@
+const { BadRequestError } = require("../utils/AppErrors");
+
 function validate(schemaOrFactory, source = "body") {
   return (req, res, next) => {
     const schema =
@@ -7,13 +9,10 @@ function validate(schemaOrFactory, source = "body") {
     const result = schema.safeParse(req[source]);
 
     if (!result.success) {
-      const err = new Error(
-        result.error.issues
-          .map((issue) => `${issue.path.join(".") || source}: ${issue.message}`)
-          .join(", "),
-      );
-      err.status = 400;
-      return next(err);
+      const message = result.error.issues
+        .map((issue) => `${issue.path.join(".") || source}: ${issue.message}`)
+        .join(", ");
+      return next(new BadRequestError(message));
     }
 
     if (source === "query") {
