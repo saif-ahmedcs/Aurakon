@@ -491,7 +491,16 @@ async function refresh(rawRefreshToken) {
 
   const accessToken = generateAccessToken(user);
 
-  return { accessToken };
+  const { rawRefreshToken: newRawRefreshToken, refreshTokenHash } =
+    generateRefreshToken();
+
+  await refreshTokenModel.rotateTokenHash(stored.id, refreshTokenHash);
+
+  return {
+    accessToken,
+    rawRefreshToken: newRawRefreshToken,
+    refreshTokenExpiresAt: stored.expires_at,
+  };
 }
 
 // ------------- LOGOUT --------------

@@ -210,9 +210,18 @@ router.post(
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
-    const result = await authService.refresh(rawRefreshToken);
+    const {
+      accessToken,
+      rawRefreshToken: newRawRefreshToken,
+      refreshTokenExpiresAt,
+    } = await authService.refresh(rawRefreshToken);
 
-    res.status(200).json(result);
+    res.cookie("refreshToken", newRawRefreshToken, {
+      ...REFRESH_COOKIE_OPTIONS,
+      expires: new Date(refreshTokenExpiresAt),
+    });
+
+    res.status(200).json({ accessToken });
   }),
 );
 
