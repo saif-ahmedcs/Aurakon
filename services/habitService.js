@@ -195,6 +195,7 @@ async function logHabit(habitId, date, userId, timezone) {
     }));
     const {
       currentStreak: habitStreak,
+      longestStreak: habitLongestStreak,
       currentStreakStartDate: habitStreakStartDate,
     } = calculateHabitStreaks(logs, date);
 
@@ -213,6 +214,13 @@ async function logHabit(habitId, date, userId, timezone) {
 
     // (8)
     if (created) {
+      await habitModel.updateStreaks(
+        habitId,
+        habitStreak,
+        habitLongestStreak,
+        tx,
+      );
+
       const stillPendingReview = await habitLogModel.findPendingByHabit(
         habitId,
         tx,

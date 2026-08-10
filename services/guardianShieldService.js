@@ -9,6 +9,7 @@ const {
   isShieldEligibleDifficulty,
 } = require("../utils/guardianShieldRules");
 const { calculateHabitStreaks, PRESENT_STATUSES } = require("../utils/streak");
+const { todayInTimezone } = require("../utils/timezone");
 
 async function recalculateShieldBalance(userId, tx) {
   const available = await guardianShieldLogModel.countAvailable(
@@ -178,6 +179,18 @@ async function reconcileShieldsFromDate(
     await guardianShieldLogModel.deleteAward(award.id, award.status, tx);
     await recalculateShieldBalance(userId, tx);
   }
+
+  const asOfDate = todayInTimezone(timezone);
+  const {
+    currentStreak: finalCurrentStreak,
+    longestStreak: finalLongestStreak,
+  } = calculateHabitStreaks(currentLogs, asOfDate);
+  await habitModel.updateStreaks(
+    habitId,
+    finalCurrentStreak,
+    finalLongestStreak,
+    tx,
+  );
 
   if (!isShieldEligibleDifficulty(habit.difficulty)) {
     return;

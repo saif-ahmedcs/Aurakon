@@ -51,6 +51,8 @@ CREATE TABLE habits (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   archived_at DATETIME NULL,
   shield_deferred_since DATE NULL,
+  current_streak INT NOT NULL DEFAULT 0,
+  longest_streak INT NOT NULL DEFAULT 0,  
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

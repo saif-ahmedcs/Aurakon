@@ -105,6 +105,13 @@ async function clearShieldDeferral(id, db = pool) {
   return result.affectedRows;
 }
 
+async function updateStreaks(id, currentStreak, longestStreak, db = pool) {
+  await db.query(
+    "UPDATE habits SET current_streak = ?, longest_streak = ? WHERE id = ?",
+    [currentStreak, longestStreak, id],
+  );
+}
+
 async function deleteAllByUser(userId, db = pool) {
   const [result] = await db.query("DELETE FROM habits WHERE user_id = ?", [
     userId,
@@ -125,5 +132,6 @@ module.exports = {
   lockForShieldDeferral,
   recordShieldDeferral,
   clearShieldDeferral,
+  updateStreaks,
   deleteAllByUser,
 };
