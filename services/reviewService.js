@@ -76,8 +76,14 @@ async function runApplyDecisions(decisions, userId, timezone) {
     const results = [];
     const touchedDates = new Set();
     const recoveredHabitDates = new Map();
-    const missedHabitDates = new Map();
-    const shieldedHabitDates = new Map();
+    const affectedHabitEarliestDate = new Map();
+
+    function trackEarliest(habitId, date) {
+      const current = affectedHabitEarliestDate.get(habitId);
+      if (!current || date < current) {
+        affectedHabitEarliestDate.set(habitId, date);
+      }
+    }
 
     for (const item of sortedDecisions) {
       const { habitId, missedDate, decision, useShield } = item;
@@ -104,18 +110,13 @@ async function runApplyDecisions(decisions, userId, timezone) {
         if (shielded) {
           await habitLogModel.resolveDecision(pending.id, "shielded", tx);
           results.push({ habitId, missedDate, result: "shielded" });
-          const dates = shieldedHabitDates.get(habitId) || [];
-          dates.push(missedDate);
-          shieldedHabitDates.set(habitId, dates);
         } else {
           await habitLogModel.resolveDecision(pending.id, "missed", tx);
           results.push({ habitId, missedDate, result: "missed_no_shield" });
-          const dates = missedHabitDates.get(habitId) || [];
-          dates.push(missedDate);
-          missedHabitDates.set(habitId, dates);
         }
 
         touchedDates.add(missedDate);
+        trackEarliest(habitId, missedDate);
         await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
         continue;
       }
@@ -123,15 +124,12 @@ async function runApplyDecisions(decisions, userId, timezone) {
       const newStatus = decision === "completed" ? "recovered" : "missed";
       await habitLogModel.resolveDecision(pending.id, newStatus, tx);
       touchedDates.add(missedDate);
+      trackEarliest(habitId, missedDate);
 
       if (newStatus === "recovered") {
         const dates = recoveredHabitDates.get(habitId) || [];
         dates.push(missedDate);
         recoveredHabitDates.set(habitId, dates);
-      } else {
-        const dates = missedHabitDates.get(habitId) || [];
-        dates.push(missedDate);
-        missedHabitDates.set(habitId, dates);
       }
 
       await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
@@ -168,42 +166,9 @@ async function runApplyDecisions(decisions, userId, timezone) {
           tx,
         );
       }
-
-      const earliestDate = dates.sort()[0];
-      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-      const logs = rawLogs.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
-      await guardianShieldService.reconcileShieldsFromDate(
-        userId,
-        habitId,
-        logs,
-        earliestDate,
-        tx,
-        timezone,
-      );
     }
 
-    for (const [habitId, dates] of missedHabitDates) {
-      const earliestDate = dates.sort()[0];
-      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-      const logs = rawLogs.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
-      await guardianShieldService.reconcileShieldsFromDate(
-        userId,
-        habitId,
-        logs,
-        earliestDate,
-        tx,
-        timezone,
-      );
-    }
-
-    for (const [habitId, dates] of shieldedHabitDates) {
-      const earliestDate = dates.sort()[0];
+    for (const [habitId, earliestDate] of affectedHabitEarliestDate) {
       const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
       const logs = rawLogs.map((row) => ({
         date: row.log_date,
