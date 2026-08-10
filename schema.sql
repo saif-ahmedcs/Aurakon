@@ -74,7 +74,8 @@ CREATE TABLE habit_logs (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
   FOREIGN KEY (review_session_id) REFERENCES pending_review_sessions(id) ON DELETE SET NULL,
-  UNIQUE KEY unique_habit_date (habit_id, log_date)
+  UNIQUE KEY unique_habit_date (habit_id, log_date),
+  KEY idx_habit_logs_status_habit_date (status, habit_id, log_date)
 );
 
 CREATE TABLE refresh_tokens (
