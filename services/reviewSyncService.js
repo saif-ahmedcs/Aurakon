@@ -13,11 +13,41 @@ const {
   toLocalDateString,
   isActiveOnLocalDate,
 } = require("../utils/timezone");
-const { GRACE_PERIOD_DAYS } = require("../utils/pendingReviewSessionRules");
+const {
+  GRACE_PERIOD_DAYS,
+  isSessionExpired,
+} = require("../utils/pendingReviewSessionRules");
+const { parseToUTCDay } = require("../utils/dateUtils");
 const { calculateHabitStreaks } = require("../utils/streak");
 const streakService = require("./streakService");
 
 const inFlightByUser = new Map();
+
+async function getLogsForHabitCached(habitId, tx, cache) {
+  if (cache && cache.habitLogs && cache.habitLogs.has(habitId)) {
+    return cache.habitLogs.get(habitId);
+  }
+  const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+  const logs = rawLogs.map((log) => ({
+    date: log.log_date,
+    status: log.status,
+  }));
+  if (cache && cache.habitLogs) {
+    cache.habitLogs.set(habitId, logs);
+  }
+  return logs;
+}
+
+function updateHabitLogCache(cache, habitId, date, status) {
+  if (!cache || !cache.habitLogs || !cache.habitLogs.has(habitId)) return;
+  const logs = cache.habitLogs.get(habitId);
+  const existingIndex = logs.findIndex((l) => l.date === date);
+  if (existingIndex >= 0) {
+    logs[existingIndex].status = status;
+  } else {
+    logs.push({ date, status });
+  }
+}
 
 async function finalizeDay(userId, date, tx, timezone, cache) {
   const allCandidates = await habitLogModel.getHabitsMissingLogForDate(
@@ -32,6 +62,7 @@ async function finalizeDay(userId, date, tx, timezone, cache) {
   for (const habit of candidates) {
     if (habit.archived_at) {
       await habitLogModel.insertMissedLog(habit.id, date, tx);
+      updateHabitLogCache(cache, habit.id, date, "missed");
       continue;
     }
 
@@ -45,11 +76,7 @@ async function finalizeDay(userId, date, tx, timezone, cache) {
       continue;
     }
 
-    const rawLogs = await habitLogModel.getLogsForHabit(habit.id, tx);
-    const logs = rawLogs.map((log) => ({
-      date: log.log_date,
-      status: log.status,
-    }));
+    const logs = await getLogsForHabitCached(habit.id, tx, cache);
 
     const dayBeforeGap = addUtcDays(date, -1);
     const { currentStreak } = calculateHabitStreaks(logs, dayBeforeGap);
@@ -67,10 +94,21 @@ async function finalizeDay(userId, date, tx, timezone, cache) {
         tx,
         timezone,
       );
+      if (
+        existingSession &&
+        isSessionExpired(existingSession.last_missed_date, parseToUTCDay(date))
+      ) {
+        if (cache && cache.habitLogs) {
+          cache.habitLogs.delete(habit.id);
+        }
+      } else {
+        updateHabitLogCache(cache, habit.id, date, "pending_review");
+      }
       continue;
     }
 
     await habitLogModel.insertMissedLog(habit.id, date, tx);
+    updateHabitLogCache(cache, habit.id, date, "missed");
   }
 
   await dailyAuraStatsService.recalculateDailyAuraStats(
@@ -136,8 +174,12 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
 
     let didWork = false;
     const fullCompletionCache = streakService.createFullCompletionCache();
+    const cache = {
+      ...fullCompletionCache,
+      habitLogs: new Map(),
+    };
     for (let i = 0; i < CATCH_UP_BATCH_DAYS && date <= yesterday; i++) {
-      await finalizeDay(userId, date, tx, timezone, fullCompletionCache);
+      await finalizeDay(userId, date, tx, timezone, cache);
       didWork = true;
       date = addUtcDays(date, 1);
     }

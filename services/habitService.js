@@ -29,32 +29,12 @@ async function listHabitsWithPending(userId, timezone) {
     pendingByHabitId.set(row.habit_id, list);
   }
 
-  const asOfDate = todayInTimezone(timezone);
-
-  const allLogRows = await habitLogModel.getLogsForHabits(
-    rows.map((habit) => habit.id),
-  );
-  const logsByHabitId = new Map();
-  for (const row of allLogRows) {
-    const list = logsByHabitId.get(row.habit_id) || [];
-    list.push({ date: row.log_date, status: row.status });
-    logsByHabitId.set(row.habit_id, list);
-  }
-
-  return rows.map((habit) => {
-    const logs = logsByHabitId.get(habit.id) || [];
-    const { currentStreak, longestStreak } = calculateHabitStreaks(
-      logs,
-      asOfDate,
-    );
-
-    return {
-      ...habit,
-      currentStreak,
-      longestStreak,
-      pendingReviews: pendingByHabitId.get(habit.id) || [],
-    };
-  });
+  return rows.map((habit) => ({
+    ...habit,
+    currentStreak: habit.current_streak,
+    longestStreak: habit.longest_streak,
+    pendingReviews: pendingByHabitId.get(habit.id) || [],
+  }));
 }
 
 async function createHabit(title, userId, difficulty, timezone) {

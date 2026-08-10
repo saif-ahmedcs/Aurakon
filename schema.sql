@@ -32,6 +32,7 @@ CREATE TABLE users (
   KEY `idx_users_reset_token_hash` (`reset_token_hash`),
   KEY `idx_users_delete_token_hash` (`delete_token_hash`),
   KEY `idx_users_email_change_token_hash` (`email_change_token_hash`),
+  KEY `idx_users_pending_email` (`pending_email`),
   KEY `idx_users_unverified_cleanup` (`is_verified`, `created_at`)
 );
 
@@ -87,7 +88,8 @@ CREATE TABLE refresh_tokens (
   expires_at DATETIME NOT NULL,
   used_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  KEY idx_refresh_tokens_expires_at (expires_at)
 );
 
 CREATE TABLE daily_aura_stats (
