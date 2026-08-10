@@ -39,7 +39,7 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
 }
 
 function createFullCompletionCache() {
-  return { dates: null };
+  return { dates: null, habitLogs: new Map() };
 }
 
 async function loadFullCompletionCache(userId, tx, cache) {
@@ -56,6 +56,32 @@ function updateFullCompletionCache(cache, date, fullCompletion) {
     cache.dates.add(date);
   } else {
     cache.dates.delete(date);
+  }
+}
+
+async function getLogsForHabitCached(habitId, tx, cache) {
+  if (cache && cache.habitLogs && cache.habitLogs.has(habitId)) {
+    return cache.habitLogs.get(habitId);
+  }
+  const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
+  const logs = rawLogs.map((log) => ({
+    date: log.log_date,
+    status: log.status,
+  }));
+  if (cache && cache.habitLogs) {
+    cache.habitLogs.set(habitId, logs);
+  }
+  return logs;
+}
+
+function updateHabitLogCache(cache, habitId, date, status) {
+  if (!cache || !cache.habitLogs || !cache.habitLogs.has(habitId)) return;
+  const logs = cache.habitLogs.get(habitId);
+  const existingIndex = logs.findIndex((l) => l.date === date);
+  if (existingIndex >= 0) {
+    logs[existingIndex].status = status;
+  } else {
+    logs.push({ date, status });
   }
 }
 
@@ -151,4 +177,6 @@ module.exports = {
   getStreakAsOfDate,
   createFullCompletionCache,
   updateFullCompletionCache,
+  getLogsForHabitCached,
+  updateHabitLogCache,
 };

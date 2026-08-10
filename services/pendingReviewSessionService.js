@@ -1,10 +1,11 @@
 const pendingReviewSessionModel = require("../models/pendingReviewSessionModel");
 const habitLogModel = require("../models/habitLogModel");
 const guardianShieldService = require("./guardianShieldService");
+const streakService = require("./streakService");
 const { isSessionExpired } = require("../utils/pendingReviewSessionRules");
 const { parseToUTCDay } = require("../utils/dateUtils");
 
-async function addMissedDay(userId, habitId, missedDate, tx, timezone) {
+async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
   let session = await pendingReviewSessionModel.findActiveByHabit(habitId, tx);
 
   if (
@@ -19,12 +20,22 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone) {
     session = null;
 
     if (expiredLogs.length > 0) {
+      const fullCompletionCache =
+        cache || streakService.createFullCompletionCache();
+      for (const row of expiredLogs) {
+        streakService.updateHabitLogCache(
+          fullCompletionCache,
+          row.habitId,
+          row.logDate,
+          "missed",
+        );
+      }
       const earliestDate = expiredLogs.map((row) => row.logDate).sort()[0];
-      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-      const logs = rawLogs.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
+      const logs = await streakService.getLogsForHabitCached(
+        habitId,
+        tx,
+        fullCompletionCache,
+      );
       await guardianShieldService.reconcileShieldsFromDate(
         userId,
         habitId,
@@ -32,6 +43,7 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone) {
         earliestDate,
         tx,
         timezone,
+        fullCompletionCache,
       );
     }
   }

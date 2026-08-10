@@ -9,6 +9,7 @@ const guardianShieldService = require("./guardianShieldService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
 const userProgressModel = require("../models/userProgressModel");
+const streakService = require("./streakService");
 const { calculateHabitStreaks } = require("../utils/streak");
 const { getHabitLimit } = require("../utils/habitLimitRules");
 const { todayInTimezone, toLocalDateString } = require("../utils/timezone");
@@ -168,11 +169,12 @@ async function logHabit(habitId, date, userId, timezone) {
     }
 
     // (2)
-    const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-    const logs = rawLogs.map((row) => ({
-      date: row.log_date,
-      status: row.status,
-    }));
+    const fullCompletionCache = streakService.createFullCompletionCache();
+    const logs = await streakService.getLogsForHabitCached(
+      habitId,
+      tx,
+      fullCompletionCache,
+    );
     const {
       currentStreak: habitStreak,
       longestStreak: habitLongestStreak,
@@ -186,10 +188,16 @@ async function logHabit(habitId, date, userId, timezone) {
       date,
       tx,
       timezone,
+      fullCompletionCache,
     );
 
     if (!created) {
-      await bonusService.reconcileBonusesFromDate(userId, date, tx);
+      await bonusService.reconcileBonusesFromDate(
+        userId,
+        date,
+        tx,
+        fullCompletionCache,
+      );
     }
 
     // (8)
@@ -224,6 +232,7 @@ async function logHabit(habitId, date, userId, timezone) {
         date,
         tx,
         timezone,
+        fullCompletionCache,
       );
     }
     // (9)
@@ -257,20 +266,28 @@ async function undoLog(habitId, date, userId, timezone) {
       throw new ConflictError("only completed logs can be undone");
     }
 
+    const fullCompletionCache = streakService.createFullCompletionCache();
+
     await xpService.reverseCompletionXp(userId, habit.id, date, tx);
     await dailyAuraStatsService.recalculateDailyAuraStats(
       userId,
       date,
       tx,
       timezone,
+      fullCompletionCache,
     );
-    await bonusService.reconcileBonusesFromDate(userId, date, tx);
+    await bonusService.reconcileBonusesFromDate(
+      userId,
+      date,
+      tx,
+      fullCompletionCache,
+    );
 
-    const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-    const logs = rawLogs.map((row) => ({
-      date: row.log_date,
-      status: row.status,
-    }));
+    const logs = await streakService.getLogsForHabitCached(
+      habitId,
+      tx,
+      fullCompletionCache,
+    );
     await guardianShieldService.reconcileShieldsFromDate(
       userId,
       habitId,
@@ -278,6 +295,7 @@ async function undoLog(habitId, date, userId, timezone) {
       date,
       tx,
       timezone,
+      fullCompletionCache,
     );
 
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);

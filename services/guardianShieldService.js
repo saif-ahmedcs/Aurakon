@@ -4,6 +4,7 @@ const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const bonusService = require("./bonusService");
+const streakService = require("./streakService");
 const {
   isShieldMilestone,
   isShieldEligibleDifficulty,
@@ -102,7 +103,10 @@ async function reconcileShieldsFromDate(
   fromDate,
   tx,
   timezone,
+  cache,
 ) {
+  const fullCompletionCache =
+    cache || streakService.createFullCompletionCache();
   const habit = await habitModel.findById(habitId, userId, tx);
   if (!habit) {
     return;
@@ -118,7 +122,24 @@ async function reconcileShieldsFromDate(
     tx,
   );
 
-  let currentLogs = logs;
+  let currentLogs;
+  if (
+    fullCompletionCache.habitLogs &&
+    fullCompletionCache.habitLogs.has(habitId)
+  ) {
+    currentLogs = fullCompletionCache.habitLogs.get(habitId);
+  } else if (logs) {
+    currentLogs = logs;
+    if (fullCompletionCache.habitLogs) {
+      fullCompletionCache.habitLogs.set(habitId, currentLogs);
+    }
+  } else {
+    currentLogs = await streakService.getLogsForHabitCached(
+      habitId,
+      tx,
+      fullCompletionCache,
+    );
+  }
 
   for (const award of awards) {
     const { currentStreak, currentStreakStartDate } = calculateHabitStreaks(
@@ -137,27 +158,33 @@ async function reconcileShieldsFromDate(
       );
 
       if (reverted) {
+        streakService.updateHabitLogCache(
+          fullCompletionCache,
+          reverted.habit_id,
+          reverted.log_date,
+          "missed",
+        );
+
         await dailyAuraStatsService.recalculateDailyAuraStats(
           userId,
           reverted.log_date,
           tx,
           timezone,
+          fullCompletionCache,
         );
         await bonusService.reconcileBonusesFromDate(
           userId,
           reverted.log_date,
           tx,
+          fullCompletionCache,
         );
 
         if (reverted.habit_id !== habitId) {
-          const affectedRawLogs = await habitLogModel.getLogsForHabit(
+          const affectedLogs = await streakService.getLogsForHabitCached(
             reverted.habit_id,
             tx,
+            fullCompletionCache,
           );
-          const affectedLogs = affectedRawLogs.map((row) => ({
-            date: row.log_date,
-            status: row.status,
-          }));
           await reconcileShieldsFromDate(
             userId,
             reverted.habit_id,
@@ -165,14 +192,15 @@ async function reconcileShieldsFromDate(
             reverted.log_date,
             tx,
             timezone,
+            fullCompletionCache,
           );
         }
 
-        const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-        currentLogs = rawLogs.map((row) => ({
-          date: row.log_date,
-          status: row.status,
-        }));
+        currentLogs = await streakService.getLogsForHabitCached(
+          habitId,
+          tx,
+          fullCompletionCache,
+        );
       }
     }
 

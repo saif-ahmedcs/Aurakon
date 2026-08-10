@@ -24,29 +24,11 @@ const streakService = require("./streakService");
 const inFlightByUser = new Map();
 
 async function getLogsForHabitCached(habitId, tx, cache) {
-  if (cache && cache.habitLogs && cache.habitLogs.has(habitId)) {
-    return cache.habitLogs.get(habitId);
-  }
-  const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-  const logs = rawLogs.map((log) => ({
-    date: log.log_date,
-    status: log.status,
-  }));
-  if (cache && cache.habitLogs) {
-    cache.habitLogs.set(habitId, logs);
-  }
-  return logs;
+  return streakService.getLogsForHabitCached(habitId, tx, cache);
 }
 
 function updateHabitLogCache(cache, habitId, date, status) {
-  if (!cache || !cache.habitLogs || !cache.habitLogs.has(habitId)) return;
-  const logs = cache.habitLogs.get(habitId);
-  const existingIndex = logs.findIndex((l) => l.date === date);
-  if (existingIndex >= 0) {
-    logs[existingIndex].status = status;
-  } else {
-    logs.push({ date, status });
-  }
+  return streakService.updateHabitLogCache(cache, habitId, date, status);
 }
 
 async function finalizeDay(userId, date, tx, timezone, cache) {
@@ -93,6 +75,7 @@ async function finalizeDay(userId, date, tx, timezone, cache) {
         date,
         tx,
         timezone,
+        cache,
       );
       if (
         existingSession &&
@@ -173,11 +156,7 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
       : earliestHabitDate;
 
     let didWork = false;
-    const fullCompletionCache = streakService.createFullCompletionCache();
-    const cache = {
-      ...fullCompletionCache,
-      habitLogs: new Map(),
-    };
+    const cache = streakService.createFullCompletionCache();
     for (let i = 0; i < CATCH_UP_BATCH_DAYS && date <= yesterday; i++) {
       await finalizeDay(userId, date, tx, timezone, cache);
       didWork = true;
@@ -230,12 +209,13 @@ async function runEvaluatePendingReviews(userId, timezone) {
       }
     }
 
+    const cache = streakService.createFullCompletionCache();
     for (const [habitId, fromDate] of earliestExpiredDateByHabit) {
-      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-      const logs = rawLogs.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
+      const logs = await streakService.getLogsForHabitCached(
+        habitId,
+        tx,
+        cache,
+      );
       await guardianShieldService.reconcileShieldsFromDate(
         userId,
         habitId,
@@ -243,6 +223,7 @@ async function runEvaluatePendingReviews(userId, timezone) {
         fromDate,
         tx,
         timezone,
+        cache,
       );
     }
 
