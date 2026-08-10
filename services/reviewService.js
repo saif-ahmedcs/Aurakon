@@ -7,6 +7,7 @@ const dailyAuraStatsService = require("./dailyAuraStatsService");
 const guardianShieldService = require("./guardianShieldService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
 const bonusService = require("./bonusService");
+const streakService = require("./streakService");
 
 const userMutexes = new Map();
 
@@ -136,12 +137,15 @@ async function runApplyDecisions(decisions, userId, timezone) {
       results.push({ habitId, missedDate, result: newStatus });
     }
 
+    const fullCompletionCache = streakService.createFullCompletionCache();
+
     for (const date of touchedDates) {
       await dailyAuraStatsService.recalculateDailyAuraStats(
         userId,
         date,
         tx,
         timezone,
+        fullCompletionCache,
       );
     }
 
@@ -151,6 +155,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
         userId,
         earliestTouchedDate,
         tx,
+        fullCompletionCache,
       );
     }
 

@@ -6,7 +6,7 @@ const auraEnergyService = require("./auraEnergyService");
 const { isFullDayCompletion, PRESENT_STATUSES } = require("../utils/streak");
 const { isActiveOnLocalDate } = require("../utils/timezone");
 
-async function recalculateDailyAuraStats(userId, date, tx, timezone) {
+async function recalculateDailyAuraStats(userId, date, tx, timezone, cache) {
   await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
   await dailyAuraStatsModel.lockRow(userId, date, tx);
   const allStatuses = await habitLogModel.getStatusesForUserAndDate(
@@ -35,13 +35,16 @@ async function recalculateDailyAuraStats(userId, date, tx, timezone) {
     auraEnergy,
     tx,
   );
-  await streakService.recalculateGlobalStreak(userId, tx);
+  streakService.updateFullCompletionCache(cache, date, fullCompletion);
+  await streakService.recalculateGlobalStreak(userId, tx, cache);
 
   if (fullCompletion) {
     const streakAtDate = await streakService.getStreakAsOfDate(
       userId,
       date,
       tx,
+      null,
+      cache,
     );
     await bonusService.checkAndAwardConsistencyBonus(
       userId,

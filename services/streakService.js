@@ -38,11 +38,36 @@ async function reconcileStaleStreak(userId, asOfDate, prefetchedProgress, tx) {
   return progress.global_daily_streak;
 }
 
-async function recalculateGlobalStreak(userId, tx) {
-  const rows = await dailyAuraStatsModel.getFullCompletionDates(userId, tx);
-  const trueDays = [
-    ...new Set(rows.map((row) => parseToUTCDay(row.stat_date))),
-  ].sort((a, b) => a - b);
+function createFullCompletionCache() {
+  return { dates: null };
+}
+
+async function loadFullCompletionCache(userId, tx, cache) {
+  if (!cache.dates) {
+    const rows = await dailyAuraStatsModel.getFullCompletionDates(userId, tx);
+    cache.dates = new Set(rows.map((row) => row.stat_date));
+  }
+  return cache.dates;
+}
+
+function updateFullCompletionCache(cache, date, fullCompletion) {
+  if (!cache || !cache.dates) return;
+  if (fullCompletion) {
+    cache.dates.add(date);
+  } else {
+    cache.dates.delete(date);
+  }
+}
+
+async function recalculateGlobalStreak(userId, tx, cache) {
+  const dateStrings = cache
+    ? [...(await loadFullCompletionCache(userId, tx, cache))]
+    : (await dailyAuraStatsModel.getFullCompletionDates(userId, tx)).map(
+        (row) => row.stat_date,
+      );
+  const trueDays = [...new Set(dateStrings.map(parseToUTCDay))].sort(
+    (a, b) => a - b,
+  );
 
   if (trueDays.length === 0) {
     await userProgressModel.updateGlobalDailyStreak(userId, 0, tx);
@@ -71,14 +96,29 @@ async function recalculateGlobalStreak(userId, tx) {
   return runLength;
 }
 
-async function getStreakAsOfDate(userId, date, tx, requiredHabitCount = null) {
-  const rows = await dailyAuraStatsModel.getFullCompletionDatesUpTo(
-    userId,
-    date,
-    tx,
-  );
-  const trueDaySet = new Set(rows.map((row) => parseToUTCDay(row.stat_date)));
+async function getStreakAsOfDate(
+  userId,
+  date,
+  tx,
+  requiredHabitCount = null,
+  cache,
+) {
   const targetDay = parseToUTCDay(date);
+  let trueDaySet;
+
+  if (cache) {
+    const dateStrings = await loadFullCompletionCache(userId, tx, cache);
+    trueDaySet = new Set(
+      [...dateStrings].map(parseToUTCDay).filter((d) => d <= targetDay),
+    );
+  } else {
+    const rows = await dailyAuraStatsModel.getFullCompletionDatesUpTo(
+      userId,
+      date,
+      tx,
+    );
+    trueDaySet = new Set(rows.map((row) => parseToUTCDay(row.stat_date)));
+  }
 
   if (!trueDaySet.has(targetDay) && requiredHabitCount !== null) {
     const presentCount = await habitLogModel.countPresentStatusesForDate(
@@ -109,4 +149,6 @@ module.exports = {
   recalculateGlobalStreak,
   reconcileStaleStreak,
   getStreakAsOfDate,
+  createFullCompletionCache,
+  updateFullCompletionCache,
 };

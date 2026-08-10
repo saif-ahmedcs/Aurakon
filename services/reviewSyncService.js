@@ -15,10 +15,11 @@ const {
 } = require("../utils/timezone");
 const { GRACE_PERIOD_DAYS } = require("../utils/pendingReviewSessionRules");
 const { calculateHabitStreaks } = require("../utils/streak");
+const streakService = require("./streakService");
 
 const inFlightByUser = new Map();
 
-async function finalizeDay(userId, date, tx, timezone) {
+async function finalizeDay(userId, date, tx, timezone, cache) {
   const allCandidates = await habitLogModel.getHabitsMissingLogForDate(
     userId,
     date,
@@ -77,6 +78,7 @@ async function finalizeDay(userId, date, tx, timezone) {
     date,
     tx,
     timezone,
+    cache,
   );
 }
 
@@ -133,8 +135,9 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
       : earliestHabitDate;
 
     let didWork = false;
+    const fullCompletionCache = streakService.createFullCompletionCache();
     for (let i = 0; i < CATCH_UP_BATCH_DAYS && date <= yesterday; i++) {
-      await finalizeDay(userId, date, tx, timezone);
+      await finalizeDay(userId, date, tx, timezone, fullCompletionCache);
       didWork = true;
       date = addUtcDays(date, 1);
     }
