@@ -31,7 +31,8 @@ CREATE TABLE users (
   KEY `idx_users_email_verification_token_hash` (`email_verification_token_hash`),
   KEY `idx_users_reset_token_hash` (`reset_token_hash`),
   KEY `idx_users_delete_token_hash` (`delete_token_hash`),
-  KEY `idx_users_email_change_token_hash` (`email_change_token_hash`)
+  KEY `idx_users_email_change_token_hash` (`email_change_token_hash`),
+  KEY `idx_users_unverified_cleanup` (`is_verified`, `created_at`)
 );
 
 CREATE TABLE account_deletion_confirmations (

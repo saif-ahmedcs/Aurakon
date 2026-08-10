@@ -50,7 +50,7 @@ router.get(
   "/:id",
   asyncHandler(async (req, res) => {
     const habit = await habitService.getHabitDetail(
-      req.habitId,
+      req.habit,
       req.user.id,
       req.user.timezone,
     );
@@ -64,7 +64,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const { title } = req.body;
     const updated = await habitService.updateHabit(
-      req.habitId,
+      req.habit,
       req.user.id,
       title,
     );

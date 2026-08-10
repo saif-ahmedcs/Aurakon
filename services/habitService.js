@@ -79,13 +79,8 @@ async function createHabit(title, userId, difficulty, timezone) {
   });
 }
 
-async function getHabitDetail(habitId, userId, timezone) {
-  const habit = await habitModel.findById(habitId, userId);
-  if (!habit) {
-    throw new NotFoundError("habit not found");
-  }
-
-  const logRows = await habitLogModel.getLogsForHabit(habit.id);
+async function getHabitDetail(habit, userId, timezone) {
+  const logRows = await habitLogModel.getLogsForHabit(habit.id, userId);
   const logs = logRows.map((row) => ({
     date: row.log_date,
     status: row.status,
@@ -113,17 +108,12 @@ async function getHabitDetail(habitId, userId, timezone) {
   };
 }
 
-async function updateHabit(habitId, userId, title) {
-  const habit = await habitModel.findById(habitId, userId);
-  if (!habit) {
-    throw new NotFoundError("habit not found");
-  }
-
+async function updateHabit(habit, userId, title) {
   if (title === habit.title) {
     return habit;
   }
 
-  return habitModel.update(habit.id, title, habit.difficulty);
+  return habitModel.update(habit.id, userId, title, habit.difficulty);
 }
 
 async function deleteHabit(habitId, userId, timezone) {
