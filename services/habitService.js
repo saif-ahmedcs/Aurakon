@@ -61,17 +61,6 @@ async function createHabit(title, userId, difficulty, timezone) {
 }
 
 async function getHabitDetail(habit, userId, timezone) {
-  const logRows = await habitLogModel.getLogsForHabit(habit.id, userId);
-  const logs = logRows.map((row) => ({
-    date: row.log_date,
-    status: row.status,
-  }));
-
-  const asOfDate = todayInTimezone(timezone);
-  const { currentStreak, longestStreak } = calculateHabitStreaks(
-    logs,
-    asOfDate,
-  );
   const pendingRows = await habitLogModel.findAllPendingByHabit(habit.id);
   const pendingReview = pendingRows.length
     ? {
@@ -83,8 +72,8 @@ async function getHabitDetail(habit, userId, timezone) {
 
   return {
     ...habit,
-    currentStreak,
-    longestStreak,
+    currentStreak: habit.current_streak,
+    longestStreak: habit.longest_streak,
     pendingReview,
   };
 }
