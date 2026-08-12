@@ -2,10 +2,16 @@ const { AppError } = require("../utils/AppErrors");
 
 function errorHandler(err, req, res, next) {
   console.error(err);
-  const isOperational = err instanceof AppError;
-  const status = isOperational ? err.status : 500;
-  const message = isOperational ? err.message : "internal server error";
-  res.status(status).json({ error: message });
+  if (err instanceof AppError) {
+    return res.status(err.status).json({ error: err.message });
+  }
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({ error: "request body too large" });
+  }
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "invalid JSON in request body" });
+  }
+  res.status(500).json({ error: "internal server error" });
 }
 
 module.exports = errorHandler;

@@ -83,7 +83,7 @@ async function updateHabit(habit, userId, title) {
     return habit;
   }
 
-  return habitModel.update(habit.id, title, habit.difficulty);
+  return habitModel.update(habit.id, userId, title, habit.difficulty);
 }
 
 async function deleteHabit(habitId, userId, timezone) {
