@@ -1,13 +1,11 @@
 const userProgressModel = require("../models/userProgressModel");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
-const xpService = require("./xpService");
 const streakService = require("./streakService");
 const { computeLevel } = require("../utils/levelCalculator");
 const { todayInTimezone } = require("../utils/timezone");
 
 async function recalculateAndPersistLevel(userId, tx, timezone) {
   await tx.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
-  await xpService.rebuildTotalXp(userId, tx);
   const progress = (await userProgressModel.getProgress(userId, tx)) || {};
   const stats = (await dailyAuraStatsModel.getLifetimeStats(userId, tx)) || {};
 

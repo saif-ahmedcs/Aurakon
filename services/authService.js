@@ -190,34 +190,51 @@ const GENERIC_FORGOT_PASSWORD_RESPONSE = {
 // ------------- LOGIN --------------
 async function login(email, password) {
   const normalizedEmail = email.toLowerCase();
-  const user = await userModel.findForLogin(normalizedEmail);
+
+  const { user, locked, passwordMatch } = await runInTransaction(async (tx) => {
+    const user = await userModel.findForLoginForUpdate(normalizedEmail, tx);
+
+    if (!user) {
+      return { user: null, locked: false, passwordMatch: false };
+    }
+
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      return { user, locked: true, passwordMatch: false };
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+    if (!passwordMatch) {
+      await userModel.registerFailedLogin(
+        user.id,
+        MAX_FAILED_LOGIN_ATTEMPTS,
+        LOGIN_LOCKOUT_MS,
+        tx,
+      );
+    } else {
+      await userModel.clearFailedLogins(user.id, tx);
+    }
+
+    return { user, locked: false, passwordMatch };
+  });
 
   if (!user) {
     throw new UnauthorizedError("invalid credentials");
   }
 
-  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+  if (locked) {
     throw new TooManyRequestsError(
       "account temporarily locked due to too many failed login attempts",
     );
   }
 
-  const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
   if (!passwordMatch) {
-    await userModel.registerFailedLogin(
-      user.id,
-      MAX_FAILED_LOGIN_ATTEMPTS,
-      LOGIN_LOCKOUT_MS,
-    );
     throw new UnauthorizedError("invalid credentials");
   }
 
   if (!user.is_verified) {
     throw new ForbiddenError("please verify your email before logging in");
   }
-
-  await userModel.clearFailedLogins(user.id);
 
   const accessToken = generateAccessToken(user);
 

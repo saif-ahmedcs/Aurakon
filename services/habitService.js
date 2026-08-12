@@ -9,6 +9,7 @@ const guardianShieldService = require("./guardianShieldService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
 const userProgressModel = require("../models/userProgressModel");
+const streakService = require("./streakService");
 const { calculateHabitStreaks } = require("../utils/streak");
 const { getHabitLimit } = require("../utils/habitLimitRules");
 const { todayInTimezone, toLocalDateString } = require("../utils/timezone");
@@ -29,28 +30,12 @@ async function listHabitsWithPending(userId, timezone) {
     pendingByHabitId.set(row.habit_id, list);
   }
 
-  const asOfDate = todayInTimezone(timezone);
-
-  return Promise.all(
-    rows.map(async (habit) => {
-      const logRows = await habitLogModel.getLogsForHabit(habit.id);
-      const logs = logRows.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
-      const { currentStreak, longestStreak } = calculateHabitStreaks(
-        logs,
-        asOfDate,
-      );
-
-      return {
-        ...habit,
-        currentStreak,
-        longestStreak,
-        pendingReviews: pendingByHabitId.get(habit.id) || [],
-      };
-    }),
-  );
+  return rows.map((habit) => ({
+    ...habit,
+    currentStreak: habit.current_streak,
+    longestStreak: habit.longest_streak,
+    pendingReviews: pendingByHabitId.get(habit.id) || [],
+  }));
 }
 
 async function createHabit(title, userId, difficulty, timezone) {
@@ -75,23 +60,7 @@ async function createHabit(title, userId, difficulty, timezone) {
   });
 }
 
-async function getHabitDetail(habitId, userId, timezone) {
-  const habit = await habitModel.findById(habitId, userId);
-  if (!habit) {
-    throw new NotFoundError("habit not found");
-  }
-
-  const logRows = await habitLogModel.getLogsForHabit(habit.id);
-  const logs = logRows.map((row) => ({
-    date: row.log_date,
-    status: row.status,
-  }));
-
-  const asOfDate = todayInTimezone(timezone);
-  const { currentStreak, longestStreak } = calculateHabitStreaks(
-    logs,
-    asOfDate,
-  );
+async function getHabitDetail(habit, userId, timezone) {
   const pendingRows = await habitLogModel.findAllPendingByHabit(habit.id);
   const pendingReview = pendingRows.length
     ? {
@@ -103,18 +72,13 @@ async function getHabitDetail(habitId, userId, timezone) {
 
   return {
     ...habit,
-    currentStreak,
-    longestStreak,
+    currentStreak: habit.current_streak,
+    longestStreak: habit.longest_streak,
     pendingReview,
   };
 }
 
-async function updateHabit(habitId, userId, title) {
-  const habit = await habitModel.findById(habitId, userId);
-  if (!habit) {
-    throw new NotFoundError("habit not found");
-  }
-
+async function updateHabit(habit, userId, title) {
   if (title === habit.title) {
     return habit;
   }
@@ -194,13 +158,15 @@ async function logHabit(habitId, date, userId, timezone) {
     }
 
     // (2)
-    const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-    const logs = rawLogs.map((row) => ({
-      date: row.log_date,
-      status: row.status,
-    }));
+    const fullCompletionCache = streakService.createFullCompletionCache();
+    const logs = await streakService.getLogsForHabitCached(
+      habitId,
+      tx,
+      fullCompletionCache,
+    );
     const {
       currentStreak: habitStreak,
+      longestStreak: habitLongestStreak,
       currentStreakStartDate: habitStreakStartDate,
     } = calculateHabitStreaks(logs, date);
 
@@ -211,17 +177,31 @@ async function logHabit(habitId, date, userId, timezone) {
       date,
       tx,
       timezone,
+      fullCompletionCache,
     );
 
     if (!created) {
-      await bonusService.reconcileBonusesFromDate(userId, date, tx);
+      await bonusService.reconcileBonusesFromDate(
+        userId,
+        date,
+        tx,
+        fullCompletionCache,
+      );
     }
 
     // (8)
     if (created) {
+      await habitModel.updateStreaks(
+        habitId,
+        habitStreak,
+        habitLongestStreak,
+        tx,
+      );
+
       const stillPendingReview = await habitLogModel.findPendingByHabit(
         habitId,
         tx,
+        true,
       );
       if (!stillPendingReview) {
         await guardianShieldService.earnShieldIfEligible(
@@ -242,6 +222,7 @@ async function logHabit(habitId, date, userId, timezone) {
         date,
         tx,
         timezone,
+        fullCompletionCache,
       );
     }
     // (9)
@@ -275,20 +256,28 @@ async function undoLog(habitId, date, userId, timezone) {
       throw new ConflictError("only completed logs can be undone");
     }
 
+    const fullCompletionCache = streakService.createFullCompletionCache();
+
     await xpService.reverseCompletionXp(userId, habit.id, date, tx);
     await dailyAuraStatsService.recalculateDailyAuraStats(
       userId,
       date,
       tx,
       timezone,
+      fullCompletionCache,
     );
-    await bonusService.reconcileBonusesFromDate(userId, date, tx);
+    await bonusService.reconcileBonusesFromDate(
+      userId,
+      date,
+      tx,
+      fullCompletionCache,
+    );
 
-    const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-    const logs = rawLogs.map((row) => ({
-      date: row.log_date,
-      status: row.status,
-    }));
+    const logs = await streakService.getLogsForHabitCached(
+      habitId,
+      tx,
+      fullCompletionCache,
+    );
     await guardianShieldService.reconcileShieldsFromDate(
       userId,
       habitId,
@@ -296,6 +285,7 @@ async function undoLog(habitId, date, userId, timezone) {
       date,
       tx,
       timezone,
+      fullCompletionCache,
     );
 
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);

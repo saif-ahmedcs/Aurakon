@@ -7,6 +7,7 @@ const dailyAuraStatsService = require("./dailyAuraStatsService");
 const guardianShieldService = require("./guardianShieldService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
 const bonusService = require("./bonusService");
+const streakService = require("./streakService");
 
 const userMutexes = new Map();
 
@@ -76,8 +77,16 @@ async function runApplyDecisions(decisions, userId, timezone) {
     const results = [];
     const touchedDates = new Set();
     const recoveredHabitDates = new Map();
-    const missedHabitDates = new Map();
-    const shieldedHabitDates = new Map();
+    const affectedHabitEarliestDate = new Map();
+
+    function trackEarliest(habitId, date) {
+      const current = affectedHabitEarliestDate.get(habitId);
+      if (!current || date < current) {
+        affectedHabitEarliestDate.set(habitId, date);
+      }
+    }
+
+    const fullCompletionCache = streakService.createFullCompletionCache();
 
     for (const item of sortedDecisions) {
       const { habitId, missedDate, decision, useShield } = item;
@@ -103,35 +112,45 @@ async function runApplyDecisions(decisions, userId, timezone) {
 
         if (shielded) {
           await habitLogModel.resolveDecision(pending.id, "shielded", tx);
+          streakService.updateHabitLogCache(
+            fullCompletionCache,
+            habitId,
+            missedDate,
+            "shielded",
+          );
           results.push({ habitId, missedDate, result: "shielded" });
-          const dates = shieldedHabitDates.get(habitId) || [];
-          dates.push(missedDate);
-          shieldedHabitDates.set(habitId, dates);
         } else {
           await habitLogModel.resolveDecision(pending.id, "missed", tx);
+          streakService.updateHabitLogCache(
+            fullCompletionCache,
+            habitId,
+            missedDate,
+            "missed",
+          );
           results.push({ habitId, missedDate, result: "missed_no_shield" });
-          const dates = missedHabitDates.get(habitId) || [];
-          dates.push(missedDate);
-          missedHabitDates.set(habitId, dates);
         }
 
         touchedDates.add(missedDate);
+        trackEarliest(habitId, missedDate);
         await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
         continue;
       }
 
       const newStatus = decision === "completed" ? "recovered" : "missed";
       await habitLogModel.resolveDecision(pending.id, newStatus, tx);
+      streakService.updateHabitLogCache(
+        fullCompletionCache,
+        habitId,
+        missedDate,
+        newStatus,
+      );
       touchedDates.add(missedDate);
+      trackEarliest(habitId, missedDate);
 
       if (newStatus === "recovered") {
         const dates = recoveredHabitDates.get(habitId) || [];
         dates.push(missedDate);
         recoveredHabitDates.set(habitId, dates);
-      } else {
-        const dates = missedHabitDates.get(habitId) || [];
-        dates.push(missedDate);
-        missedHabitDates.set(habitId, dates);
       }
 
       await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
@@ -144,6 +163,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
         date,
         tx,
         timezone,
+        fullCompletionCache,
       );
     }
 
@@ -153,6 +173,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
         userId,
         earliestTouchedDate,
         tx,
+        fullCompletionCache,
       );
     }
 
@@ -168,47 +189,14 @@ async function runApplyDecisions(decisions, userId, timezone) {
           tx,
         );
       }
-
-      const earliestDate = dates.sort()[0];
-      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-      const logs = rawLogs.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
-      await guardianShieldService.reconcileShieldsFromDate(
-        userId,
-        habitId,
-        logs,
-        earliestDate,
-        tx,
-        timezone,
-      );
     }
 
-    for (const [habitId, dates] of missedHabitDates) {
-      const earliestDate = dates.sort()[0];
-      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-      const logs = rawLogs.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
-      await guardianShieldService.reconcileShieldsFromDate(
-        userId,
+    for (const [habitId, earliestDate] of affectedHabitEarliestDate) {
+      const logs = await streakService.getLogsForHabitCached(
         habitId,
-        logs,
-        earliestDate,
         tx,
-        timezone,
+        fullCompletionCache,
       );
-    }
-
-    for (const [habitId, dates] of shieldedHabitDates) {
-      const earliestDate = dates.sort()[0];
-      const rawLogs = await habitLogModel.getLogsForHabit(habitId, tx);
-      const logs = rawLogs.map((row) => ({
-        date: row.log_date,
-        status: row.status,
-      }));
       await guardianShieldService.reconcileShieldsFromDate(
         userId,
         habitId,
@@ -216,6 +204,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
         earliestDate,
         tx,
         timezone,
+        fullCompletionCache,
       );
     }
 

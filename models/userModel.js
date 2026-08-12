@@ -397,6 +397,14 @@ async function findForLogin(email) {
   return rows[0] || null;
 }
 
+async function findForLoginForUpdate(email, db = pool) {
+  const [rows] = await db.query(
+    "SELECT id, email, username, password_hash, is_verified, failed_login_count, locked_until FROM users WHERE email = ? FOR UPDATE",
+    [email],
+  );
+  return rows[0] || null;
+}
+
 async function registerFailedLogin(userId, maxAttempts, lockoutMs, db = pool) {
   await db.query(
     `UPDATE users
@@ -596,6 +604,7 @@ module.exports = {
   findForResend,
   setVerificationToken,
   findForLogin,
+  findForLoginForUpdate,
   registerFailedLogin,
   clearFailedLogins,
   findPasswordHashById,

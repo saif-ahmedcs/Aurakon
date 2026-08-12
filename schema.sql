@@ -31,7 +31,9 @@ CREATE TABLE users (
   KEY `idx_users_email_verification_token_hash` (`email_verification_token_hash`),
   KEY `idx_users_reset_token_hash` (`reset_token_hash`),
   KEY `idx_users_delete_token_hash` (`delete_token_hash`),
-  KEY `idx_users_email_change_token_hash` (`email_change_token_hash`)
+  KEY `idx_users_email_change_token_hash` (`email_change_token_hash`),
+  KEY `idx_users_pending_email` (`pending_email`),
+  KEY `idx_users_unverified_cleanup` (`is_verified`, `created_at`)
 );
 
 CREATE TABLE account_deletion_confirmations (
@@ -50,6 +52,8 @@ CREATE TABLE habits (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   archived_at DATETIME NULL,
   shield_deferred_since DATE NULL,
+  current_streak INT NOT NULL DEFAULT 0,
+  longest_streak INT NOT NULL DEFAULT 0,  
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -73,7 +77,8 @@ CREATE TABLE habit_logs (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (habit_id) REFERENCES habits(id) ON DELETE CASCADE,
   FOREIGN KEY (review_session_id) REFERENCES pending_review_sessions(id) ON DELETE SET NULL,
-  UNIQUE KEY unique_habit_date (habit_id, log_date)
+  UNIQUE KEY unique_habit_date (habit_id, log_date),
+  KEY idx_habit_logs_status_habit_date (status, habit_id, log_date)
 );
 
 CREATE TABLE refresh_tokens (
@@ -83,7 +88,8 @@ CREATE TABLE refresh_tokens (
   expires_at DATETIME NOT NULL,
   used_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  KEY idx_refresh_tokens_expires_at (expires_at)
 );
 
 CREATE TABLE daily_aura_stats (

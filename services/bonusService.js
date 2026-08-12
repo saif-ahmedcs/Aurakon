@@ -49,7 +49,7 @@ async function checkAndAwardConsistencyBonus(
   return results;
 }
 
-async function reconcileBonusesFromDate(userId, fromDate, tx) {
+async function reconcileBonusesFromDate(userId, fromDate, tx, cache) {
   const awards = await xpBonusLogModel.findAwardsFromDate(userId, fromDate, tx);
 
   for (const award of awards) {
@@ -58,6 +58,7 @@ async function reconcileBonusesFromDate(userId, fromDate, tx) {
       award.awarded_at,
       tx,
       award.required_habit_count,
+      cache,
     );
     const eligibility = checkBonusEligibility(streakAtDate);
 
@@ -74,21 +75,28 @@ async function reconcileBonusesFromDate(userId, fromDate, tx) {
     }
   }
 
-  const fullCompletionDates = await dailyAuraStatsModel.getFullCompletionDates(
-    userId,
-    tx,
-  );
+  let dateStrings;
+  if (cache) {
+    if (!cache.dates) {
+      const rows = await dailyAuraStatsModel.getFullCompletionDates(userId, tx);
+      cache.dates = new Set(rows.map((row) => row.stat_date));
+    }
+    dateStrings = [...cache.dates];
+  } else {
+    dateStrings = (
+      await dailyAuraStatsModel.getFullCompletionDates(userId, tx)
+    ).map((row) => row.stat_date);
+  }
 
-  const datesFromDate = fullCompletionDates
-    .map((row) => row.stat_date)
-    .filter((date) => date >= fromDate)
-    .sort();
+  const datesFromDate = dateStrings.filter((date) => date >= fromDate).sort();
 
   for (const date of datesFromDate) {
     const streakAtDate = await streakService.getStreakAsOfDate(
       userId,
       date,
       tx,
+      null,
+      cache,
     );
     const stats = await dailyAuraStatsModel.getByDate(userId, date, tx);
     await checkAndAwardConsistencyBonus(
