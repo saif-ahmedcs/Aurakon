@@ -2,7 +2,10 @@ const bcrypt = require("bcrypt");
 const { runInTransaction } = require("../db");
 const hashToken = require("../utils/hashToken");
 const confirmationTokenService = require("./confirmationTokenService");
-const { hasCooldownElapsed } = require("../utils/cooldown");
+const {
+  hasCooldownElapsed,
+  getCooldownRemainingMs,
+} = require("../utils/cooldown");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const habitModel = require("../models/habitModel");
@@ -37,6 +40,7 @@ const {
   generatePasswordResetToken,
   generateAccountDeletionToken,
 } = require("../utils/tokenUtils");
+const { toIsoTimestamp } = require("../utils/timezone");
 
 const CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS = Math.floor(
   CONFIRMATION_IDEMPOTENCY_WINDOW_MS / 1000,
@@ -223,8 +227,13 @@ async function login(email, password) {
   }
 
   if (locked) {
+    const retryAfterSeconds = Math.max(
+      0,
+      Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 1000),
+    );
     throw new TooManyRequestsError(
       "account temporarily locked due to too many failed login attempts",
+      retryAfterSeconds,
     );
   }
 
@@ -596,14 +605,20 @@ async function updateUsername(userId, username) {
     if (!lastChangedAt) {
       throw new TooManyRequestsError(
         `username can only be changed once every ${cooldownDays} days.`,
+        Math.floor(USERNAME_CHANGE_COOLDOWN_MS / 1000),
       );
     }
 
     const nextEligibleAt = new Date(
       new Date(lastChangedAt).getTime() + USERNAME_CHANGE_COOLDOWN_MS,
     );
+    const retryAfterSeconds = Math.max(
+      0,
+      Math.ceil((nextEligibleAt.getTime() - Date.now()) / 1000),
+    );
     throw new TooManyRequestsError(
       `username can only be changed once every ${cooldownDays} days. Try again after ${nextEligibleAt.toISOString()}.`,
+      retryAfterSeconds,
     );
   }
 
@@ -667,8 +682,16 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
         VERIFICATION_COOLDOWN_MS,
       )
     ) {
+      const retryAfterSeconds = Math.ceil(
+        getCooldownRemainingMs(
+          lockedUser.email_change_token_expires,
+          EMAIL_CHANGE_MAX_AGE_MS,
+          VERIFICATION_COOLDOWN_MS,
+        ) / 1000,
+      );
       throw new TooManyRequestsError(
         "Please wait before requesting another verification email.",
+        retryAfterSeconds,
       );
     }
 
@@ -728,8 +751,16 @@ async function resendEmailChangeVerification(userId) {
           VERIFICATION_COOLDOWN_MS,
         )
       ) {
+        const retryAfterSeconds = Math.ceil(
+          getCooldownRemainingMs(
+            user.email_change_token_expires,
+            EMAIL_CHANGE_MAX_AGE_MS,
+            VERIFICATION_COOLDOWN_MS,
+          ) / 1000,
+        );
         throw new TooManyRequestsError(
           "Please wait before requesting another verification email.",
+          retryAfterSeconds,
         );
       }
 
@@ -920,8 +951,16 @@ async function requestAccountDeletion(userId) {
         VERIFICATION_COOLDOWN_MS,
       )
     ) {
+      const retryAfterSeconds = Math.ceil(
+        getCooldownRemainingMs(
+          user.delete_token_expires,
+          ACCOUNT_DELETION_MAX_AGE_MS,
+          VERIFICATION_COOLDOWN_MS,
+        ) / 1000,
+      );
       throw new TooManyRequestsError(
         "Please wait before requesting another account deletion email.",
+        retryAfterSeconds,
       );
     }
 
@@ -1070,7 +1109,7 @@ async function getCurrentUser(userId) {
 
   return {
     email: account.email,
-    createdAt: account.created_at,
+    createdAt: toIsoTimestamp(account.created_at),
     gender: account.gender,
     timezone: account.timezone,
   };

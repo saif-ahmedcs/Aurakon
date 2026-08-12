@@ -38,8 +38,9 @@ class ConflictError extends AppError {
 }
 
 class TooManyRequestsError extends AppError {
-  constructor(message) {
+  constructor(message, retryAfterSeconds = null) {
     super(message, 429);
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 

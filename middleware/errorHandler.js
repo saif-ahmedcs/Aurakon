@@ -3,7 +3,12 @@ const { AppError } = require("../utils/AppErrors");
 function errorHandler(err, req, res, next) {
   console.error(err);
   if (err instanceof AppError) {
-    return res.status(err.status).json({ error: err.message });
+    const body = { error: err.message };
+    if (typeof err.retryAfterSeconds === "number") {
+      body.retryAfter = err.retryAfterSeconds;
+      res.set("Retry-After", String(err.retryAfterSeconds));
+    }
+    return res.status(err.status).json(body);
   }
   if (err.type === "entity.too.large") {
     return res.status(413).json({ error: "request body too large" });

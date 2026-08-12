@@ -11,6 +11,11 @@ const pendingReviewSessionService = require("./pendingReviewSessionService");
 const userProgressModel = require("../models/userProgressModel");
 const streakService = require("./streakService");
 const { calculateHabitStreaks } = require("../utils/streak");
+const {
+  serializeHabit,
+  serializePendingReviewGroup,
+  serializeHabitLog,
+} = require("../utils/habitSerializer");
 const { getHabitLimit } = require("../utils/habitLimitRules");
 const { todayInTimezone, toLocalDateString } = require("../utils/timezone");
 const {
@@ -26,16 +31,16 @@ async function listHabitsWithPending(userId, timezone) {
 
   for (const row of pendingRows) {
     const list = pendingByHabitId.get(row.habit_id) || [];
-    list.push({ missedDate: row.missed_date, createdAt: row.created_at });
+    list.push(row);
     pendingByHabitId.set(row.habit_id, list);
   }
 
-  return rows.map((habit) => ({
-    ...habit,
-    currentStreak: habit.current_streak,
-    longestStreak: habit.longest_streak,
-    pendingReviews: pendingByHabitId.get(habit.id) || [],
-  }));
+  return rows.map((habit) =>
+    serializeHabit(
+      habit,
+      serializePendingReviewGroup(pendingByHabitId.get(habit.id)),
+    ),
+  );
 }
 
 async function createHabit(title, userId, difficulty, timezone) {
@@ -56,34 +61,23 @@ async function createHabit(title, userId, difficulty, timezone) {
       timezone,
     );
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);
-    return habit;
+    return serializeHabit(habit, null);
   });
 }
 
 async function getHabitDetail(habit, userId, timezone) {
   const pendingRows = await habitLogModel.findAllPendingByHabit(habit.id);
-  const pendingReview = pendingRows.length
-    ? {
-        sessionId: pendingRows[0].review_session_id,
-        missedDates: pendingRows.map((row) => row.missed_date),
-        createdAt: pendingRows[0].created_at,
-      }
-    : null;
-
-  return {
-    ...habit,
-    currentStreak: habit.current_streak,
-    longestStreak: habit.longest_streak,
-    pendingReview,
-  };
+  return serializeHabit(habit, serializePendingReviewGroup(pendingRows));
 }
 
 async function updateHabit(habit, userId, title) {
-  if (title === habit.title) {
-    return habit;
-  }
+  const updated =
+    title === habit.title
+      ? habit
+      : await habitModel.update(habit.id, userId, title, habit.difficulty);
 
-  return habitModel.update(habit.id, userId, title, habit.difficulty);
+  const pendingRows = await habitLogModel.findAllPendingByHabit(updated.id);
+  return serializeHabit(updated, serializePendingReviewGroup(pendingRows));
 }
 
 async function deleteHabit(habitId, userId, timezone) {
@@ -228,7 +222,7 @@ async function logHabit(habitId, date, userId, timezone) {
     // (9)
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);
 
-    return { log, created };
+    return { log: serializeHabitLog(log), created };
   });
 }
 
@@ -293,7 +287,8 @@ async function undoLog(habitId, date, userId, timezone) {
 }
 
 async function listLogs(habitId, userId) {
-  return habitLogModel.findAllByHabit(habitId, userId);
+  const rows = await habitLogModel.findAllByHabit(habitId, userId);
+  return rows.map(serializeHabitLog);
 }
 
 module.exports = {

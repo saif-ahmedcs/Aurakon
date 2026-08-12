@@ -8,6 +8,7 @@ const guardianShieldService = require("./guardianShieldService");
 const pendingReviewSessionService = require("./pendingReviewSessionService");
 const bonusService = require("./bonusService");
 const streakService = require("./streakService");
+const { serializePendingReviewGroup } = require("../utils/habitSerializer");
 
 const userMutexes = new Map();
 
@@ -32,22 +33,24 @@ async function getPendingReviews(userId) {
   const totalHabits = await habitModel.countByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
 
-  const sessionsByHabit = new Map();
+  const rowsByHabit = new Map();
   for (const row of pendingRows) {
-    let session = sessionsByHabit.get(row.habit_id);
-    if (!session) {
-      session = {
-        habitId: row.habit_id,
-        habitName: row.habit_name,
-        sessionId: row.review_session_id,
-        missedDates: [],
-      };
-      sessionsByHabit.set(row.habit_id, session);
+    let entry = rowsByHabit.get(row.habit_id);
+    if (!entry) {
+      entry = { habitId: row.habit_id, habitName: row.habit_name, rows: [] };
+      rowsByHabit.set(row.habit_id, entry);
     }
-    session.missedDates.push(row.missed_date);
+    entry.rows.push(row);
   }
 
-  const pending = [...sessionsByHabit.values()];
+  const pending = [...rowsByHabit.values()].map(
+    ({ habitId, habitName, rows }) => ({
+      habitId,
+      habitName,
+      pendingReview: serializePendingReviewGroup(rows),
+    }),
+  );
+
   const pendingCount = pending.length;
   const autoPopupThreshold = computeAutoPopupThreshold(totalHabits);
   const shouldAutoPopup =
