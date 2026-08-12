@@ -83,7 +83,7 @@ async function updateHabit(habit, userId, title) {
     return habit;
   }
 
-  return habitModel.update(habit.id, userId, title, habit.difficulty);
+  return habitModel.update(habit.id, title, habit.difficulty);
 }
 
 async function deleteHabit(habitId, userId, timezone) {
@@ -201,6 +201,7 @@ async function logHabit(habitId, date, userId, timezone) {
       const stillPendingReview = await habitLogModel.findPendingByHabit(
         habitId,
         tx,
+        true,
       );
       if (!stillPendingReview) {
         await guardianShieldService.earnShieldIfEligible(
