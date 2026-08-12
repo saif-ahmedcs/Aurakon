@@ -282,7 +282,7 @@ async function setGender(userId, gender) {
   const applied = await userModel.setGender(userId, gender);
 
   if (!applied) {
-    throw new BadRequestError(
+    throw new ConflictError(
       "gender has already been set and cannot be changed",
     );
   }
