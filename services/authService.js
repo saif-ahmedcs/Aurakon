@@ -498,52 +498,63 @@ async function refresh(rawRefreshToken) {
   }
 
   const tokenHash = hashToken(rawRefreshToken);
+  let reusedUserId = null;
+  let expiredTokenHash = null;
 
-  return runInTransaction(async (tx) => {
-    const stored = await refreshTokenModel.findByTokenHashForUpdate(
-      tokenHash,
-      tx,
-    );
+  try {
+    return await runInTransaction(async (tx) => {
+      const stored = await refreshTokenModel.findByTokenHashForUpdate(
+        tokenHash,
+        tx,
+      );
 
-    if (!stored) {
-      throw new UnauthorizedError("invalid refresh token");
+      if (!stored) {
+        throw new UnauthorizedError("invalid refresh token");
+      }
+
+      if (stored.used_at) {
+        reusedUserId = stored.user_id;
+        throw new UnauthorizedError("invalid refresh token");
+      }
+
+      if (new Date(stored.expires_at) <= new Date()) {
+        expiredTokenHash = tokenHash;
+        throw new UnauthorizedError("refresh token expired");
+      }
+
+      const user = await userModel.findById(stored.user_id, tx);
+
+      if (!user) {
+        throw new UnauthorizedError("user not found");
+      }
+
+      const accessToken = generateAccessToken(user);
+
+      const { rawRefreshToken: newRawRefreshToken, refreshTokenHash } =
+        generateRefreshToken();
+
+      await refreshTokenModel.markUsed(stored.id, tx);
+      await refreshTokenModel.insert(
+        stored.user_id,
+        refreshTokenHash,
+        stored.expires_at,
+        tx,
+      );
+
+      return {
+        accessToken,
+        rawRefreshToken: newRawRefreshToken,
+        refreshTokenExpiresAt: stored.expires_at,
+      };
+    });
+  } catch (err) {
+    if (reusedUserId !== null) {
+      await refreshTokenModel.deleteAllByUserId(reusedUserId);
+    } else if (expiredTokenHash !== null) {
+      await refreshTokenModel.deleteByTokenHash(expiredTokenHash);
     }
-
-    if (stored.used_at) {
-      await refreshTokenModel.deleteAllByUserId(stored.user_id, tx);
-      throw new UnauthorizedError("invalid refresh token");
-    }
-
-    if (new Date(stored.expires_at) <= new Date()) {
-      await refreshTokenModel.deleteByTokenHash(tokenHash, tx);
-      throw new UnauthorizedError("refresh token expired");
-    }
-
-    const user = await userModel.findById(stored.user_id, tx);
-
-    if (!user) {
-      throw new UnauthorizedError("user not found");
-    }
-
-    const accessToken = generateAccessToken(user);
-
-    const { rawRefreshToken: newRawRefreshToken, refreshTokenHash } =
-      generateRefreshToken();
-
-    await refreshTokenModel.markUsed(stored.id, tx);
-    await refreshTokenModel.insert(
-      stored.user_id,
-      refreshTokenHash,
-      stored.expires_at,
-      tx,
-    );
-
-    return {
-      accessToken,
-      rawRefreshToken: newRawRefreshToken,
-      refreshTokenExpiresAt: stored.expires_at,
-    };
-  });
+    throw err;
+  }
 }
 
 // ------------- LOGOUT --------------

@@ -34,22 +34,21 @@ async function getPendingReviews(userId) {
   const pendingRows = await habitLogModel.findPendingForUser(userId);
 
   const rowsByHabit = new Map();
+
   for (const row of pendingRows) {
     let entry = rowsByHabit.get(row.habit_id);
     if (!entry) {
-      entry = { habitId: row.habit_id, habitName: row.habit_name, rows: [] };
+      entry = { habitId: row.habit_id, title: row.habit_name, rows: [] };
       rowsByHabit.set(row.habit_id, entry);
     }
     entry.rows.push(row);
   }
 
-  const pending = [...rowsByHabit.values()].map(
-    ({ habitId, habitName, rows }) => ({
-      habitId,
-      habitName,
-      pendingReview: serializePendingReviewGroup(rows),
-    }),
-  );
+  const pending = [...rowsByHabit.values()].map(({ habitId, title, rows }) => ({
+    habitId,
+    title,
+    pendingReview: serializePendingReviewGroup(rows),
+  }));
 
   const pendingCount = pending.length;
   const autoPopupThreshold = computeAutoPopupThreshold(totalHabits);
