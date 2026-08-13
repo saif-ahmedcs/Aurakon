@@ -43,6 +43,20 @@ const createLimiter = (options) => {
   return rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
+    handler: (req, res, next, opts) => {
+      const resetTime = req.rateLimit?.resetTime;
+      const retryAfterSeconds = resetTime
+        ? Math.max(
+            0,
+            Math.ceil((new Date(resetTime).getTime() - Date.now()) / 1000),
+          )
+        : undefined;
+      res.status(opts.statusCode);
+      if (retryAfterSeconds !== undefined) {
+        res.set("Retry-After", String(retryAfterSeconds));
+      }
+      res.json({ ...opts.message, retryAfter: retryAfterSeconds });
+    },
     ...options,
   });
 };
