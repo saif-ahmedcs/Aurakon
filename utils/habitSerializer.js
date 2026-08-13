@@ -5,7 +5,7 @@ function serializePendingReviewGroup(rows) {
     return null;
   }
   return {
-    sessionId: rows[0].review_session_id,
+    reviewSessionId: rows[0].review_session_id,
     missedDates: rows.map((row) => row.missed_date),
     createdAt: toIsoTimestamp(rows[0].created_at),
   };

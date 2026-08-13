@@ -2,7 +2,7 @@ const { pool } = require("../db");
 
 async function findAllByUser(userId) {
   const [rows] = await pool.query(
-    "SELECT * FROM habits WHERE user_id = ? AND archived_at IS NULL",
+    "SELECT * FROM habits WHERE user_id = ? AND archived_at IS NULL ORDER BY id ASC",
     [userId],
   );
   return rows;
