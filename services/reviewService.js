@@ -77,7 +77,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
       a.missedDate < b.missedDate ? -1 : a.missedDate > b.missedDate ? 1 : 0,
     );
 
-    const results = [];
+    const resultsByKey = new Map();
     const touchedDates = new Set();
     const recoveredHabitDates = new Map();
     const affectedHabitEarliestDate = new Map();
@@ -102,7 +102,11 @@ async function runApplyDecisions(decisions, userId, timezone) {
       );
 
       if (!pending) {
-        results.push({ habitId, missedDate, result: "not_found" });
+        resultsByKey.set(`${habitId}|${missedDate}`, {
+          habitId,
+          missedDate,
+          result: "not_found",
+        });
         continue;
       }
 
@@ -121,7 +125,11 @@ async function runApplyDecisions(decisions, userId, timezone) {
             missedDate,
             "shielded",
           );
-          results.push({ habitId, missedDate, result: "shielded" });
+          resultsByKey.set(`${habitId}|${missedDate}`, {
+            habitId,
+            missedDate,
+            result: "shielded",
+          });
         } else {
           await habitLogModel.resolveDecision(pending.id, "missed", tx);
           streakService.updateHabitLogCache(
@@ -130,7 +138,11 @@ async function runApplyDecisions(decisions, userId, timezone) {
             missedDate,
             "missed",
           );
-          results.push({ habitId, missedDate, result: "missed_no_shield" });
+          resultsByKey.set(`${habitId}|${missedDate}`, {
+            habitId,
+            missedDate,
+            result: "missed_no_shield",
+          });
         }
 
         touchedDates.add(missedDate);
@@ -157,7 +169,11 @@ async function runApplyDecisions(decisions, userId, timezone) {
       }
 
       await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
-      results.push({ habitId, missedDate, result: newStatus });
+      resultsByKey.set(`${habitId}|${missedDate}`, {
+        habitId,
+        missedDate,
+        result: newStatus,
+      });
     }
 
     for (const date of touchedDates) {
@@ -212,6 +228,10 @@ async function runApplyDecisions(decisions, userId, timezone) {
     }
 
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+
+    const results = decisions.map(({ habitId, missedDate }) =>
+      resultsByKey.get(`${habitId}|${missedDate}`),
+    );
 
     return results;
   });
