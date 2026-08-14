@@ -2,7 +2,10 @@ const bcrypt = require("bcrypt");
 const { runInTransaction } = require("../db");
 const hashToken = require("../utils/hashToken");
 const confirmationTokenService = require("./confirmationTokenService");
-const { hasCooldownElapsed } = require("../utils/cooldown");
+const {
+  hasCooldownElapsed,
+  getCooldownRemainingMs,
+} = require("../utils/cooldown");
 const userModel = require("../models/userModel");
 const refreshTokenModel = require("../models/refreshTokenModel");
 const habitModel = require("../models/habitModel");
@@ -37,6 +40,7 @@ const {
   generatePasswordResetToken,
   generateAccountDeletionToken,
 } = require("../utils/tokenUtils");
+const { toIsoTimestamp } = require("../utils/timezone");
 
 const CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS = Math.floor(
   CONFIRMATION_IDEMPOTENCY_WINDOW_MS / 1000,
@@ -223,8 +227,13 @@ async function login(email, password) {
   }
 
   if (locked) {
+    const retryAfterSeconds = Math.max(
+      0,
+      Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 1000),
+    );
     throw new TooManyRequestsError(
       "account temporarily locked due to too many failed login attempts",
+      retryAfterSeconds,
     );
   }
 
@@ -273,7 +282,7 @@ async function setGender(userId, gender) {
   const applied = await userModel.setGender(userId, gender);
 
   if (!applied) {
-    throw new BadRequestError(
+    throw new ConflictError(
       "gender has already been set and cannot be changed",
     );
   }
@@ -489,52 +498,63 @@ async function refresh(rawRefreshToken) {
   }
 
   const tokenHash = hashToken(rawRefreshToken);
+  let reusedUserId = null;
+  let expiredTokenHash = null;
 
-  return runInTransaction(async (tx) => {
-    const stored = await refreshTokenModel.findByTokenHashForUpdate(
-      tokenHash,
-      tx,
-    );
+  try {
+    return await runInTransaction(async (tx) => {
+      const stored = await refreshTokenModel.findByTokenHashForUpdate(
+        tokenHash,
+        tx,
+      );
 
-    if (!stored) {
-      throw new UnauthorizedError("invalid refresh token");
+      if (!stored) {
+        throw new UnauthorizedError("invalid refresh token");
+      }
+
+      if (stored.used_at) {
+        reusedUserId = stored.user_id;
+        throw new UnauthorizedError("invalid refresh token");
+      }
+
+      if (new Date(stored.expires_at) <= new Date()) {
+        expiredTokenHash = tokenHash;
+        throw new UnauthorizedError("refresh token expired");
+      }
+
+      const user = await userModel.findById(stored.user_id, tx);
+
+      if (!user) {
+        throw new UnauthorizedError("user not found");
+      }
+
+      const accessToken = generateAccessToken(user);
+
+      const { rawRefreshToken: newRawRefreshToken, refreshTokenHash } =
+        generateRefreshToken();
+
+      await refreshTokenModel.markUsed(stored.id, tx);
+      await refreshTokenModel.insert(
+        stored.user_id,
+        refreshTokenHash,
+        stored.expires_at,
+        tx,
+      );
+
+      return {
+        accessToken,
+        rawRefreshToken: newRawRefreshToken,
+        refreshTokenExpiresAt: stored.expires_at,
+      };
+    });
+  } catch (err) {
+    if (reusedUserId !== null) {
+      await refreshTokenModel.deleteAllByUserId(reusedUserId);
+    } else if (expiredTokenHash !== null) {
+      await refreshTokenModel.deleteByTokenHash(expiredTokenHash);
     }
-
-    if (stored.used_at) {
-      await refreshTokenModel.deleteAllByUserId(stored.user_id, tx);
-      throw new UnauthorizedError("invalid refresh token");
-    }
-
-    if (new Date(stored.expires_at) <= new Date()) {
-      await refreshTokenModel.deleteByTokenHash(tokenHash, tx);
-      throw new UnauthorizedError("refresh token expired");
-    }
-
-    const user = await userModel.findById(stored.user_id, tx);
-
-    if (!user) {
-      throw new UnauthorizedError("user not found");
-    }
-
-    const accessToken = generateAccessToken(user);
-
-    const { rawRefreshToken: newRawRefreshToken, refreshTokenHash } =
-      generateRefreshToken();
-
-    await refreshTokenModel.markUsed(stored.id, tx);
-    await refreshTokenModel.insert(
-      stored.user_id,
-      refreshTokenHash,
-      stored.expires_at,
-      tx,
-    );
-
-    return {
-      accessToken,
-      rawRefreshToken: newRawRefreshToken,
-      refreshTokenExpiresAt: stored.expires_at,
-    };
-  });
+    throw err;
+  }
 }
 
 // ------------- LOGOUT --------------
@@ -596,14 +616,20 @@ async function updateUsername(userId, username) {
     if (!lastChangedAt) {
       throw new TooManyRequestsError(
         `username can only be changed once every ${cooldownDays} days.`,
+        Math.floor(USERNAME_CHANGE_COOLDOWN_MS / 1000),
       );
     }
 
     const nextEligibleAt = new Date(
       new Date(lastChangedAt).getTime() + USERNAME_CHANGE_COOLDOWN_MS,
     );
+    const retryAfterSeconds = Math.max(
+      0,
+      Math.ceil((nextEligibleAt.getTime() - Date.now()) / 1000),
+    );
     throw new TooManyRequestsError(
       `username can only be changed once every ${cooldownDays} days. Try again after ${nextEligibleAt.toISOString()}.`,
+      retryAfterSeconds,
     );
   }
 
@@ -667,8 +693,16 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
         VERIFICATION_COOLDOWN_MS,
       )
     ) {
+      const retryAfterSeconds = Math.ceil(
+        getCooldownRemainingMs(
+          lockedUser.email_change_token_expires,
+          EMAIL_CHANGE_MAX_AGE_MS,
+          VERIFICATION_COOLDOWN_MS,
+        ) / 1000,
+      );
       throw new TooManyRequestsError(
         "Please wait before requesting another verification email.",
+        retryAfterSeconds,
       );
     }
 
@@ -728,8 +762,16 @@ async function resendEmailChangeVerification(userId) {
           VERIFICATION_COOLDOWN_MS,
         )
       ) {
+        const retryAfterSeconds = Math.ceil(
+          getCooldownRemainingMs(
+            user.email_change_token_expires,
+            EMAIL_CHANGE_MAX_AGE_MS,
+            VERIFICATION_COOLDOWN_MS,
+          ) / 1000,
+        );
         throw new TooManyRequestsError(
           "Please wait before requesting another verification email.",
+          retryAfterSeconds,
         );
       }
 
@@ -920,8 +962,16 @@ async function requestAccountDeletion(userId) {
         VERIFICATION_COOLDOWN_MS,
       )
     ) {
+      const retryAfterSeconds = Math.ceil(
+        getCooldownRemainingMs(
+          user.delete_token_expires,
+          ACCOUNT_DELETION_MAX_AGE_MS,
+          VERIFICATION_COOLDOWN_MS,
+        ) / 1000,
+      );
       throw new TooManyRequestsError(
         "Please wait before requesting another account deletion email.",
+        retryAfterSeconds,
       );
     }
 
@@ -1070,7 +1120,7 @@ async function getCurrentUser(userId) {
 
   return {
     email: account.email,
-    createdAt: account.created_at,
+    createdAt: toIsoTimestamp(account.created_at),
     gender: account.gender,
     timezone: account.timezone,
   };

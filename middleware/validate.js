@@ -9,10 +9,14 @@ function validate(schemaOrFactory, source = "body") {
     const result = schema.safeParse(req[source]);
 
     if (!result.success) {
-      const message = result.error.issues
-        .map((issue) => `${issue.path.join(".") || source}: ${issue.message}`)
-        .join(", ");
-      return next(new BadRequestError(message));
+      const fields = result.error.issues.map((issue) => ({
+        path: issue.path.join(".") || source,
+        message: issue.message,
+      }));
+      const message = fields.map((f) => `${f.path}: ${f.message}`).join(", ");
+      const err = new BadRequestError(message);
+      err.fields = fields;
+      return next(err);
     }
 
     if (source === "query") {

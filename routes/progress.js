@@ -20,10 +20,18 @@ router.get(
     const userId = req.user.id;
     const today = todayInTimezone(req.user.timezone);
 
-    const [progress, todayStats] = await Promise.all([
+    const [progressRow, todayStats] = await Promise.all([
       userProgressModel.getProgress(userId),
       dailyAuraStatsModel.getByDate(userId, today),
     ]);
+
+    const progress = progressRow ?? {
+      current_level: 0,
+      total_xp: 0,
+      shield_balance: 0,
+      global_daily_streak: 0,
+      last_full_completion_date: null,
+    };
 
     const reconciledStreak = await streakService.reconcileStaleStreak(
       userId,

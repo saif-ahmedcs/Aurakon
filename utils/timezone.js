@@ -38,6 +38,13 @@ function isActiveOnLocalDate(createdAt, archivedAt, date, timeZone) {
   return true;
 }
 
+function toIsoTimestamp(value) {
+  if (value === null || value === undefined) return null;
+  const date =
+    value instanceof Date ? value : new Date(`${value.replace(" ", "T")}Z`);
+  return date.toISOString();
+}
+
 module.exports = {
   DEFAULT_TIMEZONE,
   isValidTimezone,
@@ -45,4 +52,5 @@ module.exports = {
   todayInTimezone,
   toLocalDateString,
   isActiveOnLocalDate,
+  toIsoTimestamp,
 };

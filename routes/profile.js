@@ -2,6 +2,7 @@ const express = require("express");
 const asyncHandler = require("../utils/asyncHandler");
 const auth = require("../middleware/authenticate");
 const { authenticatedSurfaceLimiter } = require("../middleware/rateLimiters");
+const finalizeReviews = require("../middleware/finalizeReviews");
 const titleService = require("../services/titleService");
 const userModel = require("../models/userModel");
 const userProgressModel = require("../models/userProgressModel");
@@ -9,6 +10,7 @@ const userProgressModel = require("../models/userProgressModel");
 const router = express.Router();
 router.use(auth);
 router.use(authenticatedSurfaceLimiter);
+router.use(finalizeReviews);
 
 router.get(
   "/",
