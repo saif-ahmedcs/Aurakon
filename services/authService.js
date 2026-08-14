@@ -904,6 +904,7 @@ async function confirmEmailChange(userId, token, currentPassword) {
             }
             throw new BadRequestError("invalid or expired token");
           }
+          await refreshTokenModel.deleteAllByUserId(userId, tx);
         },
         onReplay: async (tokenRow) => {
           const hashUnchanged =

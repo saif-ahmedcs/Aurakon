@@ -142,7 +142,7 @@ async function reconcileShieldsFromDate(
   }
 
   for (const award of awards) {
-    const { currentStreak, currentStreakStartDate } = calculateHabitStreaks(
+    const { currentStreak } = calculateHabitStreaks(
       currentLogs,
       award.awarded_at,
     );

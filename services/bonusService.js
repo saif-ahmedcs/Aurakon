@@ -3,7 +3,6 @@ const xpService = require("../services/xpService");
 const streakService = require("./streakService");
 const dailyAuraStatsModel = require("../models/dailyAuraStatsModel");
 const { checkBonusEligibility } = require("../utils/consistencyBonusRules");
-const { ConflictError } = require("../utils/AppErrors");
 
 async function checkAndAwardConsistencyBonus(
   userId,

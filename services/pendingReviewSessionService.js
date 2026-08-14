@@ -5,6 +5,20 @@ const streakService = require("./streakService");
 const { isSessionExpired } = require("../utils/pendingReviewSessionRules");
 const { parseToUTCDay } = require("../utils/dateUtils");
 
+async function attachMissedDayToSession(habitId, missedDate, sessionId, tx) {
+  await pendingReviewSessionModel.updateLastMissedDate(
+    sessionId,
+    missedDate,
+    tx,
+  );
+  await habitLogModel.insertPendingReviewLog(
+    habitId,
+    missedDate,
+    sessionId,
+    tx,
+  );
+}
+
 async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
   let session = await pendingReviewSessionModel.findActiveByHabit(habitId, tx);
 
@@ -58,12 +72,7 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
     if (sessionId === null) {
       const concurrentSession =
         await pendingReviewSessionModel.findActiveByHabit(habitId, tx);
-      await pendingReviewSessionModel.updateLastMissedDate(
-        concurrentSession.id,
-        missedDate,
-        tx,
-      );
-      await habitLogModel.insertPendingReviewLog(
+      await attachMissedDayToSession(
         habitId,
         missedDate,
         concurrentSession.id,
@@ -81,17 +90,7 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
     return;
   }
 
-  await pendingReviewSessionModel.updateLastMissedDate(
-    session.id,
-    missedDate,
-    tx,
-  );
-  await habitLogModel.insertPendingReviewLog(
-    habitId,
-    missedDate,
-    session.id,
-    tx,
-  );
+  await attachMissedDayToSession(habitId, missedDate, session.id, tx);
 }
 
 async function resolveSessionIfComplete(habitId, tx) {
