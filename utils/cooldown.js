@@ -1,19 +1,23 @@
-function hasCooldownElapsed(tokenExpiresAt, maxAgeMs, cooldownMs) {
-  if (!tokenExpiresAt) return true;
+function getElapsedSinceIssue(tokenExpiresAt, maxAgeMs) {
+  if (!tokenExpiresAt) return null;
 
   const issuedAt = new Date(tokenExpiresAt).getTime();
-  if (Number.isNaN(issuedAt)) return true;
+  if (Number.isNaN(issuedAt)) return null;
 
-  return Date.now() - (issuedAt - maxAgeMs) >= cooldownMs;
+  return Date.now() - (issuedAt - maxAgeMs);
+}
+
+function hasCooldownElapsed(tokenExpiresAt, maxAgeMs, cooldownMs) {
+  const elapsed = getElapsedSinceIssue(tokenExpiresAt, maxAgeMs);
+  if (elapsed === null) return true;
+
+  return elapsed >= cooldownMs;
 }
 
 function getCooldownRemainingMs(tokenExpiresAt, maxAgeMs, cooldownMs) {
-  if (!tokenExpiresAt) return 0;
+  const elapsed = getElapsedSinceIssue(tokenExpiresAt, maxAgeMs);
+  if (elapsed === null) return 0;
 
-  const issuedAt = new Date(tokenExpiresAt).getTime();
-  if (Number.isNaN(issuedAt)) return 0;
-
-  const elapsed = Date.now() - (issuedAt - maxAgeMs);
   return Math.max(0, cooldownMs - elapsed);
 }
 
