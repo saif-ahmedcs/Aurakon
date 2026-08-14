@@ -45,36 +45,6 @@ async function updateLastFullCompletionDate(userId, date, db = pool) {
 
 // ------------- SHIELD WALLET ---------------
 
-async function getShieldBalance(userId) {
-  const [rows] = await pool.query(
-    "SELECT shield_balance FROM users WHERE id = ?",
-    [userId],
-  );
-  return rows[0] ? rows[0].shield_balance : null;
-}
-
-async function incrementShieldBalance(userId, db = pool) {
-  await db.query(
-    "UPDATE users SET shield_balance = shield_balance + 1 WHERE id = ?",
-    [userId],
-  );
-}
-
-async function decrementShieldBalanceIfAvailable(userId, db = pool) {
-  const [result] = await db.query(
-    "UPDATE users SET shield_balance = shield_balance - 1 WHERE id = ? AND shield_balance > 0",
-    [userId],
-  );
-  return result.affectedRows > 0;
-}
-
-async function decrementShieldBalanceFloor(userId, db = pool) {
-  await db.query(
-    "UPDATE users SET shield_balance = GREATEST(shield_balance - 1, 0) WHERE id = ?",
-    [userId],
-  );
-}
-
 async function setShieldBalance(userId, balance, db = pool) {
   await db.query("UPDATE users SET shield_balance = ? WHERE id = ?", [
     balance,
@@ -88,9 +58,5 @@ module.exports = {
   updateGlobalDailyStreak,
   resetStaleGlobalStreak,
   updateLastFullCompletionDate,
-  getShieldBalance,
-  incrementShieldBalance,
-  decrementShieldBalanceIfAvailable,
-  decrementShieldBalanceFloor,
   setShieldBalance,
 };

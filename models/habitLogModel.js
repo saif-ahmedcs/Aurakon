@@ -1,5 +1,19 @@
 const { pool } = require("../db");
 
+async function markLogsMissed(rows, db) {
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const ids = rows.map((row) => row.id);
+  await db.query(
+    `UPDATE habit_logs SET status = 'missed' WHERE id IN (?) AND status = 'pending_review'`,
+    [ids],
+  );
+
+  return rows.map((row) => ({ habitId: row.habit_id, logDate: row.log_date }));
+}
+
 async function expireStaleReviewsForUser(userId, cutoffDate, db = pool) {
   const [staleLogs] = await db.query(
     `SELECT habit_logs.id, habit_logs.habit_id, habit_logs.log_date, habit_logs.review_session_id
@@ -11,15 +25,10 @@ async function expireStaleReviewsForUser(userId, cutoffDate, db = pool) {
     [userId, cutoffDate],
   );
 
-  if (staleLogs.length === 0) {
-    return [];
+  const expired = await markLogsMissed(staleLogs, db);
+  if (expired.length === 0) {
+    return expired;
   }
-
-  const staleIds = staleLogs.map((row) => row.id);
-  await db.query(
-    `UPDATE habit_logs SET status = 'missed' WHERE id IN (?) AND status = 'pending_review'`,
-    [staleIds],
-  );
 
   const sessionIds = [
     ...new Set(staleLogs.map((row) => row.review_session_id)),
@@ -37,10 +46,7 @@ async function expireStaleReviewsForUser(userId, cutoffDate, db = pool) {
     );
   }
 
-  return staleLogs.map((row) => ({
-    habitId: row.habit_id,
-    logDate: row.log_date,
-  }));
+  return expired;
 }
 
 async function hasStaleReviewsForUser(userId, cutoffDate, db = pool) {
@@ -80,15 +86,6 @@ async function getLogsForHabit(habitId, db = pool) {
   return rows;
 }
 
-async function getLogsForHabits(habitIds, db = pool) {
-  if (habitIds.length === 0) return [];
-  const [rows] = await db.query(
-    `SELECT habit_id, log_date, status FROM habit_logs WHERE habit_id IN (?)`,
-    [habitIds],
-  );
-  return rows;
-}
-
 async function insertPendingReviewLog(habitId, logDate, sessionId, db = pool) {
   await db.query(
     `INSERT IGNORE INTO habit_logs (habit_id, log_date, status, review_session_id, created_at)
@@ -112,17 +109,7 @@ async function expirePendingLogsForSession(sessionId, db = pool) {
     [sessionId],
   );
 
-  if (rows.length === 0) {
-    return [];
-  }
-
-  const ids = rows.map((row) => row.id);
-  await db.query(
-    `UPDATE habit_logs SET status = 'missed' WHERE id IN (?) AND status = 'pending_review'`,
-    [ids],
-  );
-
-  return rows.map((row) => ({ habitId: row.habit_id, logDate: row.log_date }));
+  return markLogsMissed(rows, db);
 }
 
 async function findPendingForUser(userId, db = pool) {
@@ -260,10 +247,7 @@ async function insertLog(habitId, logDate, db = pool) {
     "INSERT INTO habit_logs (habit_id, log_date, status, created_at) VALUES (?, ?, 'completed', UTC_TIMESTAMP())",
     [habitId, logDate],
   );
-  const [rows] = await db.query("SELECT * FROM habit_logs WHERE id = ?", [
-    result.insertId,
-  ]);
-  return rows[0];
+  return findById(result.insertId, db);
 }
 
 async function findAllByHabit(habitId, userId, db = pool) {
@@ -317,8 +301,8 @@ module.exports = {
   hasStaleReviewsForUser,
   getHabitsMissingLogForDate,
   getLogsForHabit,
-  getLogsForHabits,
   insertPendingReviewLog,
+  insertMissedLog,
   expirePendingLogsForSession,
   findAllPendingByHabit,
   findPendingForUser,
