@@ -3,6 +3,12 @@ const asyncHandler = require("../utils/asyncHandler");
 const { REFRESH_COOKIE_OPTIONS } = require("../utils/cookieConfig");
 const { REFRESH_TOKEN_MAX_AGE_MS } = require("../utils/constants");
 const authService = require("../services/authService");
+const sessionService = require("../services/sessionService");
+const passwordService = require("../services/passwordService");
+const emailVerificationService = require("../services/emailVerificationService");
+const emailChangeService = require("../services/emailChangeService");
+const accountDeletionService = require("../services/accountDeletionService");
+const accountProfileService = require("../services/accountProfileService");
 const validate = require("../middleware/validate");
 const auth = require("../middleware/authenticate");
 const authAllowRecentlyDeleted = require("../middleware/authenticateAllowRecentlyDeleted");
@@ -74,7 +80,7 @@ router.patch(
   validate(setGenderSchema),
   asyncHandler(async (req, res) => {
     const { gender } = req.body;
-    const result = await authService.setGender(req.user.id, gender);
+    const result = await accountProfileService.setGender(req.user.id, gender);
     res.status(200).json(result);
   }),
 );
@@ -86,7 +92,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { token } = req.query;
 
-    const result = await authService.checkVerificationToken(token);
+    const result = await emailVerificationService.checkVerificationToken(token);
 
     res.status(200).json(result);
   }),
@@ -99,7 +105,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const { token } = req.body;
 
-    const result = await authService.confirmEmailVerification(token);
+    const result =
+      await emailVerificationService.confirmEmailVerification(token);
 
     res.status(200).json(result);
   }),
@@ -113,7 +120,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    const result = await authService.resendVerification(email);
+    const result = await emailVerificationService.resendVerification(email);
 
     res.status(200).json(result);
   }),
@@ -151,7 +158,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    const result = await authService.forgotPassword(email);
+    const result = await passwordService.forgotPassword(email);
 
     res.status(200).json(result);
   }),
@@ -164,7 +171,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { token } = req.query;
 
-    const result = await authService.checkResetToken(token);
+    const result = await passwordService.checkResetToken(token);
 
     res.status(200).json(result);
   }),
@@ -177,7 +184,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { token, newPassword } = req.body;
 
-    const result = await authService.resetPassword(token, newPassword);
+    const result = await passwordService.resetPassword(token, newPassword);
 
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json(result);
@@ -193,7 +200,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
-    const result = await authService.changePassword(
+    const result = await passwordService.changePassword(
       req.user.id,
       currentPassword,
       newPassword,
@@ -214,7 +221,7 @@ router.post(
       accessToken,
       rawRefreshToken: newRawRefreshToken,
       refreshTokenExpiresAt,
-    } = await authService.refresh(rawRefreshToken);
+    } = await sessionService.refresh(rawRefreshToken);
 
     res.cookie("refreshToken", newRawRefreshToken, {
       ...REFRESH_COOKIE_OPTIONS,
@@ -231,7 +238,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const rawRefreshToken = req.cookies.refreshToken;
 
-    await authService.logout(rawRefreshToken);
+    await sessionService.logout(rawRefreshToken);
 
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json({ message: "logged out successfully" });
@@ -243,7 +250,7 @@ router.post(
   auth,
   logoutAllLimiter,
   asyncHandler(async (req, res) => {
-    await authService.logoutAll(req.user.id);
+    await sessionService.logoutAll(req.user.id);
 
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json({ message: "logged out from all devices" });
@@ -257,7 +264,10 @@ router.patch(
   validate(updateTimezoneSchema),
   asyncHandler(async (req, res) => {
     const { timezone } = req.body;
-    const result = await authService.updateTimezone(req.user.id, timezone);
+    const result = await accountProfileService.updateTimezone(
+      req.user.id,
+      timezone,
+    );
     res.status(200).json(result);
   }),
 );
@@ -269,7 +279,10 @@ router.patch(
   validate(updateUsernameSchema),
   asyncHandler(async (req, res) => {
     const { username } = req.body;
-    const result = await authService.updateUsername(req.user.id, username);
+    const result = await accountProfileService.updateUsername(
+      req.user.id,
+      username,
+    );
     res.status(200).json(result);
   }),
 );
@@ -281,7 +294,7 @@ router.patch(
   validate(requestEmailChangeSchema),
   asyncHandler(async (req, res) => {
     const { newEmail, currentPassword } = req.body;
-    const result = await authService.requestEmailChange(
+    const result = await emailChangeService.requestEmailChange(
       req.user.id,
       newEmail,
       currentPassword,
@@ -295,7 +308,9 @@ router.post(
   auth,
   changeEmailLimiter,
   asyncHandler(async (req, res) => {
-    const result = await authService.resendEmailChangeVerification(req.user.id);
+    const result = await emailChangeService.resendEmailChangeVerification(
+      req.user.id,
+    );
     res.status(200).json(result);
   }),
 );
@@ -305,7 +320,7 @@ router.post(
   auth,
   accountFieldUpdateLimiter,
   asyncHandler(async (req, res) => {
-    const result = await authService.cancelEmailChange(req.user.id);
+    const result = await emailChangeService.cancelEmailChange(req.user.id);
     res.status(200).json(result);
   }),
 );
@@ -316,7 +331,7 @@ router.get(
   validate(tokenQuerySchema, "query"),
   asyncHandler(async (req, res) => {
     const { token } = req.query;
-    const result = await authService.checkEmailChangeToken(token);
+    const result = await emailChangeService.checkEmailChangeToken(token);
     res.status(200).json(result);
   }),
 );
@@ -328,7 +343,7 @@ router.post(
   validate(confirmEmailChangeSchema),
   asyncHandler(async (req, res) => {
     const { token, currentPassword } = req.body;
-    const result = await authService.confirmEmailChange(
+    const result = await emailChangeService.confirmEmailChange(
       req.user.id,
       token,
       currentPassword,
@@ -342,7 +357,9 @@ router.post(
   auth,
   deleteAccountLimiter,
   asyncHandler(async (req, res) => {
-    const result = await authService.requestAccountDeletion(req.user.id);
+    const result = await accountDeletionService.requestAccountDeletion(
+      req.user.id,
+    );
     res.status(200).json(result);
   }),
 );
@@ -352,7 +369,9 @@ router.post(
   auth,
   accountFieldUpdateLimiter,
   asyncHandler(async (req, res) => {
-    const result = await authService.cancelAccountDeletion(req.user.id);
+    const result = await accountDeletionService.cancelAccountDeletion(
+      req.user.id,
+    );
     res.status(200).json(result);
   }),
 );
@@ -363,7 +382,8 @@ router.get(
   validate(tokenQuerySchema, "query"),
   asyncHandler(async (req, res) => {
     const { token } = req.query;
-    const result = await authService.verifyAccountDeletionToken(token);
+    const result =
+      await accountDeletionService.verifyAccountDeletionToken(token);
     res.status(200).json(result);
   }),
 );
@@ -375,7 +395,7 @@ router.post(
   validate(confirmDeleteAccountSchema),
   asyncHandler(async (req, res) => {
     const { token, currentPassword } = req.body;
-    const result = await authService.confirmAccountDeletion(
+    const result = await accountDeletionService.confirmAccountDeletion(
       req.user.id,
       token,
       currentPassword,
@@ -390,7 +410,7 @@ router.get(
   auth,
   authenticatedSurfaceLimiter,
   asyncHandler(async (req, res) => {
-    const result = await authService.getCurrentUser(req.user.id);
+    const result = await accountProfileService.getCurrentUser(req.user.id);
     res.status(200).json(result);
   }),
 );
