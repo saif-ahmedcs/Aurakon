@@ -9,19 +9,15 @@ const BONUS_XP = {
   "30day": 750,
 };
 
-async function applyXpDelta(userId, delta, tx) {
-  await xpModel.incrementTotalXp(userId, delta, tx);
-
+async function buildXpSnapshot(userId, delta, tx) {
   const totalXp = await xpModel.getTotalXp(userId, tx);
   const title = titleService.resolveCurrentTitle(totalXp);
-
   return { delta, totalXp, title };
 }
 
-async function noopXpResult(userId, tx) {
-  const totalXp = await xpModel.getTotalXp(userId, tx);
-  const title = titleService.resolveCurrentTitle(totalXp);
-  return { delta: 0, totalXp, title };
+async function applyXpDelta(userId, delta, tx) {
+  await xpModel.incrementTotalXp(userId, delta, tx);
+  return buildXpSnapshot(userId, delta, tx);
 }
 
 async function awardCompletionXp(userId, habitId, date, difficulty, tx) {
@@ -31,7 +27,7 @@ async function awardCompletionXp(userId, habitId, date, difficulty, tx) {
     tx,
   );
   if (alreadyAwarded) {
-    return noopXpResult(userId, tx);
+    return buildXpSnapshot(userId, 0, tx);
   }
 
   const delta = difficultyToXp(difficulty);
@@ -40,7 +36,7 @@ async function awardCompletionXp(userId, habitId, date, difficulty, tx) {
     await xpCompletionLogModel.insertAward(userId, habitId, date, delta, tx);
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") {
-      return noopXpResult(userId, tx);
+      return buildXpSnapshot(userId, 0, tx);
     }
     throw err;
   }
@@ -51,7 +47,7 @@ async function awardCompletionXp(userId, habitId, date, difficulty, tx) {
 async function reverseCompletionXp(userId, habitId, date, tx) {
   const award = await xpCompletionLogModel.findAward(habitId, date, tx);
   if (!award) {
-    return noopXpResult(userId, tx);
+    return buildXpSnapshot(userId, 0, tx);
   }
 
   await xpCompletionLogModel.deleteAward(habitId, date, tx);

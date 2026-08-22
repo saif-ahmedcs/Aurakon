@@ -16,12 +16,9 @@ async function findById(id, userId, db = pool) {
   return rows[0] || null;
 }
 
-async function existsForUser(id, userId) {
-  const [rows] = await pool.query(
-    "SELECT 1 FROM habits WHERE id = ? AND user_id = ? AND archived_at IS NULL LIMIT 1",
-    [id, userId],
-  );
-  return rows.length > 0;
+async function fetchById(id, db) {
+  const [rows] = await db.query("SELECT * FROM habits WHERE id = ?", [id]);
+  return rows[0];
 }
 
 async function create(title, userId, difficulty, db = pool) {
@@ -29,10 +26,7 @@ async function create(title, userId, difficulty, db = pool) {
     "INSERT INTO habits (title, user_id, difficulty, created_at) VALUES (?, ?, ?, UTC_TIMESTAMP())",
     [title, userId, difficulty],
   );
-  const [rows] = await db.query("SELECT * FROM habits WHERE id = ?", [
-    result.insertId,
-  ]);
-  return rows[0];
+  return fetchById(result.insertId, db);
 }
 
 async function update(id, userId, title, difficulty, db = pool) {
@@ -40,8 +34,7 @@ async function update(id, userId, title, difficulty, db = pool) {
     "UPDATE habits SET title = ?, difficulty = ? WHERE id = ? AND user_id = ?",
     [title, difficulty, id, userId],
   );
-  const [rows] = await db.query("SELECT * FROM habits WHERE id = ?", [id]);
-  return rows[0];
+  return fetchById(id, db);
 }
 
 async function archive(id, userId, db = pool) {
@@ -121,7 +114,6 @@ async function deleteAllByUser(userId, db = pool) {
 module.exports = {
   findAllByUser,
   findById,
-  existsForUser,
   create,
   update,
   archive,

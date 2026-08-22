@@ -4,14 +4,12 @@ const BONUS_THRESHOLDS = {
 };
 
 function checkBonusEligibility(consecutiveFullDays) {
-  return {
-    "7day":
-      consecutiveFullDays > 0 &&
-      consecutiveFullDays % BONUS_THRESHOLDS["7day"] === 0,
-    "30day":
-      consecutiveFullDays > 0 &&
-      consecutiveFullDays % BONUS_THRESHOLDS["30day"] === 0,
-  };
+  const eligibility = {};
+  for (const [bonusType, threshold] of Object.entries(BONUS_THRESHOLDS)) {
+    eligibility[bonusType] =
+      consecutiveFullDays > 0 && consecutiveFullDays % threshold === 0;
+  }
+  return eligibility;
 }
 
 module.exports = { BONUS_THRESHOLDS, checkBonusEligibility };

@@ -9,18 +9,19 @@ function isValidTimezone(timeZone) {
   }
 }
 
-function getLocalDateString(instant, timeZone) {
-  const date =
-    instant instanceof Date
-      ? instant
-      : new Date(`${instant.replace(" ", "T")}Z`);
+function toUtcDate(instant) {
+  return instant instanceof Date
+    ? instant
+    : new Date(`${instant.replace(" ", "T")}Z`);
+}
 
+function getLocalDateString(instant, timeZone) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(date);
+  }).format(toUtcDate(instant));
 }
 
 function todayInTimezone(timeZone, now = new Date()) {
@@ -40,9 +41,7 @@ function isActiveOnLocalDate(createdAt, archivedAt, date, timeZone) {
 
 function toIsoTimestamp(value) {
   if (value === null || value === undefined) return null;
-  const date =
-    value instanceof Date ? value : new Date(`${value.replace(" ", "T")}Z`);
-  return date.toISOString();
+  return toUtcDate(value).toISOString();
 }
 
 module.exports = {

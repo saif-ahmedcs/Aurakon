@@ -17,44 +17,41 @@ function generateAccessToken(user) {
   });
 }
 
-function generateRefreshToken() {
-  const rawRefreshToken = crypto.randomBytes(40).toString("hex");
-  const refreshTokenHash = hashToken(rawRefreshToken);
-  const refreshTokenExpiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE_MS);
+function generateHashedToken(byteLength, maxAgeMs) {
+  const rawToken = crypto.randomBytes(byteLength).toString("hex");
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + maxAgeMs);
 
-  return { rawRefreshToken, refreshTokenHash, refreshTokenExpiresAt };
+  return { rawToken, tokenHash, expiresAt };
+}
+
+function generateRefreshToken() {
+  const { rawToken, tokenHash, expiresAt } = generateHashedToken(
+    40,
+    REFRESH_TOKEN_MAX_AGE_MS,
+  );
+
+  return {
+    rawRefreshToken: rawToken,
+    refreshTokenHash: tokenHash,
+    refreshTokenExpiresAt: expiresAt,
+  };
 }
 
 function generateEmailVerificationToken() {
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_MAX_AGE_MS);
-
-  return { rawToken, tokenHash, expiresAt };
+  return generateHashedToken(32, EMAIL_VERIFICATION_MAX_AGE_MS);
 }
 
 function generateEmailChangeToken() {
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + EMAIL_CHANGE_MAX_AGE_MS);
-
-  return { rawToken, tokenHash, expiresAt };
+  return generateHashedToken(32, EMAIL_CHANGE_MAX_AGE_MS);
 }
 
 function generatePasswordResetToken() {
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + PASSWORD_RESET_MAX_AGE_MS);
-
-  return { rawToken, tokenHash, expiresAt };
+  return generateHashedToken(32, PASSWORD_RESET_MAX_AGE_MS);
 }
 
 function generateAccountDeletionToken() {
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + ACCOUNT_DELETION_MAX_AGE_MS);
-
-  return { rawToken, tokenHash, expiresAt };
+  return generateHashedToken(32, ACCOUNT_DELETION_MAX_AGE_MS);
 }
 
 module.exports = {

@@ -1,14 +1,14 @@
 const nodemailer = require("nodemailer");
 
-let transporter;
+let cachedTransporter;
 
 function getTransporter() {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
     throw new Error("Missing Gmail SMTP environment variables.");
   }
 
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
+  if (!cachedTransporter) {
+    cachedTransporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: process.env.GMAIL_USER,
@@ -17,7 +17,18 @@ function getTransporter() {
     });
   }
 
-  return transporter;
+  return cachedTransporter;
+}
+
+function htmlToFallbackText(html) {
+  return html
+    .replace(
+      /<a\s+[^>]*href=["']([^"']+)["'][^>]*>/gi,
+      (_, href) => ` ${href} `,
+    )
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function sendEmail({
@@ -30,14 +41,7 @@ async function sendEmail({
 }) {
   try {
     const transporter = getTransporter();
-    const fallbackText = html
-      .replace(
-        /<a\s+[^>]*href=["']([^"']+)["'][^>]*>/gi,
-        (_, href) => ` ${href} `,
-      )
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const fallbackText = htmlToFallbackText(html);
 
     const info = await transporter.sendMail({
       from: `"Aurakon" <${process.env.GMAIL_USER}>`,
@@ -48,8 +52,7 @@ async function sendEmail({
     });
 
     if (info.rejected && info.rejected.length > 0) {
-      const error = new Error("Email rejected by provider.");
-      throw error;
+      throw new Error("Email rejected by provider.");
     }
 
     console.log(

@@ -24,6 +24,22 @@ const {
   BadRequestError,
 } = require("../utils/AppErrors");
 
+async function attachPendingReviewAndSerialize(habitRow) {
+  const pendingRows = await habitLogModel.findAllPendingByHabit(habitRow.id);
+  return serializeHabit(habitRow, serializePendingReviewGroup(pendingRows));
+}
+
+async function recalculateStatsAndLevelForToday(userId, tx, timezone) {
+  const today = todayInTimezone(timezone);
+  await dailyAuraStatsService.recalculateDailyAuraStats(
+    userId,
+    today,
+    tx,
+    timezone,
+  );
+  await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+}
+
 async function listHabitsWithPending(userId, timezone) {
   const rows = await habitModel.findAllByUser(userId);
   const pendingRows = await habitLogModel.findPendingForUser(userId);
@@ -53,21 +69,13 @@ async function createHabit(title, userId, difficulty, timezone) {
     }
 
     const habit = await habitModel.create(title, userId, difficulty, tx);
-    const today = todayInTimezone(timezone);
-    await dailyAuraStatsService.recalculateDailyAuraStats(
-      userId,
-      today,
-      tx,
-      timezone,
-    );
-    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    await recalculateStatsAndLevelForToday(userId, tx, timezone);
     return serializeHabit(habit, null);
   });
 }
 
 async function getHabitDetail(habit, userId, timezone) {
-  const pendingRows = await habitLogModel.findAllPendingByHabit(habit.id);
-  return serializeHabit(habit, serializePendingReviewGroup(pendingRows));
+  return attachPendingReviewAndSerialize(habit);
 }
 
 async function updateHabit(habit, userId, title) {
@@ -76,8 +84,7 @@ async function updateHabit(habit, userId, title) {
       ? habit
       : await habitModel.update(habit.id, userId, title, habit.difficulty);
 
-  const pendingRows = await habitLogModel.findAllPendingByHabit(updated.id);
-  return serializeHabit(updated, serializePendingReviewGroup(pendingRows));
+  return attachPendingReviewAndSerialize(updated);
 }
 
 async function deleteHabit(habitId, userId, timezone) {
@@ -90,14 +97,7 @@ async function deleteHabit(habitId, userId, timezone) {
     await habitLogModel.resolvePendingReviewsForHabit(habitId, tx);
     await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
 
-    const today = todayInTimezone(timezone);
-    await dailyAuraStatsService.recalculateDailyAuraStats(
-      userId,
-      today,
-      tx,
-      timezone,
-    );
-    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    await recalculateStatsAndLevelForToday(userId, tx, timezone);
   });
 }
 

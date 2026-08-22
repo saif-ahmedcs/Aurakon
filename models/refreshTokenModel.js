@@ -8,16 +8,6 @@ async function insert(userId, tokenHash, expiresAt, db = pool) {
   );
 }
 
-async function findByTokenHash(tokenHash) {
-  const [rows] = await pool.query(
-    `SELECT id, user_id, expires_at
-     FROM refresh_tokens
-     WHERE token_hash = ?`,
-    [tokenHash],
-  );
-  return rows[0] || null;
-}
-
 async function findByTokenHashForUpdate(tokenHash, db = pool) {
   const [rows] = await db.query(
     `SELECT id, user_id, expires_at, used_at
@@ -96,7 +86,6 @@ async function deleteOldestByUserId(userId, db = pool) {
 
 module.exports = {
   insert,
-  findByTokenHash,
   findByTokenHashForUpdate,
   markUsed,
   deleteByTokenHash,

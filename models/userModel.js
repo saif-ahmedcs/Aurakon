@@ -1,5 +1,9 @@
 const { pool } = require("../db");
 
+// ---------------------------------------------------------------------------
+// Account lookup, registration & deletion
+// ---------------------------------------------------------------------------
+
 async function findByEmailForRegistration(email, db = pool) {
   const [rows] = await db.query(
     "SELECT id, is_verified FROM users WHERE email = ? FOR UPDATE",
@@ -43,14 +47,6 @@ async function createUser(
   }
 }
 
-async function setGender(userId, gender, db = pool) {
-  const [result] = await db.query(
-    "UPDATE users SET gender = ? WHERE id = ? AND gender IS NULL",
-    [gender, userId],
-  );
-  return result.affectedRows > 0;
-}
-
 async function findById(id, db = pool) {
   const [rows] = await db.query(
     "SELECT id, email, username, gender FROM users WHERE id = ?",
@@ -73,6 +69,23 @@ async function getAuthProfile(id, db = pool) {
     [id],
   );
   return rows[0] || null;
+}
+
+async function deleteById(userId, db = pool) {
+  const [result] = await db.query(`DELETE FROM users WHERE id = ?`, [userId]);
+  return result.affectedRows;
+}
+
+// ---------------------------------------------------------------------------
+// Profile fields (gender, timezone, username)
+// ---------------------------------------------------------------------------
+
+async function setGender(userId, gender, db = pool) {
+  const [result] = await db.query(
+    "UPDATE users SET gender = ? WHERE id = ? AND gender IS NULL",
+    [gender, userId],
+  );
+  return result.affectedRows > 0;
 }
 
 async function updateTimezone(userId, timezone, db = pool) {
@@ -106,6 +119,81 @@ async function getUsernameChangedAt(userId, db = pool) {
   );
   return rows[0] ? rows[0].username_changed_at : null;
 }
+
+// ---------------------------------------------------------------------------
+// Email verification
+// ---------------------------------------------------------------------------
+
+async function findVerificationTokenState(tokenHash, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, email_verification_expires, email_verification_consumed_at
+     FROM users
+     WHERE email_verification_token_hash = ?
+     FOR UPDATE`,
+    [tokenHash],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    expiresAt: row.email_verification_expires,
+    consumedAt: row.email_verification_consumed_at,
+  };
+}
+
+async function markVerificationConsumed(id, db = pool) {
+  await db.query(
+    `UPDATE users
+     SET is_verified = true,
+         email_verification_consumed_at = UTC_TIMESTAMP()
+     WHERE id = ?`,
+    [id],
+  );
+}
+
+async function findForResend(email, db = pool) {
+  const [rows] = await db.query(
+    "SELECT id, is_verified, email_verification_expires FROM users WHERE email = ? FOR UPDATE",
+    [email],
+  );
+  return rows[0] || null;
+}
+
+async function setVerificationToken(userId, tokenHash, expiresAt, db = pool) {
+  await db.query(
+    `UPDATE users
+     SET email_verification_token_hash = ?,
+         email_verification_expires = ?,
+         email_verification_consumed_at = NULL
+     WHERE id = ?`,
+    [tokenHash, expiresAt, userId],
+  );
+}
+
+async function clearExpiredVerificationToken(
+  tokenHash,
+  windowSeconds,
+  db = pool,
+) {
+  const [result] = await db.query(
+    `UPDATE users
+     SET email_verification_token_hash = NULL,
+         email_verification_expires = NULL,
+         email_verification_consumed_at = NULL
+     WHERE email_verification_token_hash = ?
+       AND (
+         (email_verification_consumed_at IS NULL AND email_verification_expires <= UTC_TIMESTAMP())
+         OR (email_verification_consumed_at IS NOT NULL
+             AND email_verification_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)
+       )`,
+    [tokenHash, windowSeconds],
+  );
+  return result.affectedRows;
+}
+
+// ---------------------------------------------------------------------------
+// Email change
+// ---------------------------------------------------------------------------
 
 async function findForEmailChange(userId, db = pool) {
   const [rows] = await db.query(
@@ -276,51 +364,9 @@ async function clearExpiredEmailChangeToken(
   return result.affectedRows;
 }
 
-async function findVerificationTokenState(tokenHash, db = pool) {
-  const [rows] = await db.query(
-    `SELECT id, email_verification_expires, email_verification_consumed_at
-     FROM users
-     WHERE email_verification_token_hash = ?
-     FOR UPDATE`,
-    [tokenHash],
-  );
-  const row = rows[0];
-  if (!row) return null;
-  return {
-    id: row.id,
-    expiresAt: row.email_verification_expires,
-    consumedAt: row.email_verification_consumed_at,
-  };
-}
-
-async function markVerificationConsumed(id, db = pool) {
-  await db.query(
-    `UPDATE users
-     SET is_verified = true,
-         email_verification_consumed_at = UTC_TIMESTAMP()
-     WHERE id = ?`,
-    [id],
-  );
-}
-
-async function findForResend(email, db = pool) {
-  const [rows] = await db.query(
-    "SELECT id, is_verified, email_verification_expires FROM users WHERE email = ? FOR UPDATE",
-    [email],
-  );
-  return rows[0] || null;
-}
-
-async function setVerificationToken(userId, tokenHash, expiresAt, db = pool) {
-  await db.query(
-    `UPDATE users
-     SET email_verification_token_hash = ?,
-         email_verification_expires = ?,
-         email_verification_consumed_at = NULL
-     WHERE id = ?`,
-    [tokenHash, expiresAt, userId],
-  );
-}
+// ---------------------------------------------------------------------------
+// Password reset
+// ---------------------------------------------------------------------------
 
 async function findForPasswordReset(email, db = pool) {
   const [rows] = await db.query(
@@ -376,84 +422,6 @@ async function markResetTokenConsumedIfHashMatches(
   return result.affectedRows > 0;
 }
 
-async function updatePasswordIfEligible(
-  userId,
-  passwordHash,
-  expectedCurrentHash,
-  db = pool,
-) {
-  const [result] = await db.query(
-    `UPDATE users SET password_hash = ?, password_changed_at = UTC_TIMESTAMP() WHERE id = ? AND password_hash = ?`,
-    [passwordHash, userId, expectedCurrentHash],
-  );
-  return result.affectedRows > 0;
-}
-
-async function findForLogin(email) {
-  const [rows] = await pool.query(
-    "SELECT id, email, username, password_hash, is_verified, failed_login_count, locked_until FROM users WHERE email = ?",
-    [email],
-  );
-  return rows[0] || null;
-}
-
-async function findForLoginForUpdate(email, db = pool) {
-  const [rows] = await db.query(
-    "SELECT id, email, username, password_hash, is_verified, failed_login_count, locked_until FROM users WHERE email = ? FOR UPDATE",
-    [email],
-  );
-  return rows[0] || null;
-}
-
-async function registerFailedLogin(userId, maxAttempts, lockoutMs, db = pool) {
-  await db.query(
-    `UPDATE users
-     SET failed_login_count = failed_login_count + 1,
-         locked_until = CASE
-           WHEN failed_login_count + 1 >= ? THEN UTC_TIMESTAMP() + INTERVAL ? SECOND
-           ELSE locked_until
-         END
-     WHERE id = ?`,
-    [maxAttempts, Math.floor(lockoutMs / 1000), userId],
-  );
-}
-
-async function clearFailedLogins(userId, db = pool) {
-  await db.query(
-    `UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = ?`,
-    [userId],
-  );
-}
-
-async function findPasswordHashById(userId, db = pool) {
-  const [rows] = await db.query(
-    "SELECT password_hash FROM users WHERE id = ?",
-    [userId],
-  );
-  return rows[0] || null;
-}
-
-async function clearExpiredVerificationToken(
-  tokenHash,
-  windowSeconds,
-  db = pool,
-) {
-  const [result] = await db.query(
-    `UPDATE users
-     SET email_verification_token_hash = NULL,
-         email_verification_expires = NULL,
-         email_verification_consumed_at = NULL
-     WHERE email_verification_token_hash = ?
-       AND (
-         (email_verification_consumed_at IS NULL AND email_verification_expires <= UTC_TIMESTAMP())
-         OR (email_verification_consumed_at IS NOT NULL
-             AND email_verification_consumed_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND)
-       )`,
-    [tokenHash, windowSeconds],
-  );
-  return result.affectedRows;
-}
-
 async function clearResetToken(userId, db = pool) {
   const [result] = await db.query(
     `UPDATE users
@@ -496,6 +464,67 @@ async function clearOwnExpiredResetToken(userId, db = pool) {
   );
   return result.affectedRows;
 }
+
+// ---------------------------------------------------------------------------
+// Password change (authenticated)
+// ---------------------------------------------------------------------------
+
+async function findPasswordHashById(userId, db = pool) {
+  const [rows] = await db.query(
+    "SELECT password_hash FROM users WHERE id = ?",
+    [userId],
+  );
+  return rows[0] || null;
+}
+
+async function updatePasswordIfEligible(
+  userId,
+  passwordHash,
+  expectedCurrentHash,
+  db = pool,
+) {
+  const [result] = await db.query(
+    `UPDATE users SET password_hash = ?, password_changed_at = UTC_TIMESTAMP() WHERE id = ? AND password_hash = ?`,
+    [passwordHash, userId, expectedCurrentHash],
+  );
+  return result.affectedRows > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Login & lockout
+// ---------------------------------------------------------------------------
+
+async function findForLoginForUpdate(email, db = pool) {
+  const [rows] = await db.query(
+    "SELECT id, email, username, password_hash, is_verified, failed_login_count, locked_until FROM users WHERE email = ? FOR UPDATE",
+    [email],
+  );
+  return rows[0] || null;
+}
+
+async function registerFailedLogin(userId, maxAttempts, lockoutMs, db = pool) {
+  await db.query(
+    `UPDATE users
+     SET failed_login_count = failed_login_count + 1,
+         locked_until = CASE
+           WHEN failed_login_count + 1 >= ? THEN UTC_TIMESTAMP() + INTERVAL ? SECOND
+           ELSE locked_until
+         END
+     WHERE id = ?`,
+    [maxAttempts, Math.floor(lockoutMs / 1000), userId],
+  );
+}
+
+async function clearFailedLogins(userId, db = pool) {
+  await db.query(
+    `UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = ?`,
+    [userId],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Account deletion
+// ---------------------------------------------------------------------------
 
 async function findForAccountDeletion(userId, db = pool) {
   const [rows] = await db.query(
@@ -575,22 +604,23 @@ async function clearExpiredDeleteToken(tokenHash, db = pool) {
   return result.affectedRows;
 }
 
-async function deleteById(userId, db = pool) {
-  const [result] = await db.query(`DELETE FROM users WHERE id = ?`, [userId]);
-  return result.affectedRows;
-}
-
 module.exports = {
   findByEmailForRegistration,
   findByEmailOrPendingEmailForUpdate,
   createUser,
-  setGender,
   findById,
   getAccountInfo,
   getAuthProfile,
+  deleteById,
+  setGender,
   updateTimezone,
   updateUsernameIfEligible,
   getUsernameChangedAt,
+  findVerificationTokenState,
+  markVerificationConsumed,
+  findForResend,
+  setVerificationToken,
+  clearExpiredVerificationToken,
   findForEmailChange,
   findPendingEmailChange,
   setPendingEmailChange,
@@ -599,29 +629,22 @@ module.exports = {
   findEmailChangeTokenStateForUser,
   markEmailChangeConsumed,
   clearExpiredEmailChangeToken,
-  findVerificationTokenState,
-  markVerificationConsumed,
-  findForResend,
-  setVerificationToken,
-  findForLogin,
-  findForLoginForUpdate,
-  registerFailedLogin,
-  clearFailedLogins,
-  findPasswordHashById,
-  clearExpiredVerificationToken,
-  clearResetToken,
-  clearExpiredResetToken,
-  clearOwnExpiredResetToken,
   findForPasswordReset,
   setResetToken,
   findResetTokenState,
   markResetTokenConsumedIfHashMatches,
+  clearResetToken,
+  clearExpiredResetToken,
+  clearOwnExpiredResetToken,
+  findPasswordHashById,
   updatePasswordIfEligible,
+  findForLoginForUpdate,
+  registerFailedLogin,
+  clearFailedLogins,
   findForAccountDeletion,
   setDeleteToken,
   cancelPendingAccountDeletion,
   findDeleteTokenState,
   findDeleteTokenStateForUser,
   clearExpiredDeleteToken,
-  deleteById,
 };
