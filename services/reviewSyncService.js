@@ -31,6 +31,11 @@ function updateHabitLogCache(cache, habitId, date, status) {
   return streakService.updateHabitLogCache(cache, habitId, date, status);
 }
 
+async function markDayMissed(habit, date, tx, cache) {
+  await habitLogModel.insertMissedLog(habit.id, date, tx);
+  updateHabitLogCache(cache, habit.id, date, "missed");
+}
+
 async function finalizeDay(userId, date, tx, timezone, cache) {
   const allCandidates = await habitLogModel.getHabitsMissingLogForDate(
     userId,
@@ -43,8 +48,7 @@ async function finalizeDay(userId, date, tx, timezone, cache) {
 
   for (const habit of candidates) {
     if (habit.archived_at) {
-      await habitLogModel.insertMissedLog(habit.id, date, tx);
-      updateHabitLogCache(cache, habit.id, date, "missed");
+      await markDayMissed(habit, date, tx, cache);
       continue;
     }
 
@@ -90,8 +94,7 @@ async function finalizeDay(userId, date, tx, timezone, cache) {
       continue;
     }
 
-    await habitLogModel.insertMissedLog(habit.id, date, tx);
-    updateHabitLogCache(cache, habit.id, date, "missed");
+    await markDayMissed(habit, date, tx, cache);
   }
 
   await dailyAuraStatsService.recalculateDailyAuraStats(
