@@ -1,18 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import {
-  LoginScreen,
-  SignupScreen,
-  VerifyScreen,
-  VerifiedScreen,
-  ForgotScreen,
-  ResetSentScreen,
-  ResetScreen,
-  ResetOkScreen,
-} from "./AuthScreens";
-
-const ISC_SCREENS = new Set(["verify", "verified", "reset_sent", "reset_ok"]);
 
 const INITIAL_FORM_DATA = {
   loginEmail: "",
@@ -27,7 +15,11 @@ const INITIAL_FORM_DATA = {
   rsConfirmPassword: "",
 };
 
-export default function FormZone() {
+// Owns all state and business logic for the login/signup/reset flow:
+// which screen is showing, form field values, password visibility,
+// gender validation, and the screen-transition animation. FormZone.jsx
+// consumes this hook and stays focused on rendering.
+export function useAuthFlow() {
   const [screen, setScreen] = useState("login");
   const [exiting, setExiting] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -107,50 +99,22 @@ export default function FormZone() {
     e.preventDefault();
   };
 
-  const screenProps = {
+  return {
+    screen,
+    exiting,
+    isFirstLoad,
     formData,
-    onChange: handleChange,
     passwordVisibility,
-    onTogglePassword: togglePasswordVisibility,
+    genderError,
+    scrRef,
+    handleChange,
+    handleSelectGender,
+    togglePasswordVisibility,
     goTo,
+    handleLoginSubmit,
+    handleSignupSubmit,
+    handleForgotSubmit,
+    handleResetSubmit,
+    handleOpenEmailApp,
   };
-
-  const screenContent = {
-    login: <LoginScreen {...screenProps} onSubmit={handleLoginSubmit} />,
-    signup: (
-      <SignupScreen
-        {...screenProps}
-        onSubmit={handleSignupSubmit}
-        onSelectGender={handleSelectGender}
-        genderError={genderError}
-      />
-    ),
-    verify: <VerifyScreen goTo={goTo} onOpenEmailApp={handleOpenEmailApp} />,
-    verified: <VerifiedScreen goTo={goTo} />,
-    forgot: <ForgotScreen {...screenProps} onSubmit={handleForgotSubmit} />,
-    reset_sent: <ResetSentScreen goTo={goTo} />,
-    reset: <ResetScreen {...screenProps} onSubmit={handleResetSubmit} />,
-    reset_ok: <ResetOkScreen goTo={goTo} />,
-  }[screen];
-
-  const scrClassName = [
-    "scr",
-    ISC_SCREENS.has(screen) ? "isc" : "",
-    isFirstLoad ? "intro" : "",
-    exiting ? "out" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <div className="fz" id="fz">
-      <div className={`fc${screen === "signup" ? " fc-su" : ""}`}>
-        <div id="scrhost">
-          <div className={scrClassName} ref={scrRef}>
-            {screenContent}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }

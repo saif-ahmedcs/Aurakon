@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
-import SceneStyles from "../components/SceneStyles";
-import ParticleCanvas from "../components/ParticleCanvas";
-import RingGlow from "../components/RingGlow";
-import RingSVG from "../components/RingSVG";
-import WarriorImage from "../components/WarriorImage";
-import FormZone from "../components/FormZone";
-import BackgroundGlow from "../components/BackgroundGlow";
+import {
+  WARRIOR_IMAGE,
+  LOGO_IMAGE,
+  SCENE_BACKGROUND_IMAGE,
+} from "../constants/assets";
 
-const warriorImg = "/assets/warrior.png";
-const logoImg = "/assets/logo.png";
-const sceneBgImg = "/assets/scene-bg.jpg";
+const warriorImg = WARRIOR_IMAGE;
+const logoImg = LOGO_IMAGE;
+const sceneBgImg = SCENE_BACKGROUND_IMAGE;
 
-export default function AuraLogin() {
+// Encapsulates the intro particle/lightning animation and staged reveal
+// sequence that previously lived directly inside the login page's
+// useEffect. The implementation is unchanged from the original — this
+// hook only relocates it so app/page.jsx can stay declarative.
+export function useAuraIntroScene() {
   useEffect(() => {
     function genBoltPoints(x1, y1, x2, y2, depth, jitter) {
       const pts = [{ x: x1, y: y1 }];
@@ -780,22 +782,4 @@ export default function AuraLogin() {
       });
     });
   }, []);
-
-  return (
-    <>
-      <SceneStyles />
-      <div className="scene">
-        <ParticleCanvas />
-        <div className="cz">
-          <RingGlow />
-          <div className="rw" id="rw">
-            <RingSVG />
-          </div>
-          <WarriorImage />
-        </div>
-        <FormZone />
-        <BackgroundGlow />
-      </div>
-    </>
-  );
 }

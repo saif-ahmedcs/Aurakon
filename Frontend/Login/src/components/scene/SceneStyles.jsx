@@ -1,4 +1,6 @@
-const sceneBg = "/assets/scene-bg.jpg";
+import { SCENE_BACKGROUND_IMAGE } from "../../constants/assets";
+
+const sceneBg = SCENE_BACKGROUND_IMAGE;
 
 export default function SceneStyles() {
   return (
