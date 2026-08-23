@@ -22,6 +22,7 @@ const registerSchema = z.object({
       "password must be at least 8 characters and contain at least one letter and one number",
   }),
   username: z.string().trim().min(3).max(20),
+  gender: z.enum(["male", "female"]),
 });
 
 const setGenderSchema = z.object({

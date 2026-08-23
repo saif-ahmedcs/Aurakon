@@ -14,6 +14,8 @@ export function SignupScreen({
   goTo,
   onSelectGender,
   genderError,
+  loading,
+  error,
 }) {
   const [isGenderOpen, setIsGenderOpen] = useState(false);
 
@@ -21,59 +23,66 @@ export function SignupScreen({
     <>
       <LogoImage />
       <div className="sh">Begin Your Journey</div>
-      <p className="tx">Create your account and begin your journey</p>
-      <FormInput
-        id="su-user"
-        placeholder="Username"
-        type="text"
-        icon="user"
-        value={formData.suUsername}
-        onChange={onChange("suUsername")}
-      />
-      <FormInput
-        id="su-email"
-        placeholder="Email"
-        type="email"
-        icon="mail"
-        value={formData.suEmail}
-        onChange={onChange("suEmail")}
-      />
-      <FormInput
-        id="su-pass"
-        placeholder="Password"
-        type="password"
-        eye
-        icon="lock"
-        value={formData.suPassword}
-        onChange={onChange("suPassword")}
-        showPassword={!!passwordVisibility["su-pass"]}
-        onToggle={() => onTogglePassword("su-pass")}
-      />
-      <FormInput
-        id="su-cpass"
-        placeholder="Confirm Password"
-        type="password"
-        eye
-        icon="lock"
-        value={formData.suConfirmPassword}
-        onChange={onChange("suConfirmPassword")}
-        showPassword={!!passwordVisibility["su-cpass"]}
-        onToggle={() => onTogglePassword("su-cpass")}
-      />
-      <GenderField
-        value={formData.suGender}
-        error={genderError}
-        onOpen={() => setIsGenderOpen(true)}
-      />
-      <GenderModal
-        isOpen={isGenderOpen}
-        value={formData.suGender}
-        onSelect={onSelectGender}
-        onClose={() => setIsGenderOpen(false)}
-      />
-      <button className="btn" onClick={onSubmit}>
-        Create Account
-      </button>
+      <p className="tx">Create your account and awaken your Aura.</p>
+      
+      <form onSubmit={onSubmit} noValidate>
+        <FormInput
+          id="su-user"
+          placeholder="Username"
+          type="text"
+          icon="user"
+          value={formData.suUsername}
+          onChange={onChange("suUsername")}
+        />
+        <FormInput
+          id="su-email"
+          placeholder="Email"
+          type="email"
+          icon="mail"
+          value={formData.suEmail}
+          onChange={onChange("suEmail")}
+        />
+        <FormInput
+          id="su-pass"
+          placeholder="Password"
+          type="password"
+          eye
+          icon="lock"
+          value={formData.suPassword}
+          onChange={onChange("suPassword")}
+          showPassword={!!passwordVisibility["su-pass"]}
+          onToggle={() => onTogglePassword("su-pass")}
+        />
+        <FormInput
+          id="su-cpass"
+          placeholder="Confirm Password"
+          type="password"
+          eye
+          icon="lock"
+          value={formData.suConfirmPassword}
+          onChange={onChange("suConfirmPassword")}
+          showPassword={!!passwordVisibility["su-cpass"]}
+          onToggle={() => onTogglePassword("su-cpass")}
+        />
+        <GenderField
+          value={formData.suGender}
+          error={genderError}
+          onOpen={() => setIsGenderOpen(true)}
+        />
+        <GenderModal
+          isOpen={isGenderOpen}
+          value={formData.suGender}
+          onSelect={onSelectGender}
+          onClose={() => setIsGenderOpen(false)}
+        />
+
+        {error && <div className="login-err">{error}</div>}
+
+        <button className="btn" type="submit" disabled={loading}>
+          {loading ? "Creating Account…" : "Create Account"}
+        </button>
+      </form>
+
       <div className="bt">
         Already have an account?{" "}
         <span className="lk" onClick={() => goTo("login")}>

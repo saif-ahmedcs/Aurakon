@@ -6,3 +6,4 @@ export { ForgotScreen } from "./ForgotScreen";
 export { ResetSentScreen } from "./ResetSentScreen";
 export { ResetScreen } from "./ResetScreen";
 export { ResetOkScreen } from "./ResetOkScreen";
+export { TokenVerifyScreen } from "./TokenVerifyScreen";

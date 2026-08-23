@@ -324,6 +324,10 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
 .btn:disabled::before{display:none;}
 .btn:disabled:hover{filter:none;box-shadow:none;}
 
+.login-err{font-size:12.5px;color:#f87171;margin-bottom:10px;line-height:1.5;
+  padding:8px 12px;border-radius:8px;
+  background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.18);}
+
 /* ---- Sign-up card only: premium but slightly tighter than login,
    since it holds more fields (username/email/2x password/gender). ---- */
 .fc-su{padding:30px 34px;}
@@ -338,6 +342,34 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
 .fc-su .btn{padding:13px;margin-top:10px;}
 .fc-su .bt{margin-top:14px;}
 
+/* ---- Email Service & Verification UI ---- */
+.verify-email-badge{display:inline-flex;align-items:center;justify-content:center;
+  padding:7px 16px;margin:0 auto 16px;max-width:100%;border-radius:20px;
+  background:linear-gradient(135deg,rgba(168,85,247,.16),rgba(124,58,237,.08));
+  border:1px solid rgba(168,85,247,.38);box-shadow:0 0 16px rgba(168,85,247,.18);}
+.verify-email-text{font-size:13px;font-weight:600;color:#e9d5ff;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.auth-alert{font-size:12.5px;line-height:1.5;padding:10px 14px;border-radius:10px;margin-bottom:14px;text-align:center;}
+.auth-alert-success{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.28);color:#4ade80;}
+.auth-alert-error{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.28);color:#f87171;}
+
+.email-pulse-icon{animation:emailPulse 3s ease-in-out infinite;}
+@keyframes emailPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 rgba(168,85,247,0);}
+  50%{transform:scale(1.05);box-shadow:0 0 20px rgba(168,85,247,.35);}}
+
+.email-spin-icon{animation:spinIcon 2s linear infinite;}
+@keyframes spinIcon{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+.pwr-checklist{margin:10px 0 6px;padding:4px 0;display:flex;flex-direction:column;gap:5px;text-align:left;}
+.pwr-rule{font-size:11.5px;color:rgba(255,255,255,.4);display:flex;align-items:center;gap:6px;transition:color .2s ease;}
+.pwr-rule.valid{color:#4ade80;}
+.pwr-bullet{font-weight:700;}
+
+.verify-footer-links{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:var(--t2);margin-top:16px;}
+.bullet-sep{color:rgba(255,255,255,.25);}
+
     `}</style>
   );
 }
+

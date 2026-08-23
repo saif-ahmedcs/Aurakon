@@ -1,6 +1,13 @@
 const crypto = require("crypto");
 const { EventEmitter } = require("events");
 const emailService = require("../services/emailService");
+const {
+  getVerificationEmailHtml,
+  getPasswordResetEmailHtml,
+  getEmailChangeEmailHtml,
+  getAccountDeletionEmailHtml,
+  getNotificationEmailHtml,
+} = require("../utils/emailTemplates");
 
 const appBaseUrl = (() => {
   const rawValue = process.env.APP_BASE_URL;
@@ -45,34 +52,31 @@ function deliverEmail(payload, fallbackEventName) {
 }
 
 function sendVerificationEmail(email, rawToken, eventName) {
+  const isResend = eventName === "VERIFICATION_RESENT";
   return deliverEmail(
     {
       to: email,
       subject: "Aurakon account confirmation",
       eventName,
       correlationId: buildCorrelationId(rawToken),
-      html: `<p>Hello,</p>
-             <p>Please confirm your Aurakon account using the link below.</p>
-             <p><a href="${appBaseUrl}/verify-email?token=${rawToken}">
-             Confirm my account</a></p>
-             <p>If you did not create this account, you can ignore this message.</p>`,
+      html: getVerificationEmailHtml(appBaseUrl, rawToken, isResend),
     },
     eventName,
   );
 }
 
 authEvents.on("USER_REGISTERED", ({ email, rawToken }) => {
-  console.log("[USER_REGISTERED]");
+  console.log(`[USER_REGISTERED] recipient=${email}`);
   sendVerificationEmail(email, rawToken, "USER_REGISTERED");
 });
 
 authEvents.on("VERIFICATION_RESENT", ({ email, rawToken }) => {
-  console.log("[VERIFICATION_RESENT]");
+  console.log(`[VERIFICATION_RESENT] recipient=${email}`);
   sendVerificationEmail(email, rawToken, "VERIFICATION_RESENT");
 });
 
 authEvents.on("PASSWORD_RESET_REQUESTED", ({ email, rawToken }) => {
-  console.log("[PASSWORD_RESET_REQUESTED]");
+  console.log(`[PASSWORD_RESET_REQUESTED] recipient=${email}`);
 
   deliverEmail(
     {
@@ -80,18 +84,14 @@ authEvents.on("PASSWORD_RESET_REQUESTED", ({ email, rawToken }) => {
       subject: "Aurakon password reset request",
       eventName: "PASSWORD_RESET_REQUESTED",
       correlationId: buildCorrelationId(rawToken),
-      html: `<p>Hello,</p>
-             <p>Click the link below to reset your Aurakon password. This link is valid for 1 hour.</p>
-             <p><a href="${appBaseUrl}/reset-password?token=${rawToken}">
-             Reset my password</a></p>
-             <p>If you did not request this, you can ignore this message.</p>`,
+      html: getPasswordResetEmailHtml(appBaseUrl, rawToken),
     },
     "PASSWORD_RESET_REQUESTED",
   );
 });
 
 authEvents.on("EMAIL_CHANGE_REQUESTED", ({ email, rawToken }) => {
-  console.log("[EMAIL_CHANGE_REQUESTED]");
+  console.log(`[EMAIL_CHANGE_REQUESTED] recipient=${email}`);
 
   deliverEmail(
     {
@@ -99,18 +99,14 @@ authEvents.on("EMAIL_CHANGE_REQUESTED", ({ email, rawToken }) => {
       subject: "Confirm your new Aurakon email address",
       eventName: "EMAIL_CHANGE_REQUESTED",
       correlationId: buildCorrelationId(rawToken),
-      html: `<p>Hello,</p>
-             <p>Click the link below to confirm this email address for your Aurakon account.</p>
-             <p><a href="${appBaseUrl}/confirm-email-change?token=${rawToken}">
-             Confirm my new email</a></p>
-             <p>If you did not request this, you can ignore this message.</p>`,
+      html: getEmailChangeEmailHtml(appBaseUrl, rawToken),
     },
     "EMAIL_CHANGE_REQUESTED",
   );
 });
 
 authEvents.on("ACCOUNT_DELETION_REQUESTED", ({ email, rawToken }) => {
-  console.log("[ACCOUNT_DELETION_REQUESTED]");
+  console.log(`[ACCOUNT_DELETION_REQUESTED] recipient=${email}`);
 
   deliverEmail(
     {
@@ -118,70 +114,79 @@ authEvents.on("ACCOUNT_DELETION_REQUESTED", ({ email, rawToken }) => {
       subject: "Confirm account deletion",
       eventName: "ACCOUNT_DELETION_REQUESTED",
       correlationId: buildCorrelationId(rawToken),
-      html: `<p>Hello,</p>
-             <p>Click the link below to confirm permanent deletion of your Aurakon account. This action cannot be undone.</p>
-             <p><a href="${appBaseUrl}/confirm-account-deletion?token=${rawToken}">
-             Confirm account deletion</a></p>
-             <p>If you did not request this, you can ignore this message and your account will remain unchanged.</p>`,
+      html: getAccountDeletionEmailHtml(appBaseUrl, rawToken),
     },
     "ACCOUNT_DELETION_REQUESTED",
   );
 });
 
 authEvents.on("PASSWORD_CHANGED", ({ email }) => {
-  console.log("[PASSWORD_CHANGED]");
+  console.log(`[PASSWORD_CHANGED] recipient=${email}`);
 
   deliverEmail(
     {
       to: email,
       subject: "Your Aurakon password was changed",
-      html: `<p>Hello,</p>
-             <p>Your Aurakon account password was just changed.</p>
-             <p>If you did not make this change, please reset your password immediately and contact support.</p>`,
+      html: getNotificationEmailHtml({
+        title: "Password Changed",
+        subtitle: "Security Alert",
+        message:
+          "Your Aurakon account password was just changed. If you did not make this change, please reset your password immediately and contact support.",
+      }),
     },
     "PASSWORD_CHANGED",
   );
 });
 
 authEvents.on("PASSWORD_RESET_COMPLETED", ({ email }) => {
-  console.log("[PASSWORD_RESET_COMPLETED]");
+  console.log(`[PASSWORD_RESET_COMPLETED] recipient=${email}`);
 
   deliverEmail(
     {
       to: email,
       subject: "Your Aurakon password was reset",
-      html: `<p>Hello,</p>
-             <p>Your Aurakon account password was just reset.</p>
-             <p>If you did not make this change, please contact support immediately.</p>`,
+      html: getNotificationEmailHtml({
+        title: "Password Reset Completed",
+        subtitle: "Security Alert",
+        message:
+          "Your Aurakon account password was just successfully reset. If you did not make this change, please contact support immediately.",
+      }),
     },
     "PASSWORD_RESET_COMPLETED",
   );
 });
 
 authEvents.on("EMAIL_CHANGED", ({ email }) => {
-  console.log("[EMAIL_CHANGED]");
+  console.log(`[EMAIL_CHANGED] recipient=${email}`);
 
   deliverEmail(
     {
       to: email,
       subject: "Your Aurakon account email was changed",
-      html: `<p>Hello,</p>
-             <p>The email address on your Aurakon account was just changed away from this address.</p>
-             <p>If you did not make this change, please contact support immediately.</p>`,
+      html: getNotificationEmailHtml({
+        title: "Email Address Changed",
+        subtitle: "Security Alert",
+        message:
+          "The email address on your Aurakon account was just changed away from this address. If you did not make this change, please contact support immediately.",
+      }),
     },
     "EMAIL_CHANGED",
   );
 });
 
 authEvents.on("ACCOUNT_DELETED", ({ email }) => {
-  console.log("[ACCOUNT_DELETED]");
+  console.log(`[ACCOUNT_DELETED] recipient=${email}`);
 
   deliverEmail(
     {
       to: email,
       subject: "Your Aurakon account has been deleted",
-      html: `<p>Hello,</p>
-             <p>Your Aurakon account has been permanently deleted, as requested.</p>`,
+      html: getNotificationEmailHtml({
+        title: "Account Deleted",
+        subtitle: "Farewell, Warrior",
+        message:
+          "Your Aurakon account has been permanently deleted, as requested. All associated data and progression have been wiped.",
+      }),
     },
     "ACCOUNT_DELETED",
   );

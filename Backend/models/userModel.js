@@ -28,15 +28,16 @@ async function createUser(
   email,
   passwordHash,
   username,
+  gender,
   tokenHash,
   expiresAt,
   db = pool,
 ) {
   try {
     const [result] = await db.query(
-      `INSERT INTO users (email, password_hash, username, is_verified, email_verification_token_hash, email_verification_expires, created_at)
-       VALUES (?, ?, ?, false, ?, ?, UTC_TIMESTAMP())`,
-      [email, passwordHash, username, tokenHash, expiresAt],
+      `INSERT INTO users (email, password_hash, username, gender, is_verified, email_verification_token_hash, email_verification_expires, created_at)
+       VALUES (?, ?, ?, ?, false, ?, ?, UTC_TIMESTAMP())`,
+      [email, passwordHash, username, gender, tokenHash, expiresAt],
     );
     return result.insertId;
   } catch (err) {

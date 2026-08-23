@@ -22,7 +22,7 @@ const {
 } = require("../utils/tokenUtils");
 
 // ------------- REGISTER --------------
-async function register(email, password, username) {
+async function register(email, password, username, gender) {
   const normalizedEmail = email.toLowerCase();
   const trimmedUsername = username;
 
@@ -43,6 +43,7 @@ async function register(email, password, username) {
       normalizedEmail,
       passwordHash,
       trimmedUsername,
+      gender,
       tokenHash,
       expiresAt,
       tx,

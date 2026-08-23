@@ -65,9 +65,9 @@ router.post(
   registerEmailLimiter,
   validate(registerSchema),
   asyncHandler(async (req, res) => {
-    const { email, password, username } = req.body;
+    const { email, password, username, gender } = req.body;
 
-    const user = await authService.register(email, password, username);
+    const user = await authService.register(email, password, username, gender);
 
     res.status(201).json(user);
   }),

@@ -10,11 +10,12 @@ import {
   ResetSentScreen,
   ResetScreen,
   ResetOkScreen,
+  TokenVerifyScreen,
 } from "./screens";
 
-const ISC_SCREENS = new Set(["verify", "verified", "reset_sent", "reset_ok"]);
+const ISC_SCREENS = new Set(["verify", "verified", "reset_sent", "reset_ok", "verify_token"]);
 
-export default function FormZone() {
+export default function FormZone({ initialScreen = "login", initialToken = null, initialEmail = "" }) {
   const {
     screen,
     exiting,
@@ -22,6 +23,22 @@ export default function FormZone() {
     formData,
     passwordVisibility,
     genderError,
+    // Status states
+    loginLoading,
+    loginError,
+    loginNeedsVerification,
+    signupLoading,
+    signupError,
+    forgotLoading,
+    forgotError,
+    resetLoading,
+    resetError,
+    resetToken,
+    registeredEmail,
+    resendLoading,
+    resendFeedback,
+    resendCooldown,
+    // Handlers
     scrRef,
     handleChange,
     handleSelectGender,
@@ -29,10 +46,13 @@ export default function FormZone() {
     goTo,
     handleLoginSubmit,
     handleSignupSubmit,
+    handleResendVerification,
     handleForgotSubmit,
     handleResetSubmit,
     handleOpenEmailApp,
-  } = useAuthFlow();
+  } = useAuthFlow({ initialScreen, initialToken });
+
+  const activeEmail = registeredEmail || initialEmail;
 
   const screenProps = {
     formData,
@@ -43,21 +63,73 @@ export default function FormZone() {
   };
 
   const screenContent = {
-    login: <LoginScreen {...screenProps} onSubmit={handleLoginSubmit} />,
+    login: (
+      <LoginScreen
+        {...screenProps}
+        onSubmit={handleLoginSubmit}
+        loading={loginLoading}
+        error={loginError}
+        needsVerification={loginNeedsVerification}
+        onResendVerification={handleResendVerification}
+      />
+    ),
     signup: (
       <SignupScreen
         {...screenProps}
         onSubmit={handleSignupSubmit}
         onSelectGender={handleSelectGender}
         genderError={genderError}
+        loading={signupLoading}
+        error={signupError}
       />
     ),
-    verify: <VerifyScreen goTo={goTo} onOpenEmailApp={handleOpenEmailApp} />,
+    verify: (
+      <VerifyScreen
+        registeredEmail={activeEmail}
+        onOpenEmailApp={handleOpenEmailApp}
+        onResendVerification={handleResendVerification}
+        resendLoading={resendLoading}
+        resendFeedback={resendFeedback}
+        resendCooldown={resendCooldown}
+        goTo={goTo}
+      />
+    ),
     verified: <VerifiedScreen goTo={goTo} />,
-    forgot: <ForgotScreen {...screenProps} onSubmit={handleForgotSubmit} />,
-    reset_sent: <ResetSentScreen goTo={goTo} />,
-    reset: <ResetScreen {...screenProps} onSubmit={handleResetSubmit} />,
+    forgot: (
+      <ForgotScreen
+        {...screenProps}
+        onSubmit={handleForgotSubmit}
+        loading={forgotLoading}
+        error={forgotError}
+      />
+    ),
+    reset_sent: (
+      <ResetSentScreen
+        registeredEmail={activeEmail}
+        onOpenEmailApp={handleOpenEmailApp}
+        onResend={() => handleForgotSubmit()}
+        resendLoading={forgotLoading}
+        resendFeedback={resendFeedback}
+        resendCooldown={resendCooldown}
+        goTo={goTo}
+      />
+    ),
+    reset: (
+      <ResetScreen
+        {...screenProps}
+        onSubmit={(e) => handleResetSubmit(e, initialToken || resetToken)}
+        loading={resetLoading}
+        error={resetError}
+      />
+    ),
     reset_ok: <ResetOkScreen goTo={goTo} />,
+    verify_token: (
+      <TokenVerifyScreen
+        token={initialToken}
+        initialEmail={activeEmail}
+        goTo={goTo}
+      />
+    ),
   }[screen];
 
   const scrClassName = [
