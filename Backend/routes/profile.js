@@ -21,7 +21,7 @@ router.get(
     ]);
 
     const safeProgress = progress ?? {
-      current_level: 0,
+      current_level: 1,
       total_xp: 0,
       shield_balance: 0,
     };

@@ -29,7 +29,8 @@ async function recalculateAndPersistLevel(userId, tx, timezone) {
     fullyCompletedDays,
     consistencyRatio,
     streakStability,
-    progress.current_level || 0,
+    progress.current_level || 1,
+    lifetimeTotal,
   );
 
   await userProgressModel.updateLevel(userId, newLevel, tx);

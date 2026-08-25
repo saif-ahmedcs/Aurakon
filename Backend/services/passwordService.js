@@ -35,6 +35,9 @@ async function forgotPassword(email) {
   await runInTransaction(async (tx) => {
     const user = await userModel.findForPasswordReset(normalizedEmail, tx);
     if (!user || !user.is_verified) {
+      console.log(
+        `[forgotPassword] skipped: no verified account for email=${normalizedEmail}`,
+      );
       return;
     }
 
@@ -45,6 +48,9 @@ async function forgotPassword(email) {
         PASSWORD_RESET_COOLDOWN_MS,
       )
     ) {
+      console.log(
+        `[forgotPassword] skipped: reset cooldown active for userId=${user.id}`,
+      );
       return;
     }
 

@@ -7,7 +7,7 @@ const HABIT_LIMIT_TIERS = [
 ];
 
 function getHabitLimit(level) {
-  const safeLevel = Number.isFinite(level) ? level : 0;
+  const safeLevel = Number.isFinite(level) ? Math.max(level, 1) : 1;
   const tier = HABIT_LIMIT_TIERS.find((t) => safeLevel >= t.minLevel);
   return tier
     ? tier.limit

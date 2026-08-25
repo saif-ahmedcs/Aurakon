@@ -242,7 +242,7 @@ export default function DashboardApp() {
   const rankTier = journeyStages[activeStageIndex].id; // drives crest + character art
   const titlesAchieved = activeStageIndex + 1;
 
-  const heroLevel = progressData ? progressData.level : 0;
+  const heroLevel = progressData ? Number(progressData.level) || 1 : 1;
   const xpCurrent = progressData ? Number(progressData.totalXp) : 0;
   // XP needed for the next title tier - the plate reads
   // "current / next-rank XP toward next rank".

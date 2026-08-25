@@ -31,6 +31,9 @@ Titles are derived from `total_xp` on every read.
 
 ## Levels
 
+Levels are 1-based: every account starts at **level 1** (`computeLevel`
+floors its result at 1 and `users.current_level` defaults to 1).
+
 Level is derived from:
 
 - lifetime fully completed days;

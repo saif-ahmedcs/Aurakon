@@ -14,7 +14,7 @@ CREATE TABLE users (
   delete_token_hash CHAR(64) NULL,
   delete_token_expires DATETIME NULL,
   total_xp INT NOT NULL DEFAULT 0,
-  current_level INT NOT NULL DEFAULT 0,
+  current_level INT NOT NULL DEFAULT 1,
   global_daily_streak INT NOT NULL DEFAULT 0,
   last_full_completion_date DATE NULL,
   shield_balance INT NOT NULL DEFAULT 0,
