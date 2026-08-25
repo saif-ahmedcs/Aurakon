@@ -45,9 +45,13 @@ Higher levels also increase the active-habit limit
 
 ## Aura Energy
 
-- Daily aura energy is the sum of difficulty-based energy from
-  `completed` and `recovered` habits, capped at **100/day**.
-- `shielded` days preserve streaks but grant no aura energy.
+- Daily aura energy is the day's completion rate: present habits
+  (`completed`, `recovered` or `shielded`) divided by the total active
+  habits for that date, expressed as a percentage (rounded). Completing
+  every existing habit therefore always yields exactly **100%**,
+  regardless of habit count or difficulty.
+- `shielded` habits count as handled for aura energy (they preserve
+  streaks the same way), so a fully shielded day still reaches 100%.
 
 ## Daily Aura Stats
 

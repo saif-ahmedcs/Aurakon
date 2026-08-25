@@ -1,0 +1,24 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Shared dark canvas for the login scene and the dashboard. Clip (not
+   just hide) so transformed/spark FX can never widen the document and
+   reveal a white strip on mobile. */
+html,
+body {
+  background: #050408;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
