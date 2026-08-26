@@ -820,6 +820,7 @@ export default function DashboardApp() {
           index={review.reviewIndex}
           step={review.reviewStep}
           shieldsAvailable={shieldsAvailable}
+          rateLimitCountdown={review.rateLimitCountdown}
           onRecovered={review.handleReviewRecovered}
           onMissed={review.handleReviewMissed}
           onRequestShieldUse={review.requestShieldUse}

@@ -1162,6 +1162,7 @@ button.detail-day:hover { filter: brightness(1.18); }
 .review-dialog-date { margin: 0 0 12px; font-size: 12px; color: var(--t3); }
 .review-dialog-body { margin: 0 0 20px; font-size: 12.5px; color: var(--t2); line-height: 1.5; }
 .review-dialog-actions { display: flex; flex-direction: column; gap: 10px; }
+.review-dialog-rate-limit { margin: 12px 0 0; font-size: 11px; font-weight: 600; color: var(--red-muted); text-align: center; }
 .btn-review { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 16px; font-size: 12.5px; }
 .btn-review-recover { background: linear-gradient(135deg, #6fe0a0, #2f9e63); color: #0e1c14; }
 .btn-review-recover:hover { filter: brightness(1.06); }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { applyReviewDecisionsRequest } from "../services/dashboardApi";
 
 /* -------------------------------------------------------------- */
@@ -38,15 +38,34 @@ export function useReviewSession({
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewStep, setReviewStep] = useState("ask"); // "ask" | "shieldOffer" | "confirmShield"
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const reviewSummary = useRef({ recovered: 0, missed: 0, shielded: 0 });
   const decisionsCommitted = useRef(false);
   const resolvingRef = useRef(false);
+  const countdownTimerRef = useRef(null);
 
   const totalPendingCount = useMemo(
     () =>
       habits.reduce((sum, h) => sum + (h.pendingReviewDates || []).length, 0),
     [habits],
   );
+
+  useEffect(() => {
+    if (rateLimitCountdown > 0) {
+      countdownTimerRef.current = setTimeout(() => {
+        setRateLimitCountdown((prev) => prev - 1);
+      }, 1000);
+    } else if (countdownTimerRef.current) {
+      clearTimeout(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    return () => {
+      if (countdownTimerRef.current) {
+        clearTimeout(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, [rateLimitCountdown]);
 
   const finishReviewSession = useCallback(() => {
     setReviewOpen(false);
@@ -100,8 +119,7 @@ export function useReviewSession({
             : null;
 
         if (!result || result === "not_found") {
-          // Already resolved elsewhere - drop it from the local queue.
-          resolveHabitDate(item.habitId, item.date, "missed");
+          // Already resolved elsewhere - skip local write, rely on refetch.
         } else {
           const status = resultToStatus(result);
           resolveHabitDate(item.habitId, item.date, status);
@@ -133,7 +151,12 @@ export function useReviewSession({
           setReviewStep("ask");
         }
       } catch (err) {
-        showToast(err.error || "Could not save that decision. Try again.");
+        if (err.status === 429 && err.retryAfter) {
+          setRateLimitCountdown(err.retryAfter);
+          showToast(`Rate limited. Retry in ${err.retryAfter}s...`);
+        } else {
+          showToast(err.error || "Could not save that decision. Try again.");
+        }
       } finally {
         resolvingRef.current = false;
       }
@@ -218,6 +241,7 @@ export function useReviewSession({
     reviewQueue,
     reviewIndex,
     reviewStep,
+    rateLimitCountdown,
     openReviewSession,
     closeReviewSession,
     handleReviewRecovered,

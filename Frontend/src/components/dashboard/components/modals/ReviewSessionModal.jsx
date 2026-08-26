@@ -19,6 +19,7 @@ export function ReviewSessionModal({
   index,
   step,
   shieldsAvailable,
+  rateLimitCountdown,
   onRecovered,
   onMissed,
   onRequestShieldUse,
@@ -35,6 +36,8 @@ export function ReviewSessionModal({
     month: "long",
     day: "numeric",
   });
+
+  const isRateLimited = rateLimitCountdown > 0;
 
   return (
     <div className="overlay overlay-center" onClick={onClose}>
@@ -67,11 +70,17 @@ export function ReviewSessionModal({
             <p className="review-dialog-body">
               You didn't check in that day. What actually happened?
             </p>
+            {isRateLimited && (
+              <p className="review-dialog-rate-limit">
+                Rate limited. Retry in {rateLimitCountdown}s...
+              </p>
+            )}
             <div className="review-dialog-actions">
               <button
                 type="button"
                 className="btn btn-review btn-review-recover"
                 onClick={onRecovered}
+                disabled={isRateLimited}
               >
                 <CheckIcon />I did it, just forgot to check in
               </button>
@@ -79,6 +88,7 @@ export function ReviewSessionModal({
                 type="button"
                 className="btn btn-review btn-review-miss"
                 onClick={onMissed}
+                disabled={isRateLimited}
               >
                 <HourglassIcon />I actually missed this one
               </button>
@@ -98,11 +108,17 @@ export function ReviewSessionModal({
               {shieldsAvailable === 1 ? "" : "s"} available. Use one to cover
               this miss and keep your streak going.
             </p>
+            {isRateLimited && (
+              <p className="review-dialog-rate-limit">
+                Rate limited. Retry in {rateLimitCountdown}s...
+              </p>
+            )}
             <div className="review-dialog-actions">
               <button
                 type="button"
                 className="btn btn-review btn-review-shield"
                 onClick={onRequestShieldUse}
+                disabled={isRateLimited}
               >
                 <ShieldIcon size={26} />
                 Use a shield
@@ -111,6 +127,7 @@ export function ReviewSessionModal({
                 type="button"
                 className="btn btn-ghost"
                 onClick={onDeclineShield}
+                disabled={isRateLimited}
               >
                 No, mark it missed
               </button>
@@ -141,11 +158,17 @@ export function ReviewSessionModal({
               alive. You'll have {Math.max(0, shieldsAvailable - 1)} left
               afterward. This can't be undone.
             </p>
+            {isRateLimited && (
+              <p className="review-dialog-rate-limit">
+                Rate limited. Retry in {rateLimitCountdown}s...
+              </p>
+            )}
             <div className="review-dialog-actions">
               <button
                 type="button"
                 className="btn btn-review btn-review-shield btn-review-confirm"
                 onClick={onConfirmShieldUse}
+                disabled={isRateLimited}
               >
                 <ShieldIcon size={26} />
                 Yes, use it
@@ -154,6 +177,7 @@ export function ReviewSessionModal({
                 type="button"
                 className="btn btn-ghost"
                 onClick={onCancelShieldUse}
+                disabled={isRateLimited}
               >
                 No, go back
               </button>

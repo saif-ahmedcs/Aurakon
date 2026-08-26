@@ -89,6 +89,7 @@ async function updateHabit(habit, userId, title) {
 
 async function deleteHabit(habitId, userId, timezone) {
   return runInTransaction(async (tx) => {
+    await userProgressModel.getProgress(userId, tx, true);
     const affectedRows = await habitModel.archive(habitId, userId, tx);
     if (affectedRows === 0) {
       throw new NotFoundError("habit not found");
@@ -103,6 +104,7 @@ async function deleteHabit(habitId, userId, timezone) {
 
 async function logHabit(habitId, date, userId, timezone) {
   return await runInTransaction(async (tx) => {
+    await userProgressModel.getProgress(userId, tx, true);
     let log;
     let created;
 
@@ -252,6 +254,7 @@ async function logHabit(habitId, date, userId, timezone) {
 
 async function undoLog(habitId, date, userId, timezone) {
   return await runInTransaction(async (tx) => {
+    await userProgressModel.getProgress(userId, tx, true);
     const habit = await habitModel.findById(habitId, userId, tx);
     if (!habit) {
       throw new NotFoundError("habit not found");

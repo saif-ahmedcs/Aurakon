@@ -111,6 +111,7 @@ export function useHabits({ showToast }) {
   const [loaded, setLoaded] = useState(false);
 
   const toggleInFlight = useRef(false);
+  const refreshSeq = useRef({});
 
   const replaceHabit = useCallback((next) => {
     setHabits((prev) => prev.map((h) => (h.id === next.id ? next : h)));
@@ -143,9 +144,11 @@ export function useHabits({ showToast }) {
    * by an authoritative refresh. Failures are silent: the optimistic
    * state stays until the next sync. */
   const refreshHabit = useCallback(async (habitId, timeZone) => {
+    const seq = ++refreshSeq.current[habitId];
     try {
       const dto = await getHabitDetailRequest(habitId);
       const logs = await listHabitLogsRequest(habitId);
+      if (seq !== refreshSeq.current[habitId]) return;
       setHabits((prev) =>
         prev.map((h) =>
           h.id === habitId ? buildHabitState(dto, logs, timeZone, h) : h,
