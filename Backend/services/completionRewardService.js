@@ -14,13 +14,14 @@ async function awardCompletionXpForHabit(userId, habit, date, tx) {
 async function awardCompletionRewards(userId, habit, date, tx, timezone, cache) {
   await awardCompletionXpForHabit(userId, habit, date, tx);
 
-  await dailyAuraStatsService.recalculateDailyAuraStats(
+  const result = await dailyAuraStatsService.recalculateDailyAuraStats(
     userId,
     date,
     tx,
     timezone,
     cache,
   );
+  return result;
 }
 
 async function awardRecoveryRewards(userId, habit, date, tx) {

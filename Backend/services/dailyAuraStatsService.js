@@ -38,6 +38,7 @@ async function recalculateDailyAuraStats(userId, date, tx, timezone, cache) {
   streakService.updateFullCompletionCache(cache, date, fullCompletion);
   await streakService.recalculateGlobalStreak(userId, tx, cache);
 
+  let consistencyBonuses = [];
   if (fullCompletion) {
     const streakAtDate = await streakService.getStreakAsOfDate(
       userId,
@@ -46,7 +47,7 @@ async function recalculateDailyAuraStats(userId, date, tx, timezone, cache) {
       null,
       cache,
     );
-    await bonusService.checkAndAwardConsistencyBonus(
+    consistencyBonuses = await bonusService.checkAndAwardConsistencyBonus(
       userId,
       streakAtDate,
       date,
@@ -54,7 +55,7 @@ async function recalculateDailyAuraStats(userId, date, tx, timezone, cache) {
       totalHabits,
     );
   }
-  return { totalHabits, completedHabits, fullCompletion };
+  return { totalHabits, completedHabits, fullCompletion, consistencyBonuses };
 }
 
 module.exports = { recalculateDailyAuraStats };

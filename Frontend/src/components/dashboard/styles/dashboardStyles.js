@@ -378,6 +378,17 @@ export const STYLES = `
 .add-habit-btn:hover::before { animation: shine .9s ease; }
 @keyframes shine { from { left: -60%; } to { left: 130%; } }
 .add-habit-btn:active { transform: scale(.97); }
+.add-habit-btn.btn-disabled,
+.add-habit-btn:disabled {
+  background: rgba(255,255,255,0.08) !important;
+  color: var(--t3) !important;
+  box-shadow: none !important;
+  cursor: default !important;
+  filter: none !important;
+  transform: none !important;
+}
+.add-habit-btn.btn-disabled::before,
+.add-habit-btn:disabled::before { display: none; }
 
 .habit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
 .habit-row {
@@ -1236,6 +1247,10 @@ button.detail-day:hover { filter: brightness(1.18); }
 }
 .account-select option { background: #1a1526; color: var(--t1); }
 .add-habit-intro { margin: 0 0 18px; font-size: 12.5px; color: var(--t3); line-height: 1.5; }
+.habit-limit-info { margin: 0 0 14px; font-size: 11px; font-weight: 600; color: var(--gold); text-align: center; }
+.habit-limit-info.at-limit { color: var(--red-muted); }
+.btn-disabled { opacity: .45; cursor: default; filter: none !important; }
+.btn-disabled:hover { filter: none !important; transform: none !important; box-shadow: none !important; }
 .edit-diff-options { display: flex; gap: 8px; }
 .edit-diff-option {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 6px;

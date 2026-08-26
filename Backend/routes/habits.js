@@ -85,13 +85,13 @@ router.post(
   validate((req) => createLogSchema(req.user.timezone)),
   asyncHandler(async (req, res) => {
     const { date } = req.body;
-    const { log, created } = await habitService.logHabit(
+    const { log, created, shieldEarned, shieldBalance } = await habitService.logHabit(
       req.habitId,
       date,
       req.user.id,
       req.user.timezone,
     );
-    res.status(created ? 201 : 200).json(log);
+    res.status(created ? 201 : 200).json({ log, created, shieldEarned, shieldBalance });
   }),
 );
 

@@ -28,9 +28,7 @@ export function OverallStatsSection({
           <span className="bottom-stat-value bottom-stat-value-hero">
             {lifetimeXpLabel}
           </span>
-          <span className="bottom-stat-sub">
-            Lifetime accumulated XP
-          </span>
+          <span className="bottom-stat-sub">Lifetime accumulated XP</span>
           <XpIcon size={110} className="bottom-stat-shields-icon" />
         </div>
         <div className="glass-panel bottom-stat bottom-stat-streak">
@@ -58,8 +56,8 @@ export function OverallStatsSection({
               shield every 30 present days, medium every 45; easy
               habits are not shield-eligible. */}
           <span className="bottom-stat-sub">
-            Keep a Hard habit going for 30 days (45 for Medium) to earn a
-            new shield
+            Keep a Hard habit going for 30 days (45 for Medium) to earn a new
+            shield
           </span>
         </div>
       </div>

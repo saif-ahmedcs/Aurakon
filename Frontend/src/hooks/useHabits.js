@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { DIFFICULTY_OPTIONS } from "../constants/habits";
 import { todayInZone } from "../utils/dates";
 import {
@@ -110,6 +110,8 @@ export function useHabits({ showToast }) {
   const [habits, setHabits] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
+  const toggleInFlight = useRef(false);
+
   const replaceHabit = useCallback((next) => {
     setHabits((prev) => prev.map((h) => (h.id === next.id ? next : h)));
   }, []);
@@ -159,8 +161,14 @@ export function useHabits({ showToast }) {
    * failure. Returns true when the server accepted the change. */
   const toggleHabitCompletion = useCallback(
     async (id, timeZone) => {
+      if (toggleInFlight.current) return false;
+      toggleInFlight.current = true;
+
       const snapshot = habits.find((h) => h.id === id);
-      if (!snapshot) return false;
+      if (!snapshot) {
+        toggleInFlight.current = false;
+        return false;
+      }
 
       const nowDone = !snapshot.completedToday;
       const today = todayInZone(timeZone);
@@ -197,18 +205,31 @@ export function useHabits({ showToast }) {
       );
 
       try {
+        let shieldEarned = false;
+        let consistencyBonuses = [];
         if (nowDone) {
-          await createHabitLogRequest(id, today);
+          const response = await createHabitLogRequest(id, today);
+          shieldEarned = response?.shieldEarned;
+          consistencyBonuses = response?.consistencyBonuses || [];
+          if (shieldEarned) {
+            showToast("🛡️ Guardian Shield earned!");
+          }
         } else {
           await undoHabitLogRequest(id, today);
         }
         // Server-side streaks/pending/XP changed - pull the truth back.
         refreshHabit(id, timeZone);
-        return true;
+        return { success: true, consistencyBonuses };
       } catch (err) {
-        replaceHabit(snapshot);
+        if (err?.status === 409) {
+          refreshHabit(id, timeZone);
+        } else {
+          replaceHabit(snapshot);
+        }
         showToast(err.error || "Could not update the trial. Try again.");
-        return false;
+        return { success: false };
+      } finally {
+        toggleInFlight.current = false;
       }
     },
     [habits, replaceHabit, showToast, refreshHabit],

@@ -80,6 +80,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
     const touchedDates = new Set();
     const recoveredHabitDates = new Map();
     const affectedHabitEarliestDate = new Map();
+    const allConsistencyBonuses = [];
 
     function trackEarliest(habitId, date) {
       const current = affectedHabitEarliestDate.get(habitId);
@@ -176,13 +177,16 @@ async function runApplyDecisions(decisions, userId, timezone) {
     }
 
     for (const date of touchedDates) {
-      await dailyAuraStatsService.recalculateDailyAuraStats(
+      const auraResult = await dailyAuraStatsService.recalculateDailyAuraStats(
         userId,
         date,
         tx,
         timezone,
         fullCompletionCache,
       );
+      if (auraResult.consistencyBonuses && auraResult.consistencyBonuses.length > 0) {
+        allConsistencyBonuses.push(...auraResult.consistencyBonuses);
+      }
     }
 
     const earliestTouchedDate = [...touchedDates].sort()[0];
@@ -232,7 +236,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
       resultsByKey.get(`${habitId}|${missedDate}`),
     );
 
-    return results;
+    return { results, consistencyBonuses: allConsistencyBonuses };
   });
 }
 

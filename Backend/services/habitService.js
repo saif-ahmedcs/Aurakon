@@ -165,7 +165,7 @@ async function logHabit(habitId, date, userId, timezone) {
     } = calculateHabitStreaks(logs, date);
 
     // (3)-(7)
-    await completionRewardService.awardCompletionRewards(
+    const rewardResult = await completionRewardService.awardCompletionRewards(
       userId,
       habit,
       date,
@@ -184,6 +184,17 @@ async function logHabit(habitId, date, userId, timezone) {
     }
 
     // (8)
+    let shieldEarned = false;
+    let newShieldBalance = null;
+    let shieldBalanceBefore = null;
+
+    const progressBefore = await userProgressModel.getProgress(
+      userId,
+      tx,
+      true,
+    );
+    shieldBalanceBefore = progressBefore?.shield_balance ?? 0;
+
     if (created) {
       await habitModel.updateStreaks(
         habitId,
@@ -198,7 +209,7 @@ async function logHabit(habitId, date, userId, timezone) {
         true,
       );
       if (!stillPendingReview) {
-        await guardianShieldService.earnShieldIfEligible(
+        shieldEarned = await guardianShieldService.earnShieldIfEligible(
           userId,
           habitId,
           habit.difficulty,
@@ -222,7 +233,20 @@ async function logHabit(habitId, date, userId, timezone) {
     // (9)
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);
 
-    return { log: serializeHabitLog(log), created };
+    const progressAfter = await userProgressModel.getProgress(userId, tx, true);
+    newShieldBalance = progressAfter?.shield_balance ?? 0;
+
+    if (!shieldEarned && newShieldBalance > shieldBalanceBefore) {
+      shieldEarned = true;
+    }
+
+    return {
+      log: serializeHabitLog(log),
+      created,
+      shieldEarned,
+      shieldBalance: newShieldBalance,
+      consistencyBonuses: rewardResult.consistencyBonuses || [],
+    };
   });
 }
 

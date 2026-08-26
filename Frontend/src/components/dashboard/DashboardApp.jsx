@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 import { STYLES } from "./styles/dashboardStyles";
 import { JOURNEY_STAGES } from "../../constants/journey";
+import { getHabitLimit } from "../../constants/habits";
 
 import {
   getAccessToken,
@@ -377,12 +378,21 @@ export default function DashboardApp() {
       const habit = habits.find((h) => h.id === id);
       const turningOn = habit && !habit.completedToday;
 
-      const ok = await toggleHabitCompletion(id, meData && meData.timezone);
-      if (!ok) return;
+      const result = await toggleHabitCompletion(id, meData && meData.timezone);
+      if (!result?.success) return;
 
       if (turningOn) {
         pulseAura();
         showToast("+" + (habit ? habit.xp : 0) + " XP · Aura rising");
+        
+        // Show distinct toast for consistency bonuses
+        if (result.consistencyBonuses && result.consistencyBonuses.length > 0) {
+          for (const bonus of result.consistencyBonuses) {
+            const bonusLabel = bonus.bonusType === '7day' ? '7-Day Streak' : '30-Day Streak';
+            const bonusXp = bonus.delta;
+            showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonusXp} XP!`);
+          }
+        }
       }
       refreshProgress();
     },
@@ -444,11 +454,16 @@ export default function DashboardApp() {
   const openAddHabit = useCallback(() => setAddHabitOpen(true), []);
   const closeAddHabit = useCallback(() => setAddHabitOpen(false), []);
 
+  const habitLimit = progressData ? getHabitLimit(progressData.level) : 5;
+  const currentHabitCount = habits.length;
+  const atHabitLimit = currentHabitCount >= habitLimit;
+
   const createHabitInFlight = useRef(false);
 
   const createHabit = useCallback(
     async ({ name, difficulty }) => {
       if (createHabitInFlight.current) return;
+      if (atHabitLimit) return;
       createHabitInFlight.current = true;
       try {
         await addHabit({ name, difficulty });
@@ -461,7 +476,7 @@ export default function DashboardApp() {
         createHabitInFlight.current = false;
       }
     },
-    [addHabit, showToast, refreshProgress],
+    [addHabit, showToast, refreshProgress, atHabitLimit],
   );
 
   /* -------------------------------------------------------------- */
@@ -709,6 +724,9 @@ export default function DashboardApp() {
         onHabitAction={handleHabitAction}
         onOpenHabitDetail={openHabitDetail}
         onOpenAddHabit={openAddHabit}
+        atHabitLimit={atHabitLimit}
+        currentHabitCount={currentHabitCount}
+        habitLimit={habitLimit}
         auraEnergy={auraEnergy}
         auraPulse={auraPulse}
         onStageSelect={showToast}
@@ -787,7 +805,13 @@ export default function DashboardApp() {
       )}
 
       {addHabitOpen && (
-        <AddHabitModal onClose={closeAddHabit} onCreate={createHabit} />
+        <AddHabitModal
+          onClose={closeAddHabit}
+          onCreate={createHabit}
+          habitLimit={habitLimit}
+          currentHabitCount={currentHabitCount}
+          atHabitLimit={atHabitLimit}
+        />
       )}
 
       {review.reviewOpen && (

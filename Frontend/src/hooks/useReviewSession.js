@@ -110,6 +110,15 @@ export function useReviewSession({
           else if (status === "shielded") reviewSummary.current.shielded += 1;
         }
 
+        // Show consistency bonus toasts if any were awarded
+        if (payload.consistencyBonuses && payload.consistencyBonuses.length > 0) {
+          for (const bonus of payload.consistencyBonuses) {
+            const bonusLabel = bonus.bonusType === '7day' ? '7-Day Streak' : '30-Day Streak';
+            const bonusXp = bonus.delta;
+            showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonusXp} XP!`);
+          }
+        }
+
         decisionsCommitted.current = true;
 
         // The server recomputed this habit's streak (bridging rules and

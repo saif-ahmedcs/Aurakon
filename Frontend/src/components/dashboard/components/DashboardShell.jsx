@@ -1,4 +1,8 @@
-import { BackgroundLayer, AmbientSparkField, CharacterCard } from "./background/BackgroundLayer";
+import {
+  BackgroundLayer,
+  AmbientSparkField,
+  CharacterCard,
+} from "./background/BackgroundLayer";
 import { TopBar } from "./TopBar";
 import { PendingReviewBanner } from "./PendingReviewBanner";
 import { HabitsPanel } from "./HabitsPanel";
@@ -59,6 +63,9 @@ export function DashboardShell({
   onHabitAction,
   onOpenHabitDetail,
   onOpenAddHabit,
+  atHabitLimit,
+  currentHabitCount,
+  habitLimit,
   // aura
   auraEnergy,
   auraPulse,
@@ -128,6 +135,9 @@ export function DashboardShell({
               onOpenDetail={onOpenHabitDetail}
               onAddHabit={onOpenAddHabit}
               sectionRef={habitsRef}
+              atHabitLimit={atHabitLimit}
+              currentHabitCount={currentHabitCount}
+              habitLimit={habitLimit}
             />
 
             {/* 2. Aura Energy - compact, grouped composition */}

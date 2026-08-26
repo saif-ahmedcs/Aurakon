@@ -13,6 +13,9 @@ export function HabitsPanel({
   onOpenDetail,
   onAddHabit,
   sectionRef,
+  atHabitLimit,
+  currentHabitCount,
+  habitLimit,
 }) {
   return (
     <section
@@ -22,10 +25,21 @@ export function HabitsPanel({
     >
       <div className="panel-header">
         <h2 className="eyebrow">Today's Trials</h2>
-        <button type="button" className="add-habit-btn" onClick={onAddHabit}>
-          + New Trial
+        <button
+          type="button"
+          className={`add-habit-btn ${atHabitLimit ? "btn-disabled" : ""}`}
+          onClick={onAddHabit}
+          disabled={atHabitLimit}
+        >
+          {atHabitLimit ? "Limit Reached" : "+ New Trial"}
         </button>
       </div>
+
+      {atHabitLimit && (
+        <p className="habit-limit-info at-limit" style={{ margin: "0 0 14px", textAlign: "center" }}>
+          {currentHabitCount} / {habitLimit} active trials — limit reached for your current level
+        </p>
+      )}
 
       <ul className="habit-list">
         {habits.map((h) => (
