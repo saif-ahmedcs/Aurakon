@@ -16,6 +16,7 @@ import {
   updateUsernameRequest,
   getProgressRequest,
   getProfileRequest,
+  getPendingReviewSummaryRequest,
 } from "../../services/dashboardApi";
 
 import { useToast } from "../../hooks/useToast";
@@ -94,14 +95,15 @@ function AppFrame({ children }) {
 /* Journey stages are indexed by their (normalised) title so the ladder
  * always matches whatever tier the backend currently reports. */
 function normaliseTitle(title) {
-  return (title || "").trim().toLowerCase().replace(/^the\s+/, "");
+  return (title || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^the\s+/, "");
 }
 
 function resolveStageIndex(stages, title) {
   const wanted = normaliseTitle(title);
-  const index = stages.findIndex(
-    (s) => normaliseTitle(s.title) === wanted,
-  );
+  const index = stages.findIndex((s) => normaliseTitle(s.title) === wanted);
   return index === -1 ? 0 : index;
 }
 
@@ -235,7 +237,10 @@ export default function DashboardApp() {
       const currentIndex = titles.findIndex((t) => t.current);
       if (currentIndex !== -1) return titles.length - 1 - currentIndex;
     }
-    return resolveStageIndex(journeyStages, progressData ? progressData.title : "");
+    return resolveStageIndex(
+      journeyStages,
+      progressData ? progressData.title : "",
+    );
   }, [progressData, journeyStages]);
 
   const stageTitle = journeyStages[activeStageIndex].title;
@@ -262,8 +267,7 @@ export default function DashboardApp() {
   /* Habits                                                          */
   /* -------------------------------------------------------------- */
 
-  const { auraEnergy, setAuraEnergy, auraPulse, pulseAura } =
-    useAuraEnergy(0);
+  const { auraEnergy, setAuraEnergy, auraPulse, pulseAura } = useAuraEnergy(0);
 
   useEffect(() => {
     if (progressData) setAuraEnergy(Number(progressData.auraEnergyToday) || 0);
@@ -278,6 +282,21 @@ export default function DashboardApp() {
     onHabitChanged: syncHabitFromServer,
   });
   const { openReviewSession } = review;
+  const autoPopupCheckedRef = useRef(false);
+  useEffect(() => {
+    if (!sessionReady || autoPopupCheckedRef.current) return;
+    autoPopupCheckedRef.current = true;
+    (async () => {
+      try {
+        const summary = await getPendingReviewSummaryRequest();
+        if (summary && summary.shouldAutoPopup) {
+          openReviewSession();
+        }
+      } catch {
+        // Non-critical - the banner still lets the user open it manually.
+      }
+    })();
+  }, [sessionReady, openReviewSession]);
 
   const [menuOpen, setMenuOpen] = useState(false);
   // Swipe-to-close for the compact popover menu: track the touch start
@@ -367,7 +386,14 @@ export default function DashboardApp() {
       }
       refreshProgress();
     },
-    [habits, meData, toggleHabitCompletion, pulseAura, showToast, refreshProgress],
+    [
+      habits,
+      meData,
+      toggleHabitCompletion,
+      pulseAura,
+      showToast,
+      refreshProgress,
+    ],
   );
 
   const [editHabitId, setEditHabitId] = useState(null);
@@ -422,21 +448,20 @@ export default function DashboardApp() {
 
   const createHabit = useCallback(
     async ({ name, difficulty }) => {
-      // The modal stays open until the server confirms, so guard
-      // against a second submit landing while the first is in flight.
       if (createHabitInFlight.current) return;
       createHabitInFlight.current = true;
       try {
         await addHabit({ name, difficulty });
         setAddHabitOpen(false);
         showToast("New trial accepted, " + name);
+        refreshProgress();
       } catch (err) {
         showToast(err.error || "Could not create the habit. Try again.");
       } finally {
         createHabitInFlight.current = false;
       }
     },
-    [addHabit, showToast],
+    [addHabit, showToast, refreshProgress],
   );
 
   /* -------------------------------------------------------------- */
@@ -657,9 +682,7 @@ export default function DashboardApp() {
         lifetimeXpLabel={
           progressData ? Number(progressData.totalXp).toLocaleString() : "0"
         }
-        globalStreakDays={
-          progressData ? progressData.globalDailyStreak : 0
-        }
+        globalStreakDays={progressData ? progressData.globalDailyStreak : 0}
         menuOpen={menuOpen}
         onToggleMenu={toggleMenu}
         onCloseMenu={closeMenu}
@@ -697,7 +720,9 @@ export default function DashboardApp() {
           ariaLabel="Confirm delete habit"
           title="Delete this habit?"
           body={
-            (deleteHabitTarget ? '"' + deleteHabitTarget.name + '"' : "This habit") +
+            (deleteHabitTarget
+              ? '"' + deleteHabitTarget.name + '"'
+              : "This habit") +
             " and its full history will be permanently removed. This can't be undone."
           }
           confirmLabel="Delete Habit"

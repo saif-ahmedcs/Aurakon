@@ -154,6 +154,19 @@ export async function undoHabitLogRequest(habitId, date) {
 /* ---------------------------------------------------------------- */
 
 /**
+ * GET /api/review/pending - server-side pending-review summary. The
+ * day-by-day queue itself is still built from each habit's
+ * pendingReview (GET /api/habits, already loaded); this call exists
+ * so the dashboard can read shouldAutoPopup - the backend's signal
+ * that enough trials are awaiting review to open the session
+ * automatically rather than waiting for the user to tap the banner.
+ */
+export async function getPendingReviewSummaryRequest() {
+  const res = await authedFetch("/api/review/pending");
+  return handleResponse(res);
+}
+
+/**
  * POST /api/review/decisions
  * decisions: [{ habitId, missedDate, decision: "completed"|"missed",
  * useShield?: boolean }]
