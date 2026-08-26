@@ -28,26 +28,111 @@ export function clearAccessToken() {
   window[TOKEN_KEY] = null;
 }
 
-/* Single-flight session recovery.
- *
- * The backend refresh token is single-use (rotated on every refresh),
- * and replaying a consumed token is treated as theft and revokes the
- * whole session family. So concurrent callers must never each fire
- * POST /api/auth/refresh with the same cookie - e.g. React StrictMode
- * running the dashboard bootstrap effect twice in dev, or several API
- * calls hitting 401 at once. They all await this one shared request. */
+/* ------------------------------------------------------------------ */
+/*  Cross-tab refresh coordination                                     */
+/* ------------------------------------------------------------------ */
 let refreshInFlight = null;
 
-export function refreshAccessToken() {
-  if (!refreshInFlight) {
-    refreshInFlight = refreshSessionRequest()
-      .then((res) => {
-        setAccessToken(res.accessToken);
-        return res.accessToken;
-      })
-      .finally(() => {
-        refreshInFlight = null;
-      });
+function acquireLock() {
+  try {
+    const raw = localStorage.getItem(LOCK_KEY);
+    if (raw) {
+      const ts = Number(raw);
+      if (Date.now() - ts < LOCK_TIMEOUT_MS) return false; // another tab holds a fresh lock
+    }
+    localStorage.setItem(LOCK_KEY, String(Date.now()));
+    return true;
+  } catch {
+    // localStorage unavailable (SSR, privacy mode) – fall through
+    return true;
   }
-  return refreshInFlight;
+}
+
+function releaseLock() {
+  try {
+    localStorage.removeItem(LOCK_KEY);
+  } catch {
+    // best-effort
+  }
+}
+
+function broadcastChannel() {
+  try {
+    return new BroadcastChannel(CHANNEL_NAME);
+  } catch {
+    return null;
+  }
+}
+
+export function refreshAccessToken() {
+  if (typeof window === "undefined") return refreshSessionRequest();
+
+  // Intra-tab dedup – multiple components hitting 401 at once share one promise.
+  if (refreshInFlight) return refreshInFlight;
+
+  // Try to become the leader.
+  if (acquireLock()) {
+    refreshInFlight = performRefreshAsLeader();
+    return refreshInFlight;
+  }
+
+  // Another tab is refreshing – wait for the result via the channel.
+  return waitForRefreshResult();
+}
+
+async function performRefreshAsLeader() {
+  const channel = broadcastChannel();
+  try {
+    const res = await refreshSessionRequest();
+    setAccessToken(res.accessToken);
+    channel?.postMessage({ ok: true, accessToken: res.accessToken });
+    return res.accessToken;
+  } catch (err) {
+    channel?.postMessage({ ok: false, error: err });
+    throw err;
+  } finally {
+    releaseLock();
+    refreshInFlight = null;
+    channel?.close();
+  }
+}
+
+function waitForRefreshResult() {
+  return new Promise((resolve, reject) => {
+    const channel = broadcastChannel();
+    if (!channel) {
+      // BroadcastChannel unavailable – fall back to an independent request.
+      // The backend grace window (5 s) protects against a benign race.
+      refreshSessionRequest()
+        .then((res) => {
+          setAccessToken(res.accessToken);
+          resolve(res.accessToken);
+        })
+        .catch(reject);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      channel.close();
+      // Stale lock – the leader may have crashed.  Try our own refresh.
+      localStorage.removeItem(LOCK_KEY);
+      refreshSessionRequest()
+        .then((res) => {
+          setAccessToken(res.accessToken);
+          resolve(res.accessToken);
+        })
+        .catch(reject);
+    }, LOCK_TIMEOUT_MS);
+
+    channel.onmessage = (e) => {
+      clearTimeout(timeout);
+      channel.close();
+      if (e.data.ok) {
+        setAccessToken(e.data.accessToken);
+        resolve(e.data.accessToken);
+      } else {
+        reject(e.data.error);
+      }
+    };
+  });
 }

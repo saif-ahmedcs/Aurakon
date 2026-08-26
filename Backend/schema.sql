@@ -89,7 +89,8 @@ CREATE TABLE refresh_tokens (
   used_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  KEY idx_refresh_tokens_expires_at (expires_at)
+  KEY idx_refresh_tokens_expires_at (expires_at),
+  KEY idx_refresh_tokens_user_used (user_id, used_at)
 );
 
 CREATE TABLE daily_aura_stats (

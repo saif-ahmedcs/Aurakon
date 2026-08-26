@@ -122,6 +122,13 @@ async function hasPendingWork(userId, timezone) {
 
   if (nextDate <= yesterday) return true;
 
+  // daily_aura_stats may exist for yesterday (e.g. a check-in was created
+  // and later undone the same day), yet no habit_logs row was left behind.
+  // Detect that gap so finalizeDay still runs for yesterday.
+  const missingYesterday =
+    await habitLogModel.getHabitsMissingLogForDate(userId, yesterday);
+  if (missingYesterday.length > 0) return true;
+
   const cutoffDate = addUtcDays(todayInTimezone(timezone), -GRACE_PERIOD_DAYS);
   return habitLogModel.hasStaleReviewsForUser(userId, cutoffDate);
 }
@@ -157,6 +164,21 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
     let date = latestStatDate
       ? addUtcDays(latestStatDate, 1)
       : earliestHabitDate;
+
+    // daily_aura_stats may already cover yesterday (e.g. a same-day
+    // check-in + undo created stats but no habit_log), so the normal
+    // range [nextDate..yesterday] would skip it.  Pull the window back
+    // to include yesterday when habits are missing there.
+    if (date > yesterday) {
+      const missingYesterday = await habitLogModel.getHabitsMissingLogForDate(
+        userId,
+        yesterday,
+        tx,
+      );
+      if (missingYesterday.length > 0) {
+        date = yesterday;
+      }
+    }
 
     let didWork = false;
     const cache = streakService.createFullCompletionCache();

@@ -1,6 +1,9 @@
 process.env.TZ = "UTC";
 require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
 const { pool } = require("../db");
+const {
+  USED_TOKEN_GRACE_PERIOD_MS,
+} = require("../utils/constants");
 
 async function cleanupExpiredTokens() {
   const results = {};
@@ -14,6 +17,18 @@ async function cleanupExpiredTokens() {
   } catch (error) {
     hadFailure = true;
     console.error("Cleanup failed for refresh_tokens:", error);
+  }
+
+  try {
+    const usedGraceCutoff = new Date(Date.now() - USED_TOKEN_GRACE_PERIOD_MS);
+    const [usedTokens] = await pool.query(
+      `DELETE FROM refresh_tokens WHERE used_at IS NOT NULL AND used_at < ?`,
+      [usedGraceCutoff],
+    );
+    results.usedTokens = usedTokens;
+  } catch (error) {
+    hadFailure = true;
+    console.error("Cleanup failed for used refresh_tokens:", error);
   }
 
   try {
@@ -83,6 +98,7 @@ async function cleanupExpiredTokens() {
   console.log(
     `Cleaned up expired tokens: ` +
       `refresh_tokens=${results.refreshTokens?.affectedRows ?? 0}, ` +
+      `used_refresh_tokens=${results.usedTokens?.affectedRows ?? 0}, ` +
       `reset_token=${results.resetToken?.affectedRows ?? 0}, ` +
       `email_verification=${results.emailVerification?.affectedRows ?? 0}, ` +
       `delete_token=${results.deleteToken?.affectedRows ?? 0}, ` +

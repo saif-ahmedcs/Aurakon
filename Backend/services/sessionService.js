@@ -8,6 +8,8 @@ const {
   generateRefreshToken,
 } = require("../utils/tokenUtils");
 
+const REUSE_GRACE_WINDOW_MS = 5_000;
+
 // ------------- REFRESH --------------
 async function refresh(rawRefreshToken) {
   if (!rawRefreshToken) {
@@ -30,6 +32,10 @@ async function refresh(rawRefreshToken) {
       }
 
       if (stored.used_at) {
+        const msSinceUsed = Date.now() - new Date(stored.used_at).getTime();
+        if (msSinceUsed <= REUSE_GRACE_WINDOW_MS) {
+          throw new UnauthorizedError("token_already_used");
+        }
         reusedUserId = stored.user_id;
         throw new UnauthorizedError("invalid refresh token");
       }

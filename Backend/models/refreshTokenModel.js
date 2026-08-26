@@ -45,7 +45,7 @@ async function deleteAllByUserId(userId, db = pool) {
 
 async function deleteExpiredForUser(userId, db = pool) {
   const [result] = await db.query(
-    `DELETE FROM refresh_tokens WHERE user_id = ? AND expires_at < UTC_TIMESTAMP()`,
+    `DELETE FROM refresh_tokens WHERE user_id = ? AND (expires_at < UTC_TIMESTAMP() OR used_at IS NOT NULL)`,
     [userId],
   );
   return result.affectedRows;
@@ -54,7 +54,7 @@ async function deleteExpiredForUser(userId, db = pool) {
 async function lockActiveForUser(userId, db = pool) {
   await db.query(
     `SELECT id FROM refresh_tokens
-     WHERE user_id = ? AND expires_at > UTC_TIMESTAMP()
+     WHERE user_id = ? AND expires_at > UTC_TIMESTAMP() AND used_at IS NULL
      FOR UPDATE`,
     [userId],
   );
@@ -62,7 +62,7 @@ async function lockActiveForUser(userId, db = pool) {
 
 async function countActiveByUserId(userId, db = pool) {
   const [rows] = await db.query(
-    `SELECT COUNT(*) AS count FROM refresh_tokens WHERE user_id = ? AND expires_at > UTC_TIMESTAMP()`,
+    `SELECT COUNT(*) AS count FROM refresh_tokens WHERE user_id = ? AND expires_at > UTC_TIMESTAMP() AND used_at IS NULL`,
     [userId],
   );
   return rows[0].count;
@@ -74,7 +74,7 @@ async function deleteOldestByUserId(userId, db = pool) {
      WHERE id = (
        SELECT id FROM (
          SELECT id FROM refresh_tokens
-         WHERE user_id = ?
+         WHERE user_id = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()
          ORDER BY created_at ASC, id ASC
          LIMIT 1
        ) AS oldest
