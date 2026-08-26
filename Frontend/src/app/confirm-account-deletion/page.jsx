@@ -11,6 +11,7 @@ import WarriorImage from "../../components/scene/WarriorImage";
 import BackgroundGlow from "../../components/scene/BackgroundGlow";
 import FormInput from "../../components/common/FormInput";
 import { confirmAccountDeletionRequest } from "../../services/authApi";
+import { getAccessToken, refreshAccessToken } from "../../services/tokenStore";
 
 function ConfirmAccountDeletionInner() {
   useAuraIntroScene();
@@ -40,9 +41,14 @@ function ConfirmAccountDeletionInner() {
     setError("");
 
     try {
+      if (!getAccessToken()) {
+        await refreshAccessToken();
+      }
+      const accessToken = getAccessToken();
       await confirmAccountDeletionRequest({
         token,
         currentPassword: password,
+        accessToken,
       });
       setSuccess(true);
     } catch (err) {

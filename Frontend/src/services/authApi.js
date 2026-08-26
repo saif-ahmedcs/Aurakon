@@ -212,12 +212,15 @@ export async function confirmEmailChangeRequest({ token, currentPassword, access
 /**
  * POST /api/auth/delete-account/confirm
  */
-export async function confirmAccountDeletionRequest({ token, currentPassword }) {
+export async function confirmAccountDeletionRequest({ token, currentPassword, accessToken }) {
   let res;
   try {
     res = await fetch("/api/auth/delete-account/confirm", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       credentials: "include",
       body: JSON.stringify({ token, currentPassword }),
     });

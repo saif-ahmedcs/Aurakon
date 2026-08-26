@@ -11,7 +11,7 @@ import WarriorImage from "../../components/scene/WarriorImage";
 import BackgroundGlow from "../../components/scene/BackgroundGlow";
 import FormInput from "../../components/common/FormInput";
 import { confirmEmailChangeRequest } from "../../services/authApi";
-import { getAccessToken } from "../../services/tokenStore";
+import { getAccessToken, refreshAccessToken } from "../../services/tokenStore";
 
 function ConfirmEmailChangeInner() {
   useAuraIntroScene();
@@ -41,6 +41,9 @@ function ConfirmEmailChangeInner() {
     setError("");
 
     try {
+      if (!getAccessToken()) {
+        await refreshAccessToken();
+      }
       const accessToken = getAccessToken();
       await confirmEmailChangeRequest({
         token,
