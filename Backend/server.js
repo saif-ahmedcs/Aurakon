@@ -1,4 +1,5 @@
 process.env.TZ = "UTC";
+require("./utils/validateEnv");
 const express = require("express");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
