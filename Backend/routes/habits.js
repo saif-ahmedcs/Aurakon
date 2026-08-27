@@ -85,13 +85,29 @@ router.post(
   validate((req) => createLogSchema(req.user.timezone)),
   asyncHandler(async (req, res) => {
     const { date } = req.body;
-    const { log, created, shieldEarned, shieldBalance } = await habitService.logHabit(
+    const {
+      log,
+      created,
+      shieldEarned,
+      shieldBalance,
+      currentStreak,
+      longestStreak,
+      consistencyBonuses,
+    } = await habitService.logHabit(
       req.habitId,
       date,
       req.user.id,
       req.user.timezone,
     );
-    res.status(created ? 201 : 200).json({ log, created, shieldEarned, shieldBalance });
+    res.status(created ? 201 : 200).json({
+      log,
+      created,
+      shieldEarned,
+      shieldBalance,
+      currentStreak,
+      longestStreak,
+      consistencyBonuses,
+    });
   }),
 );
 
@@ -108,13 +124,17 @@ router.delete(
   validate(logDateParamSchema, "params"),
   asyncHandler(async (req, res) => {
     const { date } = req.params;
-    await habitService.undoLog(
+    const { currentStreak, longestStreak } = await habitService.undoLog(
       req.habitId,
       date,
       req.user.id,
       req.user.timezone,
     );
-    res.status(200).json({ message: "Log undone successfully" });
+    res.status(200).json({
+      message: "Log undone successfully",
+      currentStreak,
+      longestStreak,
+    });
   }),
 );
 

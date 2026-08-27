@@ -145,8 +145,10 @@ export function useHabits({ showToast }) {
     const seq = (refreshSeq.current[habitId] =
       (refreshSeq.current[habitId] || 0) + 1);
     try {
-      const dto = await getHabitDetailRequest(habitId);
-      const logs = await listHabitLogsRequest(habitId);
+      const [dto, logs] = await Promise.all([
+        getHabitDetailRequest(habitId),
+        listHabitLogsRequest(habitId),
+      ]);
       if (seq !== refreshSeq.current[habitId]) return;
       setHabits((prev) =>
         prev.map((h) =>
@@ -160,7 +162,11 @@ export function useHabits({ showToast }) {
 
   /* Flip completedToday: checking in posts today's log (or recovers a
    * pending day), un-checking deletes it. Optimistic flip, reverted on
-   * failure. Returns true when the server accepted the change. */
+   * failure. The displayed streak is bumped in the same tick for the
+   * guaranteed-safe case (see streakBump below); either way it is
+   * unconditionally reconciled to the server's value once the request
+   * resolves, so the optimistic number is never left as the final one.
+   * Returns true when the server accepted the change. */
   const toggleHabitCompletion = useCallback(
     async (id, timeZone) => {
       if (toggleInFlight.current) return false;
@@ -194,6 +200,13 @@ export function useHabits({ showToast }) {
             delete history[today];
             delete rawHistory[today];
           }
+          const streakBump =
+            nowDone && !h.missed
+              ? {
+                  currentStreak: h.currentStreak + 1,
+                  longestStreak: Math.max(h.longestStreak, h.currentStreak + 1),
+                }
+              : null;
           return {
             ...h,
             completedToday: nowDone,
@@ -202,6 +215,7 @@ export function useHabits({ showToast }) {
             history,
             rawHistory,
             pendingReviewDates: nextPending,
+            ...streakBump,
           };
         }),
       );
@@ -209,17 +223,34 @@ export function useHabits({ showToast }) {
       try {
         let shieldEarned = false;
         let consistencyBonuses = [];
+        let streakPatch = null;
         if (nowDone) {
           const response = await createHabitLogRequest(id, today);
           shieldEarned = response?.shieldEarned;
           consistencyBonuses = response?.consistencyBonuses || [];
+          if (typeof response?.currentStreak === "number") {
+            streakPatch = {
+              currentStreak: response.currentStreak,
+              longestStreak: response.longestStreak,
+            };
+          }
           if (shieldEarned) {
             showToast("🛡️ Guardian Shield earned!");
           }
         } else {
-          await undoHabitLogRequest(id, today);
+          const response = await undoHabitLogRequest(id, today);
+          if (typeof response?.currentStreak === "number") {
+            streakPatch = {
+              currentStreak: response.currentStreak,
+              longestStreak: response.longestStreak,
+            };
+          }
         }
-        // Server-side streaks/pending/XP changed - pull the truth back.
+        if (streakPatch) {
+          setHabits((prev) =>
+            prev.map((h) => (h.id === id ? { ...h, ...streakPatch } : h)),
+          );
+        }
         refreshHabit(id, timeZone);
         return { success: true, consistencyBonuses };
       } catch (err) {
@@ -245,7 +276,7 @@ export function useHabits({ showToast }) {
   const undoCheckIn = useCallback(
     async (habitId, dateStr, timeZone) => {
       try {
-        await undoHabitLogRequest(habitId, dateStr);
+        const response = await undoHabitLogRequest(habitId, dateStr);
         setHabits((prev) =>
           prev.map((h) => {
             if (h.id !== habitId) return h;
@@ -258,6 +289,14 @@ export function useHabits({ showToast }) {
               completedToday:
                 dateStr === todayInZone(timeZone) ? false : h.completedToday,
               count: Math.max(0, h.count - 1),
+              currentStreak:
+                typeof response?.currentStreak === "number"
+                  ? response.currentStreak
+                  : h.currentStreak,
+              longestStreak:
+                typeof response?.longestStreak === "number"
+                  ? response.longestStreak
+                  : h.longestStreak,
               history,
               rawHistory,
             };

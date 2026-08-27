@@ -219,9 +219,13 @@ async function reconcileShieldsFromDate(
     finalLongestStreak,
     tx,
   );
+  const streakResult = {
+    currentStreak: finalCurrentStreak,
+    longestStreak: finalLongestStreak,
+  };
 
   if (!isShieldEligibleDifficulty(habit.difficulty)) {
-    return;
+    return streakResult;
   }
 
   const presentDatesFromDate = [
@@ -263,6 +267,8 @@ async function reconcileShieldsFromDate(
   if (!stillPendingReview) {
     await habitModel.clearShieldDeferral(habitId, tx);
   }
+
+  return streakResult;
 }
 
 module.exports = {

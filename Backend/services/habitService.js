@@ -197,6 +197,11 @@ async function logHabit(habitId, date, userId, timezone) {
     );
     shieldBalanceBefore = progressBefore?.shield_balance ?? 0;
 
+    let finalStreak = {
+      currentStreak: habitStreak,
+      longestStreak: habitLongestStreak,
+    };
+
     if (created) {
       await habitModel.updateStreaks(
         habitId,
@@ -222,7 +227,7 @@ async function logHabit(habitId, date, userId, timezone) {
         );
       }
     } else {
-      await guardianShieldService.reconcileShieldsFromDate(
+      finalStreak = await guardianShieldService.reconcileShieldsFromDate(
         userId,
         habitId,
         logs,
@@ -247,6 +252,8 @@ async function logHabit(habitId, date, userId, timezone) {
       created,
       shieldEarned,
       shieldBalance: newShieldBalance,
+      currentStreak: finalStreak.currentStreak,
+      longestStreak: finalStreak.longestStreak,
       consistencyBonuses: rewardResult.consistencyBonuses || [],
     };
   });
@@ -299,7 +306,7 @@ async function undoLog(habitId, date, userId, timezone) {
       tx,
       fullCompletionCache,
     );
-    await guardianShieldService.reconcileShieldsFromDate(
+    const finalStreak = await guardianShieldService.reconcileShieldsFromDate(
       userId,
       habitId,
       logs,
@@ -310,6 +317,11 @@ async function undoLog(habitId, date, userId, timezone) {
     );
 
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+
+    return {
+      currentStreak: finalStreak?.currentStreak ?? habit.current_streak ?? 0,
+      longestStreak: finalStreak?.longestStreak ?? habit.longest_streak ?? 0,
+    };
   });
 }
 
