@@ -279,10 +279,10 @@ function getAccountDeletionEmailHtml(appBaseUrl, rawToken) {
   const bodyHtml = `
     <p style="margin: 0 0 12px;">Greetings,</p>
     <p style="margin: 0 0 12px;">
-      A request was made to permanently delete your Aurakon account. All streaks, XP, aura stats, and progression will be permanently removed.
+      We received a request to close your Aurakon account. Confirming will remove your streaks, XP, and progression.
     </p>
     <p style="margin: 0;">
-      If you are certain you wish to proceed, click the button below to confirm deletion.
+      If you'd like to proceed, click the button below to confirm.
     </p>
   `;
 
@@ -295,7 +295,7 @@ function getAccountDeletionEmailHtml(appBaseUrl, rawToken) {
       url: confirmUrl,
     },
     secondaryNotice:
-      "⚠️ <strong>Warning:</strong> This action cannot be undone. Link is valid for 1 hour.",
+      "This link is valid for 1 hour and can only be used once. If you didn't request this, no action is needed.",
     fallbackLink: confirmUrl,
   });
 }

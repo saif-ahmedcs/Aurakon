@@ -197,6 +197,12 @@ export default function DashboardApp() {
     [refreshHabit, meData],
   );
 
+  const handleAccountTimeZoneChange = useCallback((nextTz) => {
+    setMeData((prev) =>
+      prev ? { ...prev, timezone: nextTz, timezoneSource: "manual" } : prev,
+    );
+  }, []);
+
   const account = useAccountFlow({
     showToast,
     email: meData ? meData.email : "",
@@ -207,6 +213,7 @@ export default function DashboardApp() {
           day: "numeric",
         })
       : "",
+    onTimeZoneChange: handleAccountTimeZoneChange,
   });
 
   /* -------------------------------------------------------------- */

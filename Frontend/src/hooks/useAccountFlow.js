@@ -24,7 +24,12 @@ import { openEmailProvider } from "../utils/emailProvider";
  *   the account is only deleted once that link is confirmed on the
  *   /confirm-account-deletion route.
  * ------------------------------------------------------------------ */
-export function useAccountFlow({ showToast, email, createdAt }) {
+export function useAccountFlow({
+  showToast,
+  email,
+  createdAt,
+  onTimeZoneChange,
+}) {
   const [myAccountOpen, setMyAccountOpen] = useState(false);
   const [checkEmailOpen, setCheckEmailOpen] = useState(false);
   const [deleteCheckEmailOpen, setDeleteCheckEmailOpen] = useState(false);
@@ -93,9 +98,14 @@ export function useAccountFlow({ showToast, email, createdAt }) {
   const changeTimeZone = useCallback(
     async (nextTz) => {
       try {
-        await updateTimezoneRequest(nextTz);
-        setAccountTimeZone(nextTz);
+        const result = await updateTimezoneRequest(nextTz);
+        const confirmedTz = result ? result.timezone : nextTz;
+        setAccountTimeZone(confirmedTz);
         setAccountTimeZoneSource("manual");
+
+        if (onTimeZoneChange) {
+          onTimeZoneChange(confirmedTz);
+        }
         showToast("Time zone updated");
         return true;
       } catch (err) {
@@ -103,7 +113,7 @@ export function useAccountFlow({ showToast, email, createdAt }) {
         return false;
       }
     },
-    [showToast],
+    [showToast, onTimeZoneChange],
   );
 
   /* Server-side validated password change. Returns field errors so
