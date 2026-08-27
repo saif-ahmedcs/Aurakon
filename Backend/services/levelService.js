@@ -12,9 +12,7 @@ async function recalculateAndPersistLevel(userId, tx, timezone) {
   const fullyCompletedDays = stats.fullyCompletedDays || 0;
   const lifetimeCompleted = stats.lifetimeCompleted || 0;
   const lifetimeTotal = stats.lifetimeTotal || 0;
-
-  const consistencyRatio =
-    lifetimeTotal > 0 ? lifetimeCompleted / lifetimeTotal : 0;
+  const daysTracked = stats.daysTracked || 0;
 
   const today = todayInTimezone(timezone);
   const currentStreak = await streakService.reconcileStaleStreak(
@@ -27,10 +25,11 @@ async function recalculateAndPersistLevel(userId, tx, timezone) {
 
   const newLevel = computeLevel(
     fullyCompletedDays,
-    consistencyRatio,
+    lifetimeCompleted,
+    lifetimeTotal,
+    daysTracked,
     streakStability,
     progress.current_level || 1,
-    lifetimeTotal,
   );
 
   await userProgressModel.updateLevel(userId, newLevel, tx);

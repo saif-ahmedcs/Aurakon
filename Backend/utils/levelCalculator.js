@@ -5,27 +5,38 @@ function toValidNumber(value) {
 
 const MIN_LEVEL = 1;
 
-// Consistency credit is capped at this many virtual days, and scaled down
-// by the habit-days actually tracked, so a short-but-perfect history can
-// never masquerade as ten days of consistency.
 const CONSISTENCY_VIRTUAL_DAY_CAP = 10;
-const DEFAULT_TRACKED_DAYS = CONSISTENCY_VIRTUAL_DAY_CAP;
+const CONSISTENCY_PRIOR_WEIGHT = 20;
+const CONSISTENCY_PRIOR_RATIO = 0.5;
+
+function smoothedConsistencyRatio(lifetimeCompleted, lifetimeTotal) {
+  const safeCompleted = toValidNumber(lifetimeCompleted);
+  const safeTotal = toValidNumber(lifetimeTotal);
+  return (
+    (safeCompleted + CONSISTENCY_PRIOR_RATIO * CONSISTENCY_PRIOR_WEIGHT) /
+    (safeTotal + CONSISTENCY_PRIOR_WEIGHT)
+  );
+}
 
 function computeLevel(
   fullyCompletedDays,
-  consistencyRatio,
+  lifetimeCompleted,
+  lifetimeTotal,
+  daysTracked,
   streakStability,
   previousLevel = MIN_LEVEL,
-  trackedDays = DEFAULT_TRACKED_DAYS,
 ) {
   const safeFullyCompletedDays = toValidNumber(fullyCompletedDays);
-  const safeConsistencyRatio = toValidNumber(consistencyRatio);
+  const safeDaysTracked = toValidNumber(daysTracked);
   const safeStreakStability = toValidNumber(streakStability);
   const safePreviousLevel = toValidNumber(previousLevel);
 
+  const consistencyRatio = smoothedConsistencyRatio(
+    lifetimeCompleted,
+    lifetimeTotal,
+  );
   const consistencyCredit =
-    safeConsistencyRatio *
-    Math.min(toValidNumber(trackedDays), CONSISTENCY_VIRTUAL_DAY_CAP);
+    consistencyRatio * Math.min(safeDaysTracked, CONSISTENCY_VIRTUAL_DAY_CAP);
   const stabilityBonus = 1 + 0.5 * safeStreakStability;
   const effectiveDays =
     (safeFullyCompletedDays + consistencyCredit) * stabilityBonus;
@@ -34,4 +45,10 @@ function computeLevel(
   return Math.max(computedLevel, safePreviousLevel, MIN_LEVEL);
 }
 
-module.exports = { computeLevel };
+module.exports = {
+  computeLevel,
+  smoothedConsistencyRatio,
+  CONSISTENCY_VIRTUAL_DAY_CAP,
+  CONSISTENCY_PRIOR_WEIGHT,
+  CONSISTENCY_PRIOR_RATIO,
+};

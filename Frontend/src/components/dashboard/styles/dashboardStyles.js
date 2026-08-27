@@ -43,6 +43,23 @@ export const STYLES = `
 .aura-app button { font-family: inherit; cursor: pointer; }
 .aura-app :focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; border-radius: 6px; }
 
+/* Themed scrollbars - every scrollable surface (modals, overlays, the
+ * page itself) otherwise falls back to the browser's default scrollbar,
+ * which renders as a plain light/white bar with square edges and reads
+ * as a foreign UI element dropped onto the dark aura theme. This makes
+ * the thumb a slim glowing accent pill that floats off the track instead. */
+.aura-app { scrollbar-width: thin; scrollbar-color: var(--accent-soft) transparent; }
+.aura-app *::-webkit-scrollbar { width: 8px; height: 8px; }
+.aura-app *::-webkit-scrollbar-track { background: transparent; }
+.aura-app *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+  border-radius: 999px;
+}
+.aura-app *::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+}
+.aura-app *::-webkit-scrollbar-corner { background: transparent; }
+
 /* Section titles use the ornate "Cinzel Decorative" display face, with
  * "Shippori Mincho" as a Japanese-serif fallback; everything else
  * (section content/body text) stays on the "Zen Old Mincho" royal
