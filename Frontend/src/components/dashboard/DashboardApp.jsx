@@ -25,6 +25,7 @@ import { useAccountFlow } from "../../hooks/useAccountFlow";
 import { useHabits } from "../../hooks/useHabits";
 import { useAuraEnergy } from "../../hooks/useAuraEnergy";
 import { useReviewSession } from "../../hooks/useReviewSession";
+import { useDayBoundary } from "../../hooks/useDayBoundary";
 
 import { DashboardShell } from "./components/DashboardShell";
 import { ConfirmDialog } from "./components/modals/ConfirmDialog";
@@ -299,6 +300,42 @@ export default function DashboardApp() {
     })();
   }, [sessionReady, openReviewSession]);
 
+  /* -------------------------------------------------------------- */
+  /* Day-boundary detection                                          */
+  /*                                                                */
+  /* When the user's local day changes (e.g. crossing midnight in    */
+  /* their configured timezone), reload habits and progress so       */
+  /* completedToday, pendingReviewDates and streaks stay current.    */
+  /* The scheduled timeout fires precisely at midnight in the user's */
+  /* timezone; a visibilitychange listener catches the case where    */
+  /* the tab was backgrounded past midnight.                         */
+  /* -------------------------------------------------------------- */
+
+  const handleDayChange = useCallback(async () => {
+    const tz = meData ? meData.timezone : undefined;
+    if (!tz) return;
+    try {
+      await loadHabits(tz);
+    } catch {
+      // Transient - keep showing the last known state.
+    }
+    refreshProgress();
+
+    // Re-check whether a pending-review session should auto-popup
+    // for the new day (the backend's finalizeReviews runs lazily on
+    // API calls, so loadHabits above already triggered it).
+    try {
+      const summary = await getPendingReviewSummaryRequest();
+      if (summary && summary.shouldAutoPopup) {
+        openReviewSession();
+      }
+    } catch {
+      // Non-critical.
+    }
+  }, [meData, loadHabits, refreshProgress, openReviewSession]);
+
+  useDayBoundary(meData ? meData.timezone : null, handleDayChange);
+
   const [menuOpen, setMenuOpen] = useState(false);
   // Swipe-to-close for the compact popover menu: track the touch start
   // point, then close if the user drags past a small threshold in any
@@ -384,11 +421,12 @@ export default function DashboardApp() {
       if (turningOn) {
         pulseAura();
         showToast("+" + (habit ? habit.xp : 0) + " XP · Aura rising");
-        
+
         // Show distinct toast for consistency bonuses
         if (result.consistencyBonuses && result.consistencyBonuses.length > 0) {
           for (const bonus of result.consistencyBonuses) {
-            const bonusLabel = bonus.bonusType === '7day' ? '7-Day Streak' : '30-Day Streak';
+            const bonusLabel =
+              bonus.bonusType === "7day" ? "7-Day Streak" : "30-Day Streak";
             const bonusXp = bonus.delta;
             showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonusXp} XP!`);
           }
@@ -641,6 +679,10 @@ export default function DashboardApp() {
           timeZone={
             account.accountTimeZone || (meData ? meData.timezone : "UTC")
           }
+          timeZoneSource={
+            account.accountTimeZoneSource ||
+            (meData ? meData.timezoneSource : "default")
+          }
           onChangeTimeZone={account.changeTimeZone}
           onChangePassword={account.changePassword}
           onForgotPassword={account.startPasswordReset}
@@ -793,6 +835,7 @@ export default function DashboardApp() {
           }
           onReviewAll={(habitId) => review.openReviewSession(habitId)}
           onUndoCheckIn={handleUndoCheckIn}
+          timeZone={meData ? meData.timezone : undefined}
         />
       )}
 

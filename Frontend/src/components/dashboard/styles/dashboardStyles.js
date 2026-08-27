@@ -1499,6 +1499,15 @@ button.detail-day:hover { filter: brightness(1.18); }
 .account-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
 .account-section-title { margin: 0 0 14px; font-size: 12.5px; font-weight: 700; letter-spacing: .03em; color: var(--t1); }
 
+.account-tz-suggestion {
+  margin: 0 0 14px; padding: 12px 14px; border-radius: 10px;
+  background: rgba(255, 200, 87, 0.08); border: 1px solid rgba(255, 200, 87, 0.28);
+  font-size: 12.5px; color: var(--t2); line-height: 1.5;
+}
+.account-tz-suggestion-actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.account-tz-suggestion-actions .btn-primary { width: auto; padding: 8px 14px; min-height: 36px; }
+.account-tz-suggestion-actions .btn.btn-ghost { min-height: 36px; padding: 8px 14px; }
+
 .account-password-input-wrap { position: relative; }
 .account-password-input-wrap .edit-field-input {
   padding-right: 38px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -1514,6 +1523,7 @@ button.detail-day:hover { filter: brightness(1.18); }
 .account-forgot-link { font-size: 11.5px; font-weight: 600; color: var(--accent-bright); background: none; border: none; }
 .account-forgot-link:hover { text-decoration: underline; }
 .account-success-msg { margin: -4px 0 14px; font-size: 12px; color: #8fd6ac; font-weight: 600; }
+.account-tz-unconfirmed-note { margin: -4px 0 14px; font-size: 11.5px; color: var(--t3); }
 
 .btn-primary {
   position: relative; overflow: hidden;

@@ -23,6 +23,12 @@ const registerSchema = z.object({
   }),
   username: z.string().trim().min(3).max(20),
   gender: z.enum(["male", "female"]),
+  timezone: z
+    .string()
+    .min(1)
+    .max(64)
+    .refine(isValidTimezone, { message: "invalid IANA timezone" })
+    .optional(),
 });
 
 const setGenderSchema = z.object({

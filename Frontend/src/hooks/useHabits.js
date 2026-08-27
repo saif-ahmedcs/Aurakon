@@ -80,8 +80,7 @@ function buildHabitState(dto, logs, timeZone, existing) {
 
   const today = todayInZone(timeZone);
   const completedToday = history[today] === "done";
-  const missedToday =
-    !completedToday && pendingReviewDates.includes(today);
+  const missedToday = !completedToday && pendingReviewDates.includes(today);
 
   return {
     ...(existing || {}),
@@ -95,7 +94,9 @@ function buildHabitState(dto, logs, timeZone, existing) {
     count,
     completedToday,
     missed: missedToday,
-    createdAt: existing ? existing.createdAt : isoDateInZone(dto.createdAt, timeZone),
+    createdAt: existing
+      ? existing.createdAt
+      : isoDateInZone(dto.createdAt, timeZone),
     history,
     rawHistory,
     pendingReviewDates,
@@ -119,24 +120,21 @@ export function useHabits({ showToast }) {
 
   /* Initial load: habits plus each habit's log history (needed for the
    * completed-today flags, calendars and all-time counters). */
-  const load = useCallback(
-    async (timeZone) => {
-      const dtos = await listHabitsRequest();
-      const withLogs = await Promise.all(
-        dtos.map(async (dto) => {
-          try {
-            return mapHabit(dto, await listHabitLogsRequest(dto.id), timeZone);
-          } catch {
-            // A failing log lookup shouldn't blank the whole panel.
-            return mapHabit(dto, [], timeZone);
-          }
-        }),
-      );
-      setHabits(withLogs);
-      setLoaded(true);
-    },
-    [],
-  );
+  const load = useCallback(async (timeZone) => {
+    const dtos = await listHabitsRequest();
+    const withLogs = await Promise.all(
+      dtos.map(async (dto) => {
+        try {
+          return mapHabit(dto, await listHabitLogsRequest(dto.id), timeZone);
+        } catch {
+          // A failing log lookup shouldn't blank the whole panel.
+          return mapHabit(dto, [], timeZone);
+        }
+      }),
+    );
+    setHabits(withLogs);
+    setLoaded(true);
+  }, []);
 
   /* Re-sync one habit from the backend after a mutation. Streaks and
    * pending reviews are computed server-side (with bridging rules the
@@ -144,7 +142,8 @@ export function useHabits({ showToast }) {
    * by an authoritative refresh. Failures are silent: the optimistic
    * state stays until the next sync. */
   const refreshHabit = useCallback(async (habitId, timeZone) => {
-    const seq = ++refreshSeq.current[habitId];
+    const seq = (refreshSeq.current[habitId] =
+      (refreshSeq.current[habitId] || 0) + 1);
     try {
       const dto = await getHabitDetailRequest(habitId);
       const logs = await listHabitLogsRequest(habitId);
@@ -274,14 +273,11 @@ export function useHabits({ showToast }) {
     [showToast, refreshHabit],
   );
 
-  const deleteHabit = useCallback(
-    async (id) => {
-      await deleteHabitRequest(id);
-      setHabits((prev) => prev.filter((h) => h.id !== id));
-      return true;
-    },
-    [],
-  );
+  const deleteHabit = useCallback(async (id) => {
+    await deleteHabitRequest(id);
+    setHabits((prev) => prev.filter((h) => h.id !== id));
+    return true;
+  }, []);
 
   /* The backend only persists renames; difficulty is fixed at creation. */
   const updateHabit = useCallback(
@@ -298,15 +294,12 @@ export function useHabits({ showToast }) {
     [habits, replaceHabit],
   );
 
-  const addHabit = useCallback(
-    async ({ name, difficulty }) => {
-      const dto = await createHabitRequest({ title: name, difficulty });
-      const created = mapHabit(dto, [], undefined);
-      setHabits((prev) => [...prev, created]);
-      return created;
-    },
-    [],
-  );
+  const addHabit = useCallback(async ({ name, difficulty }) => {
+    const dto = await createHabitRequest({ title: name, difficulty });
+    const created = mapHabit(dto, [], undefined);
+    setHabits((prev) => [...prev, created]);
+    return created;
+  }, []);
 
   /* Resolve a pending-review day once the server accepted the review
    * decision: drop it from pendingReviewDates and write the outcome

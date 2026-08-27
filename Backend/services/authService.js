@@ -20,11 +20,18 @@ const {
   generateRefreshToken,
   generateEmailVerificationToken,
 } = require("../utils/tokenUtils");
+const { DEFAULT_TIMEZONE, isValidTimezone } = require("../utils/timezone");
 
 // ------------- REGISTER --------------
-async function register(email, password, username, gender) {
+async function register(email, password, username, gender, timezone) {
   const normalizedEmail = email.toLowerCase();
   const trimmedUsername = username;
+  const timezoneWasDetected = Boolean(timezone && isValidTimezone(timezone));
+  const resolvedTimezone = timezoneWasDetected ? timezone : DEFAULT_TIMEZONE;
+  // 'detected' just means the client's Intl guess was stored, not that the
+  // user confirmed it — still eligible for the account-page suggestion
+  // nudge if it later turns out to disagree with their device.
+  const timezoneSource = timezoneWasDetected ? "detected" : "default";
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   const { rawToken, tokenHash, expiresAt } = generateEmailVerificationToken();
@@ -44,6 +51,8 @@ async function register(email, password, username, gender) {
       passwordHash,
       trimmedUsername,
       gender,
+      resolvedTimezone,
+      timezoneSource,
       tokenHash,
       expiresAt,
       tx,

@@ -11,7 +11,10 @@ async function handleResponse(res) {
   if (!res.ok) {
     throw {
       status: res.status,
-      error: data?.error || data?.message || "Something went wrong. Please try again.",
+      error:
+        data?.error ||
+        data?.message ||
+        "Something went wrong. Please try again.",
       fields: data?.fields,
       retryAfter: data?.retryAfter,
     };
@@ -30,14 +33,20 @@ function handleNetworkError() {
 /**
  * POST /api/auth/register
  */
-export async function registerRequest({ email, password, username, gender }) {
+export async function registerRequest({
+  email,
+  password,
+  username,
+  gender,
+  timezone,
+}) {
   let res;
   try {
     res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ email, password, username, gender }),
+      body: JSON.stringify({ email, password, username, gender, timezone }),
     });
   } catch {
     throw handleNetworkError();
@@ -87,10 +96,13 @@ export async function resendVerificationRequest({ email }) {
 export async function checkVerificationTokenRequest(token) {
   let res;
   try {
-    res = await fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`, {
-      method: "GET",
-      credentials: "include",
-    });
+    res = await fetch(
+      `/api/auth/verify-email?token=${encodeURIComponent(token)}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
   } catch {
     throw handleNetworkError();
   }
@@ -139,10 +151,13 @@ export async function forgotPasswordRequest({ email }) {
 export async function checkResetTokenRequest(token) {
   let res;
   try {
-    res = await fetch(`/api/auth/reset-password?token=${encodeURIComponent(token)}`, {
-      method: "GET",
-      credentials: "include",
-    });
+    res = await fetch(
+      `/api/auth/reset-password?token=${encodeURIComponent(token)}`,
+      {
+        method: "GET",
+        credentials: "include",
+      },
+    );
   } catch {
     throw handleNetworkError();
   }
@@ -191,7 +206,11 @@ export async function setGenderRequest({ gender, accessToken }) {
 /**
  * POST /api/auth/verify-email-change/confirm
  */
-export async function confirmEmailChangeRequest({ token, currentPassword, accessToken }) {
+export async function confirmEmailChangeRequest({
+  token,
+  currentPassword,
+  accessToken,
+}) {
   let res;
   try {
     res = await fetch("/api/auth/verify-email-change/confirm", {
@@ -212,7 +231,11 @@ export async function confirmEmailChangeRequest({ token, currentPassword, access
 /**
  * POST /api/auth/delete-account/confirm
  */
-export async function confirmAccountDeletionRequest({ token, currentPassword, accessToken }) {
+export async function confirmAccountDeletionRequest({
+  token,
+  currentPassword,
+  accessToken,
+}) {
   let res;
   try {
     res = await fetch("/api/auth/delete-account/confirm", {

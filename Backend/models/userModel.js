@@ -29,15 +29,26 @@ async function createUser(
   passwordHash,
   username,
   gender,
+  timezone,
+  timezoneSource,
   tokenHash,
   expiresAt,
   db = pool,
 ) {
   try {
     const [result] = await db.query(
-      `INSERT INTO users (email, password_hash, username, gender, is_verified, email_verification_token_hash, email_verification_expires, created_at)
-       VALUES (?, ?, ?, ?, false, ?, ?, UTC_TIMESTAMP())`,
-      [email, passwordHash, username, gender, tokenHash, expiresAt],
+      `INSERT INTO users (email, password_hash, username, gender, timezone, timezone_source, is_verified, email_verification_token_hash, email_verification_expires, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, false, ?, ?, UTC_TIMESTAMP())`,
+      [
+        email,
+        passwordHash,
+        username,
+        gender,
+        timezone,
+        timezoneSource,
+        tokenHash,
+        expiresAt,
+      ],
     );
     return result.insertId;
   } catch (err) {
@@ -58,7 +69,7 @@ async function findById(id, db = pool) {
 
 async function getAccountInfo(id, db = pool) {
   const [rows] = await db.query(
-    "SELECT email, created_at, gender, timezone FROM users WHERE id = ?",
+    "SELECT email, created_at, gender, timezone, timezone_source FROM users WHERE id = ?",
     [id],
   );
   return rows[0] || null;
@@ -90,10 +101,10 @@ async function setGender(userId, gender, db = pool) {
 }
 
 async function updateTimezone(userId, timezone, db = pool) {
-  await db.query("UPDATE users SET timezone = ? WHERE id = ?", [
-    timezone,
-    userId,
-  ]);
+  await db.query(
+    "UPDATE users SET timezone = ?, timezone_source = 'manual' WHERE id = ?",
+    [timezone, userId],
+  );
 }
 
 async function updateUsernameIfEligible(

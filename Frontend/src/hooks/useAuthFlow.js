@@ -37,7 +37,10 @@ function meetsPasswordPolicy(password) {
   );
 }
 
-export function useAuthFlow({ initialScreen = "login", initialToken = null } = {}) {
+export function useAuthFlow({
+  initialScreen = "login",
+  initialToken = null,
+} = {}) {
   const [screen, setScreen] = useState(initialScreen);
   const [exiting, setExiting] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -174,7 +177,10 @@ export function useAuthFlow({ initialScreen = "login", initialToken = null } = {
               : `${message} Try again in ${err.retryAfter} seconds.`;
         }
 
-        if (err.status === 403 && message.toLowerCase().includes("verify your email")) {
+        if (
+          err.status === 403 &&
+          message.toLowerCase().includes("verify your email")
+        ) {
           setLoginNeedsVerification(true);
           setRegisteredEmail(email);
         }
@@ -227,7 +233,9 @@ export function useAuthFlow({ initialScreen = "login", initialToken = null } = {
       }
       if (!gender) {
         setGenderError(true);
-        setSignupError("Please select your warrior's gender to awaken your Aura.");
+        setSignupError(
+          "Please select your warrior's gender to awaken your Aura.",
+        );
         return;
       }
 
@@ -235,13 +243,27 @@ export function useAuthFlow({ initialScreen = "login", initialToken = null } = {
       setSignupError("");
       setSignupLoading(true);
 
+      let detectedTimezone;
       try {
-        await registerRequest({ email, password, username, gender });
+        detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      } catch {
+        detectedTimezone = undefined;
+      }
+
+      try {
+        await registerRequest({
+          email,
+          password,
+          username,
+          gender,
+          timezone: detectedTimezone,
+        });
         setRegisteredEmail(email);
         setResendCooldown(60); // 60s cooldown
         goTo("verify");
       } catch (err) {
-        let message = err.error || "Failed to create account. Please try again.";
+        let message =
+          err.error || "Failed to create account. Please try again.";
         if (err.status === 409) {
           message = "An account with this email already exists.";
         }
@@ -289,18 +311,26 @@ export function useAuthFlow({ initialScreen = "login", initialToken = null } = {
         setResendFeedback({
           type: "success",
           message:
-            result.message || "A new verification link has been sent to your inbox!",
+            result.message ||
+            "A new verification link has been sent to your inbox!",
         });
       } catch (err) {
         setResendFeedback({
           type: "error",
-          message: err.error || "Unable to resend email right now. Please try later.",
+          message:
+            err.error || "Unable to resend email right now. Please try later.",
         });
       } finally {
         setResendLoading(false);
       }
     },
-    [resendLoading, resendCooldown, registeredEmail, formData.suEmail, formData.loginEmail],
+    [
+      resendLoading,
+      resendCooldown,
+      registeredEmail,
+      formData.suEmail,
+      formData.loginEmail,
+    ],
   );
 
   // Forgot password handler
@@ -325,7 +355,8 @@ export function useAuthFlow({ initialScreen = "login", initialToken = null } = {
         setResendCooldown(60);
         goTo("reset_sent");
       } catch (err) {
-        let message = err.error || "Failed to send reset link. Please try again.";
+        let message =
+          err.error || "Failed to send reset link. Please try again.";
         if (err.status === 429 && typeof err.retryAfter === "number") {
           const mins = Math.ceil(err.retryAfter / 60);
           message = `Too many requests. Please try again in ${mins} minute${mins > 1 ? "s" : ""}.`;
@@ -349,7 +380,9 @@ export function useAuthFlow({ initialScreen = "login", initialToken = null } = {
       const confirmPassword = formData.rsConfirmPassword;
 
       if (!token) {
-        setResetError("Reset token is missing or invalid. Please request a new link.");
+        setResetError(
+          "Reset token is missing or invalid. Please request a new link.",
+        );
         return;
       }
       if (!newPassword) {
@@ -374,11 +407,14 @@ export function useAuthFlow({ initialScreen = "login", initialToken = null } = {
         await resetPasswordRequest({ token, newPassword });
         goTo("reset_ok");
       } catch (err) {
-        let message = err.error || "Failed to reset password. Please try again.";
+        let message =
+          err.error || "Failed to reset password. Please try again.";
         if (err.status === 400 && message.toLowerCase().includes("different")) {
-          message = "New password must be different from your previous password.";
+          message =
+            "New password must be different from your previous password.";
         } else if (err.status === 400 || err.status === 404) {
-          message = "This password reset link is invalid or has expired. Please request a new one.";
+          message =
+            "This password reset link is invalid or has expired. Please request a new one.";
         }
         setResetError(message);
       } finally {
@@ -391,7 +427,10 @@ export function useAuthFlow({ initialScreen = "login", initialToken = null } = {
   const handleOpenEmailApp = (e) => {
     if (e) e.preventDefault();
     const targetEmail =
-      registeredEmail || formData.suEmail || formData.fpEmail || formData.loginEmail;
+      registeredEmail ||
+      formData.suEmail ||
+      formData.fpEmail ||
+      formData.loginEmail;
     openEmailProvider(targetEmail);
   };
 

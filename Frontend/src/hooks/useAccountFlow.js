@@ -29,6 +29,7 @@ export function useAccountFlow({ showToast, email, createdAt }) {
   const [checkEmailOpen, setCheckEmailOpen] = useState(false);
   const [deleteCheckEmailOpen, setDeleteCheckEmailOpen] = useState(false);
   const [accountTimeZone, setAccountTimeZone] = useState(null);
+  const [accountTimeZoneSource, setAccountTimeZoneSource] = useState(null);
 
   // Full sign-out screen shown after "Log Out".
   const [loggedOut, setLoggedOut] = useState(false);
@@ -94,6 +95,7 @@ export function useAccountFlow({ showToast, email, createdAt }) {
       try {
         await updateTimezoneRequest(nextTz);
         setAccountTimeZone(nextTz);
+        setAccountTimeZoneSource("manual");
         showToast("Time zone updated");
         return true;
       } catch (err) {
@@ -106,28 +108,25 @@ export function useAccountFlow({ showToast, email, createdAt }) {
 
   /* Server-side validated password change. Returns field errors so
    * MyAccountPage can place them under the matching inputs. */
-  const changePassword = useCallback(
-    async (currentPassword, newPassword) => {
-      try {
-        await changePasswordRequest(currentPassword, newPassword);
-        return { ok: true };
-      } catch (err) {
-        const fieldErrors = {};
-        if (Array.isArray(err.fields)) {
-          for (const f of err.fields) {
-            fieldErrors[f.path] = f.message;
-          }
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    try {
+      await changePasswordRequest(currentPassword, newPassword);
+      return { ok: true };
+    } catch (err) {
+      const fieldErrors = {};
+      if (Array.isArray(err.fields)) {
+        for (const f of err.fields) {
+          fieldErrors[f.path] = f.message;
         }
-        return {
-          ok: false,
-          error: err.error || "Could not update the password.",
-          fieldErrors,
-          retryAfter: err.retryAfter,
-        };
       }
-    },
-    [],
-  );
+      return {
+        ok: false,
+        error: err.error || "Could not update the password.",
+        fieldErrors,
+        retryAfter: err.retryAfter,
+      };
+    }
+  }, []);
 
   const returnToSignIn = useCallback(() => {
     window.location.href = "/";
@@ -137,6 +136,7 @@ export function useAccountFlow({ showToast, email, createdAt }) {
     accountEmail: email,
     accountCreatedAt: createdAt,
     accountTimeZone,
+    accountTimeZoneSource,
     loggedOut,
     myAccountOpen,
     checkEmailOpen,

@@ -22,26 +22,72 @@ export function buildMonthWeeks(year, month) {
   return weeks;
 }
 
-/* "Today" in a given IANA time zone as YYYY-MM-DD. The backend owns
- * day boundaries via the user's stored time zone (see backend
- * docs/01-engineering-standards.md), so check-ins and "completed
- * today" flags must be computed against that zone rather than the
- * browser's. */
+export function yearMonthInZone(timeZone) {
+  const tz = timeZone || undefined;
+  if (tz) {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        year: "numeric",
+        month: "numeric",
+      }).formatToParts(new Date());
+      const y = parseInt(parts.find((p) => p.type === "year").value, 10);
+      const m = parseInt(parts.find((p) => p.type === "month").value, 10) - 1;
+      return { year: y, month: m };
+    } catch {}
+  }
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() };
+}
+
 export function todayInZone(timeZone) {
   const tz = timeZone || undefined;
   if (tz) {
     try {
-      // en-CA yields ISO-like YYYY-MM-DD formatting.
       return new Intl.DateTimeFormat("en-CA", {
         timeZone: tz,
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
       }).format(new Date());
-    } catch {
-      // Unknown zone - fall through to browser-local below.
-    }
+    } catch {}
   }
   const now = new Date();
   return dateKey(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+export function msUntilNextMidnight(timeZone) {
+  if (!timeZone) return null;
+  try {
+    const now = Date.now();
+    const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const localDateAt = (ms) => dateFormatter.format(new Date(ms));
+    const todayStr = localDateAt(now);
+
+    let lo = now;
+    let hi = now + 26 * 60 * 60 * 1000;
+
+    if (localDateAt(hi) === todayStr) {
+      return 24 * 60 * 60 * 1000;
+    }
+
+    while (hi - lo > 1000) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (localDateAt(mid) === todayStr) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+
+    const msUntilMidnight = hi - now;
+    return msUntilMidnight > 0 ? msUntilMidnight : 24 * 60 * 60 * 1000;
+  } catch {
+    return null;
+  }
 }

@@ -19,6 +19,7 @@ CREATE TABLE users (
   last_full_completion_date DATE NULL,
   shield_balance INT NOT NULL DEFAULT 0,
   timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+  timezone_source ENUM('default', 'detected', 'manual') NOT NULL DEFAULT 'default',
   username_changed_at DATETIME NULL,
   password_changed_at DATETIME NULL,
   failed_login_count INT NOT NULL DEFAULT 0,

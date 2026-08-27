@@ -32,7 +32,7 @@ async function updateTimezone(userId, timezone) {
     throw new UnauthorizedError("user not found");
   }
 
-  if (user.timezone === timezone) {
+  if (user.timezone === timezone && user.timezone_source === "manual") {
     return { timezone };
   }
 
@@ -103,6 +103,7 @@ async function getCurrentUser(userId) {
     createdAt: toIsoTimestamp(account.created_at),
     gender: account.gender,
     timezone: account.timezone,
+    timezoneSource: account.timezone_source,
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { TIME_ZONE_OPTIONS } from "../../../../constants/account";
 import { PasswordField } from "./PasswordField";
 import { ConfirmDialog } from "../modals/ConfirmDialog";
@@ -22,6 +22,7 @@ export function MyAccountPage({
   createdAt,
   gender,
   timeZone,
+  timeZoneSource,
   onChangeTimeZone,
   onChangePassword,
   onForgotPassword,
@@ -40,6 +41,32 @@ export function MyAccountPage({
   const [forgotPwOpen, setForgotPwOpen] = useState(false);
   const [tzSaved, setTzSaved] = useState(false);
   const [pendingTz, setPendingTz] = useState(null);
+  const [tzSuggestionDismissed, setTzSuggestionDismissed] = useState(false);
+
+  // Client-side detection only ever *suggests* an update here — it never
+  // writes the stored timezone itself. The user must explicitly confirm
+  // via the same PATCH /auth/timezone flow as the manual dropdown.
+  const detectedTimeZone = useMemo(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const showTzSuggestion =
+    !tzSuggestionDismissed &&
+    !pendingTz &&
+    detectedTimeZone &&
+    detectedTimeZone !== timeZone;
+
+  const acceptTzSuggestion = () => {
+    setPendingTz(detectedTimeZone);
+  };
+
+  const dismissTzSuggestion = () => {
+    setTzSuggestionDismissed(true);
+  };
 
   const genderLabel = gender
     ? gender.charAt(0).toUpperCase() + gender.slice(1)
@@ -86,7 +113,9 @@ export function MyAccountPage({
     if (!result || !result.ok) {
       const fieldErrors = (result && result.fieldErrors) || {};
       setErrors({
-        ...(fieldErrors.currentPassword ? { currentPw: fieldErrors.currentPassword } : {}),
+        ...(fieldErrors.currentPassword
+          ? { currentPw: fieldErrors.currentPassword }
+          : {}),
         ...(fieldErrors.newPassword ? { newPw: fieldErrors.newPassword } : {}),
       });
       if (result && result.error && Object.keys(fieldErrors).length === 0) {
@@ -145,6 +174,32 @@ export function MyAccountPage({
 
         <div className="account-section">
           <h4 className="account-section-title">Time Zone</h4>
+          {showTzSuggestion && (
+            <div className="account-tz-suggestion" role="status">
+              <span>
+                Your device looks like it's set to{" "}
+                <strong>{detectedTimeZone}</strong>, but your account is using{" "}
+                <strong>{timeZone}</strong>. Streaks and daily resets follow the
+                account setting.
+              </span>
+              <div className="account-tz-suggestion-actions">
+                <button
+                  type="button"
+                  className="btn-primary confirm-actions-btn"
+                  onClick={acceptTzSuggestion}
+                >
+                  Update to {detectedTimeZone}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={dismissTzSuggestion}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
           <div className="edit-field">
             <label className="edit-field-label" htmlFor="account-timezone">
               Time Zone
@@ -168,6 +223,13 @@ export function MyAccountPage({
             </select>
           </div>
           {tzSaved && <p className="account-success-msg">Time zone updated.</p>}
+          {!tzSaved && timeZoneSource && timeZoneSource !== "manual" && (
+            <p className="account-tz-unconfirmed-note">
+              {timeZoneSource === "detected"
+                ? "Set automatically at signup — not yet manually confirmed."
+                : "Never confirmed — streaks are running on this default."}
+            </p>
+          )}
         </div>
 
         <div className="account-section">
@@ -224,7 +286,11 @@ export function MyAccountPage({
             )}
 
             <div className="edit-dialog-actions">
-              <button type="submit" className="btn btn-primary" disabled={savingPassword}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={savingPassword}
+              >
                 Update Password
               </button>
             </div>
@@ -283,9 +349,7 @@ export function MyAccountPage({
             deleteSending ? "Sending..." : "Send Verification Email"
           }
           confirmClassName="btn-danger"
-          onCancel={
-            deleteSending ? () => {} : () => setDeleteStep(null)
-          }
+          onCancel={deleteSending ? () => {} : () => setDeleteStep(null)}
           onConfirm={deleteSending ? () => {} : confirmDeleteRequest}
         />
       )}
@@ -297,8 +361,8 @@ export function MyAccountPage({
           body={
             <>
               Your time zone will change from <strong>{timeZone}</strong> to{" "}
-              <strong>{pendingTz}</strong>. Streaks and daily resets follow
-              this setting.
+              <strong>{pendingTz}</strong>. Streaks and daily resets follow this
+              setting.
             </>
           }
           confirmLabel="Yes, Change It"
@@ -314,8 +378,8 @@ export function MyAccountPage({
           title="Reset Password"
           body={
             <>
-              We'll send a verification link to <strong>{email}</strong>.
-              Follow it to set a new password.
+              We'll send a verification link to <strong>{email}</strong>. Follow
+              it to set a new password.
             </>
           }
           confirmLabel="Send Reset Link"

@@ -7,7 +7,12 @@ import {
   DAY_STATUS_COPY,
 } from "../../../../constants/habits";
 import { WEEKDAY_LABELS, MONTH_LABELS } from "../../../../constants/calendar";
-import { buildMonthWeeks, dateKey } from "../../../../utils/dates";
+import {
+  buildMonthWeeks,
+  dateKey,
+  todayInZone,
+  yearMonthInZone,
+} from "../../../../utils/dates";
 import {
   XpIcon,
   ChevronLeftIcon,
@@ -29,6 +34,7 @@ import {
 function HabitDetailCalendar({
   habit,
   monthCursor,
+  timeZone,
   onPrevMonth,
   onNextMonth,
   onSelectPending,
@@ -39,9 +45,9 @@ function HabitDetailCalendar({
   const month = monthCursor.getMonth();
   const weeks = useMemo(() => buildMonthWeeks(year, month), [year, month]);
 
-  const now = new Date();
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
-  const todayKey = dateKey(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayKey = todayInZone(timeZone);
+  const { year: todayYear, month: todayMonth } = yearMonthInZone(timeZone);
+  const isCurrentMonth = year === todayYear && month === todayMonth;
   const pendingSet = useMemo(
     () => new Set(habit.pendingReviewDates || []),
     [habit.pendingReviewDates],
@@ -98,8 +104,7 @@ function HabitDetailCalendar({
             const key = dateKey(year, month, day);
             const status = habit.history ? habit.history[key] : undefined;
             const isPending = pendingSet.has(key);
-            const isFuture =
-              new Date(year, month, day) > now && key !== todayKey;
+            const isFuture = key > todayKey;
             const isBeforeCreation =
               created &&
               new Date(year, month, day) <
@@ -275,10 +280,11 @@ export function HabitDetailModal({
   onReviewDay,
   onReviewAll,
   onUndoCheckIn,
+  timeZone,
 }) {
-  const now = new Date();
+  const { year: initYear, month: initMonth } = yearMonthInZone(timeZone);
   const [monthCursor, setMonthCursor] = useState(
-    new Date(now.getFullYear(), now.getMonth(), 1),
+    new Date(initYear, initMonth, 1),
   );
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
@@ -396,6 +402,7 @@ export function HabitDetailModal({
             <HabitDetailCalendar
               habit={habit}
               monthCursor={monthCursor}
+              timeZone={timeZone}
               onPrevMonth={() =>
                 setMonthCursor(
                   (d) => new Date(d.getFullYear(), d.getMonth() - 1, 1),
