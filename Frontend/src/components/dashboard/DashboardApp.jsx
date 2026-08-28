@@ -869,7 +869,7 @@ export default function DashboardApp() {
           queue={review.reviewQueue}
           index={review.reviewIndex}
           step={review.reviewStep}
-          shieldsAvailable={shieldsAvailable}
+          shieldsAvailable={review.reviewShieldsAvailable}
           rateLimitCountdown={review.rateLimitCountdown}
           onRecovered={review.handleReviewRecovered}
           onMissed={review.handleReviewMissed}

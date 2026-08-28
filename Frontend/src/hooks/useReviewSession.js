@@ -44,6 +44,12 @@ export function useReviewSession({
   const resolvingRef = useRef(false);
   const countdownTimerRef = useRef(null);
 
+  const [reviewShieldsAvailable, setReviewShieldsAvailable] =
+    useState(shieldsAvailable);
+  useEffect(() => {
+    if (!reviewOpen) setReviewShieldsAvailable(shieldsAvailable);
+  }, [shieldsAvailable, reviewOpen]);
+
   const totalPendingCount = useMemo(
     () =>
       habits.reduce((sum, h) => sum + (h.pendingReviewDates || []).length, 0),
@@ -126,12 +132,25 @@ export function useReviewSession({
           if (status === "done") reviewSummary.current.recovered += 1;
           else if (status === "missed") reviewSummary.current.missed += 1;
           else if (status === "shielded") reviewSummary.current.shielded += 1;
+
+          if (result === "shielded") {
+            setReviewShieldsAvailable((prev) => Math.max(0, prev - 1));
+          } else if (result === "missed_no_shield") {
+            setReviewShieldsAvailable(0);
+            showToast(
+              "No shields left - that day was marked as missed instead.",
+            );
+          }
         }
 
         // Show consistency bonus toasts if any were awarded
-        if (payload.consistencyBonuses && payload.consistencyBonuses.length > 0) {
+        if (
+          payload.consistencyBonuses &&
+          payload.consistencyBonuses.length > 0
+        ) {
           for (const bonus of payload.consistencyBonuses) {
-            const bonusLabel = bonus.bonusType === '7day' ? '7-Day Streak' : '30-Day Streak';
+            const bonusLabel =
+              bonus.bonusType === "7day" ? "7-Day Streak" : "30-Day Streak";
             const bonusXp = bonus.delta;
             showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonusXp} XP!`);
           }
@@ -199,12 +218,12 @@ export function useReviewSession({
   );
 
   const handleReviewMissed = useCallback(() => {
-    if (shieldsAvailable > 0) {
+    if (reviewShieldsAvailable > 0) {
       setReviewStep("shieldOffer");
     } else {
       resolveCurrentReviewItem("missed");
     }
-  }, [shieldsAvailable, resolveCurrentReviewItem]);
+  }, [reviewShieldsAvailable, resolveCurrentReviewItem]);
 
   // "Use a shield" doesn't spend it right away - it first asks the user
   // to confirm, since consuming a shield can't be undone.
@@ -241,6 +260,7 @@ export function useReviewSession({
     reviewQueue,
     reviewIndex,
     reviewStep,
+    reviewShieldsAvailable,
     rateLimitCountdown,
     openReviewSession,
     closeReviewSession,
