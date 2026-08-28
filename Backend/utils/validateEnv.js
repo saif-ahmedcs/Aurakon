@@ -21,3 +21,10 @@ if (missing.length > 0) {
   );
   process.exit(1);
 }
+
+const JWT_SECRET_MIN_LENGTH = 32;
+
+if (process.env.JWT_SECRET.length < JWT_SECRET_MIN_LENGTH) {
+  console.error("[startup] FATAL: JWT_SECRET must be at least 32 characters.");
+  process.exit(1);
+}

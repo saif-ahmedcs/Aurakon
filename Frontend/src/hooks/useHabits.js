@@ -113,25 +113,40 @@ export function useHabits({ showToast }) {
 
   const toggleInFlight = useRef(false);
   const refreshSeq = useRef({});
+  // Bumped by every confirmed mutation below (toggle, undo, delete,
+  // create, rename). A full load() spans several network round trips;
+  // if a mutation commits while one is in flight, the load's snapshot
+  // was taken before that mutation existed and must never be allowed
+  // to clobber the newer, already-confirmed state.
+  const mutationEpoch = useRef(0);
 
   const replaceHabit = useCallback((next) => {
     setHabits((prev) => prev.map((h) => (h.id === next.id ? next : h)));
   }, []);
 
-  /* Initial load: habits plus each habit's log history (needed for the
-   * completed-today flags, calendars and all-time counters). */
   const load = useCallback(async (timeZone) => {
-    const dtos = await listHabitsRequest();
-    const withLogs = await Promise.all(
-      dtos.map(async (dto) => {
-        try {
-          return mapHabit(dto, await listHabitLogsRequest(dto.id), timeZone);
-        } catch {
-          // A failing log lookup shouldn't blank the whole panel.
-          return mapHabit(dto, [], timeZone);
-        }
-      }),
-    );
+    let withLogs;
+    let epochAtStart;
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      epochAtStart = mutationEpoch.current;
+      const dtos = await listHabitsRequest();
+      withLogs = await Promise.all(
+        dtos.map(async (dto) => {
+          try {
+            return mapHabit(dto, await listHabitLogsRequest(dto.id), timeZone);
+          } catch {
+            // A failing log lookup shouldn't blank the whole panel.
+            return mapHabit(dto, [], timeZone);
+          }
+        }),
+      );
+      if (epochAtStart === mutationEpoch.current || attempt === MAX_ATTEMPTS) {
+        break;
+      }
+      // A mutation committed mid-fetch - this snapshot is already
+      // stale relative to it. Refetch rather than apply it.
+    }
     setHabits(withLogs);
     setLoaded(true);
   }, []);
@@ -251,10 +266,15 @@ export function useHabits({ showToast }) {
             prev.map((h) => (h.id === id ? { ...h, ...streakPatch } : h)),
           );
         }
+        mutationEpoch.current += 1;
         refreshHabit(id, timeZone);
         return { success: true, consistencyBonuses };
       } catch (err) {
         if (err?.status === 409) {
+          // The server state changed underneath this request (e.g. a
+          // duplicate log already exists) - still a confirmed change
+          // in server truth that any in-flight load() must not clobber.
+          mutationEpoch.current += 1;
           refreshHabit(id, timeZone);
         } else {
           replaceHabit(snapshot);
@@ -302,6 +322,7 @@ export function useHabits({ showToast }) {
             };
           }),
         );
+        mutationEpoch.current += 1;
         refreshHabit(habitId, timeZone);
         return true;
       } catch (err) {
@@ -314,6 +335,7 @@ export function useHabits({ showToast }) {
 
   const deleteHabit = useCallback(async (id) => {
     await deleteHabitRequest(id);
+    mutationEpoch.current += 1;
     setHabits((prev) => prev.filter((h) => h.id !== id));
     return true;
   }, []);
@@ -322,6 +344,7 @@ export function useHabits({ showToast }) {
   const updateHabit = useCallback(
     async (id, updates) => {
       const dto = await updateHabitRequest(id, { title: updates.name });
+      mutationEpoch.current += 1;
       const existing = habits.find((h) => h.id === id);
       const next = {
         ...(existing || {}),
@@ -335,6 +358,7 @@ export function useHabits({ showToast }) {
 
   const addHabit = useCallback(async ({ name, difficulty }) => {
     const dto = await createHabitRequest({ title: name, difficulty });
+    mutationEpoch.current += 1;
     const created = mapHabit(dto, [], undefined);
     setHabits((prev) => [...prev, created]);
     return created;
@@ -342,8 +366,11 @@ export function useHabits({ showToast }) {
 
   /* Resolve a pending-review day once the server accepted the review
    * decision: drop it from pendingReviewDates and write the outcome
-   * into history ("done" | "missed" | "shielded"). */
+   * into history ("done" | "missed" | "shielded"). Called only after
+   * the server has already confirmed the decision (useReviewSession),
+   * so this counts as a confirmed mutation for load()'s guard too. */
   const resolveHabitDate = useCallback((habitId, date, status) => {
+    mutationEpoch.current += 1;
     setHabits((prev) =>
       prev.map((h) => {
         if (h.id !== habitId) return h;

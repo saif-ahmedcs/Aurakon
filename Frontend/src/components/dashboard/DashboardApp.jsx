@@ -182,9 +182,13 @@ export default function DashboardApp() {
       });
   }, [meData, habitsLoaded, loadHabits]);
 
+  const progressSeq = useRef(0);
   const refreshProgress = useCallback(async () => {
+    const seq = (progressSeq.current += 1);
     try {
-      setProgressData(await getProgressRequest());
+      const progress = await getProgressRequest();
+      if (seq !== progressSeq.current) return; // superseded - discard
+      setProgressData(progress);
     } catch {
       // Transient - keep showing the last known values.
     }
