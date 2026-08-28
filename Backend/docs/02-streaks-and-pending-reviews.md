@@ -222,12 +222,11 @@ reviewable.
 
 # Expiration Strategy
 
-## No Cron Jobs
+## No Cron Jobs for Review Expiry
 
-Aurakon intentionally avoids cron jobs and background workers as a design
-decision to reduce deployment complexity, minimize infrastructure
-requirements, and remain compatible with serverless and traditional
-hosting environments.
+Aurakon intentionally avoids cron jobs and background workers for
+pending-review expiration. This keeps review synchronization compatible with
+serverless and traditional hosting environments.
 
 Instead, pending-review synchronization happens lazily during normal
 authenticated requests.

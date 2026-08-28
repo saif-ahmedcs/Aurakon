@@ -5,12 +5,11 @@ const habitModel = require("../models/habitModel");
 
 const WINDOW_DAYS = Number(process.env.CLEANUP_UNVERIFIED_DAYS ?? 7);
 
-if (!Number.isInteger(WINDOW_DAYS) || WINDOW_DAYS <= 0) {
-  console.error("CLEANUP_UNVERIFIED_DAYS must be a positive number");
-  process.exit(1);
-}
-
 async function cleanupUnverified() {
+  if (!Number.isInteger(WINDOW_DAYS) || WINDOW_DAYS <= 0) {
+    throw new Error("CLEANUP_UNVERIFIED_DAYS must be a positive integer");
+  }
+
   const [rows] = await pool.query(
     `SELECT id FROM users
      WHERE is_verified = false
@@ -52,17 +51,23 @@ async function cleanupUnverified() {
   }
 
   if (hadFailure) {
-    process.exitCode = 1;
+    throw new Error("One or more unverified-account cleanup operations failed");
   }
 
   console.log(
     `Deleted ${deletedCount} unverified account(s) older than ${WINDOW_DAYS} day(s).`,
   );
+
+  return { deletedCount };
 }
 
-cleanupUnverified()
-  .catch((err) => {
-    console.error("Cleanup failed:", err);
-    process.exit(1);
-  })
-  .finally(() => pool.end());
+if (require.main === module) {
+  cleanupUnverified()
+    .catch((err) => {
+      console.error("Cleanup failed:", err);
+      process.exitCode = 1;
+    })
+    .finally(() => pool.end());
+}
+
+module.exports = { cleanupUnverified };

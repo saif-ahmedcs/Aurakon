@@ -68,7 +68,9 @@ async function cleanupConsumedConfirmationTokens() {
   }
 
   if (hadFailure) {
-    process.exitCode = 1;
+    throw new Error(
+      "One or more consumed-confirmation-token cleanup operations failed",
+    );
   }
 
   console.log(
@@ -78,11 +80,17 @@ async function cleanupConsumedConfirmationTokens() {
       `reset_token=${results.resetToken?.affectedRows ?? 0}, ` +
       `account_deletion_confirmations=${results.deletionRecords ?? 0}.`,
   );
+
+  return results;
 }
 
-cleanupConsumedConfirmationTokens()
-  .catch((err) => {
-    console.error("Cleanup failed:", err);
-    process.exitCode = 1;
-  })
-  .finally(() => pool.end());
+if (require.main === module) {
+  cleanupConsumedConfirmationTokens()
+    .catch((err) => {
+      console.error("Cleanup failed:", err);
+      process.exitCode = 1;
+    })
+    .finally(() => pool.end());
+}
+
+module.exports = { cleanupConsumedConfirmationTokens };

@@ -92,7 +92,7 @@ async function cleanupExpiredTokens() {
   }
 
   if (hadFailure) {
-    process.exitCode = 1;
+    throw new Error("One or more expired-token cleanup operations failed");
   }
 
   console.log(
@@ -104,11 +104,17 @@ async function cleanupExpiredTokens() {
       `delete_token=${results.deleteToken?.affectedRows ?? 0}, ` +
       `email_change=${results.emailChange?.affectedRows ?? 0}.`,
   );
+
+  return results;
 }
 
-cleanupExpiredTokens()
-  .catch((err) => {
-    console.error("Cleanup failed:", err);
-    process.exitCode = 1;
-  })
-  .finally(() => pool.end());
+if (require.main === module) {
+  cleanupExpiredTokens()
+    .catch((err) => {
+      console.error("Cleanup failed:", err);
+      process.exitCode = 1;
+    })
+    .finally(() => pool.end());
+}
+
+module.exports = { cleanupExpiredTokens };

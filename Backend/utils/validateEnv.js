@@ -28,3 +28,14 @@ if (process.env.JWT_SECRET.length < JWT_SECRET_MIN_LENGTH) {
   console.error("[startup] FATAL: JWT_SECRET must be at least 32 characters.");
   process.exit(1);
 }
+
+if (
+  process.env.CLEANUP_UNVERIFIED_DAYS !== undefined &&
+  (!Number.isInteger(Number(process.env.CLEANUP_UNVERIFIED_DAYS)) ||
+    Number(process.env.CLEANUP_UNVERIFIED_DAYS) <= 0)
+) {
+  console.error(
+    "[startup] FATAL: CLEANUP_UNVERIFIED_DAYS must be a positive integer.",
+  );
+  process.exit(1);
+}
