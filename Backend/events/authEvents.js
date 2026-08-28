@@ -111,7 +111,7 @@ authEvents.on("ACCOUNT_DELETION_REQUESTED", ({ email, rawToken }) => {
   deliverEmail(
     {
       to: email,
-      subject: "Confirm account deletion",
+      subject: "Aurakon account deletion request",
       eventName: "ACCOUNT_DELETION_REQUESTED",
       correlationId: buildCorrelationId(rawToken),
       html: getAccountDeletionEmailHtml(appBaseUrl, rawToken),

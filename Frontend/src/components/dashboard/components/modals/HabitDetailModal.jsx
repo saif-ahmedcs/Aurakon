@@ -246,8 +246,7 @@ function DayDetailPanel({
       {canUndo && confirmingUndo && (
         <div className="day-detail-confirm">
           <p className="day-detail-confirm-text">
-            Undo this check-in? The XP awarded for this day will be
-            reversed.
+            Undo this check-in? The XP awarded for this day will be reversed.
           </p>
           <div className="day-detail-confirm-actions">
             <button
@@ -288,6 +287,8 @@ export function HabitDetailModal({
   );
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
+
+  const todayKey = todayInZone(timeZone);
 
   const stats = useMemo(() => {
     const values = Object.values(habit.history || {});
@@ -425,9 +426,12 @@ export function HabitDetailModal({
               <DayDetailPanel
                 dateKeyStr={selectedDate}
                 status={selectedStatus}
-                canUndo={habit.rawHistory
-                  ? habit.rawHistory[selectedDate] === "completed"
-                  : selectedStatus === "done"}
+                canUndo={
+                  selectedDate === todayKey &&
+                  (habit.rawHistory
+                    ? habit.rawHistory[selectedDate] === "completed"
+                    : selectedStatus === "done")
+                }
                 onUndoCheckIn={(dateStr) => {
                   onUndoCheckIn(habit.id, dateStr);
                   // The day is now unlogged - close its detail panel.

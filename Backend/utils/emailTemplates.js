@@ -273,8 +273,8 @@ function getEmailChangeEmailHtml(appBaseUrl, rawToken) {
 
 function getAccountDeletionEmailHtml(appBaseUrl, rawToken) {
   const confirmUrl = `${appBaseUrl}/confirm-account-deletion?token=${rawToken}`;
-  const title = "Confirm Account Deletion";
-  const subtitle = "Permanent account closure request";
+  const title = "Aurakon Account Deletion Request";
+  const subtitle = "Confirm your account closure";
 
   const bodyHtml = `
     <p style="margin: 0 0 12px;">Greetings,</p>
