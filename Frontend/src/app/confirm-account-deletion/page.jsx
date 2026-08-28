@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuraIntroScene } from "../../hooks/useAuraIntroScene";
 import SceneStyles from "../../components/scene/SceneStyles";
@@ -17,6 +17,15 @@ function ConfirmAccountDeletionInner() {
   useAuraIntroScene();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
+
+  // Strip the confirmation token from the visible URL/history entry once
+  // it's been read into state.
+  useEffect(() => {
+    if (!token) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("token");
+    window.history.replaceState(window.history.state, "", url);
+  }, [token]);
 
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

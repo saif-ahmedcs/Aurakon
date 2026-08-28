@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuraIntroScene } from "../../hooks/useAuraIntroScene";
 import SceneStyles from "../../components/scene/SceneStyles";
@@ -16,6 +16,17 @@ function VerifyEmailInner() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
   const email = searchParams.get("email") || "";
+
+  // Strip the verification token (and email) from the visible URL and
+  // history entry as soon as they've been read into component state, so
+  // they aren't retained in browser history or upstream access logs.
+  useEffect(() => {
+    if (!token && !email) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("token");
+    url.searchParams.delete("email");
+    window.history.replaceState(window.history.state, "", url);
+  }, [token, email]);
 
   return (
     <>

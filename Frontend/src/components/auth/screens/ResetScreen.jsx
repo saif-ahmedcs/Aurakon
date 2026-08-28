@@ -22,9 +22,19 @@ export function ResetScreen({
   return (
     <>
       <div className="sh">Restore Your Strength</div>
-      <p className="tx">Choose a secure new password for your Aurakon account.</p>
+      <p className="tx">
+        Confirm your account email, then choose a secure new password.
+      </p>
 
       <form onSubmit={onSubmit} noValidate>
+        <FormInput
+          id="rs-email"
+          placeholder="Account Email"
+          type="email"
+          icon="mail"
+          value={formData.rsEmail}
+          onChange={onChange("rsEmail")}
+        />
         <FormInput
           id="rs-pass"
           placeholder="New Password"

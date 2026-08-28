@@ -188,9 +188,13 @@ router.post(
   resetPasswordConfirmLimiter,
   validate(resetPasswordSchema),
   asyncHandler(async (req, res) => {
-    const { token, newPassword } = req.body;
+    const { token, email, newPassword } = req.body;
 
-    const result = await passwordService.resetPassword(token, newPassword);
+    const result = await passwordService.resetPassword(
+      token,
+      email,
+      newPassword,
+    );
 
     res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS);
     res.status(200).json(result);

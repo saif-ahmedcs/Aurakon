@@ -167,14 +167,14 @@ export async function checkResetTokenRequest(token) {
 /**
  * POST /api/auth/reset-password
  */
-export async function resetPasswordRequest({ token, newPassword }) {
+export async function resetPasswordRequest({ token, email, newPassword }) {
   let res;
   try {
     res = await fetch("/api/auth/reset-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ token, newPassword }),
+      body: JSON.stringify({ token, email, newPassword }),
     });
   } catch {
     throw handleNetworkError();

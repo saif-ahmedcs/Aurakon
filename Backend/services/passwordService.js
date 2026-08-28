@@ -88,17 +88,25 @@ async function checkResetToken(token) {
 }
 
 // ------------- RESET PASSWORD --------------
-async function resetPassword(token, newPassword) {
+async function resetPassword(token, email, newPassword) {
   if (!token) {
     throw new BadRequestError("token is required");
   }
+  if (!email) {
+    throw new BadRequestError("email is required");
+  }
 
+  const normalizedEmail = email.trim().toLowerCase();
   const tokenHash = hashToken(token);
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
   const preTokenRow = await userModel.findResetTokenState(tokenHash);
   const preState =
     confirmationTokenService.classifyConfirmationToken(preTokenRow);
+
+  if (preTokenRow && preTokenRow.email.toLowerCase() !== normalizedEmail) {
+    throw new BadRequestError(confirmationTokenService.INVALID_TOKEN_MESSAGE);
+  }
 
   let sameAsCurrent = false;
   if (preState === "active") {
@@ -116,6 +124,12 @@ async function resetPassword(token, newPassword) {
           return matchedRow;
         },
         execute: async (tokenRow, tx) => {
+          if (tokenRow.email.toLowerCase() !== normalizedEmail) {
+            throw new BadRequestError(
+              confirmationTokenService.INVALID_TOKEN_MESSAGE,
+            );
+          }
+
           const hashUnchanged =
             tokenRow.passwordHash === preTokenRow?.passwordHash;
           if (hashUnchanged && sameAsCurrent) {

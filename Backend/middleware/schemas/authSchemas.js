@@ -46,6 +46,7 @@ const forgotPasswordSchema = z.object({
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1).max(255),
+  email: boundedNormalizedEmailSchema,
   newPassword: z.string().min(8).max(72).refine(isPasswordValid, {
     message:
       "password must be at least 8 characters and contain at least one letter and one number",

@@ -20,6 +20,7 @@ const INITIAL_FORM_DATA = {
   suConfirmPassword: "",
   suGender: "",
   fpEmail: "",
+  rsEmail: "",
   rsPassword: "",
   rsConfirmPassword: "",
 };
@@ -376,6 +377,7 @@ export function useAuthFlow({
       if (resetLoading) return;
 
       const token = tokenParam || resetToken;
+      const email = formData.rsEmail.trim();
       const newPassword = formData.rsPassword;
       const confirmPassword = formData.rsConfirmPassword;
 
@@ -383,6 +385,10 @@ export function useAuthFlow({
         setResetError(
           "Reset token is missing or invalid. Please request a new link.",
         );
+        return;
+      }
+      if (!email || !isValidEmail(email)) {
+        setResetError("Please enter the email address for your account.");
         return;
       }
       if (!newPassword) {
@@ -404,7 +410,7 @@ export function useAuthFlow({
       setResetLoading(true);
 
       try {
-        await resetPasswordRequest({ token, newPassword });
+        await resetPasswordRequest({ token, email, newPassword });
         goTo("reset_ok");
       } catch (err) {
         let message =
@@ -421,7 +427,13 @@ export function useAuthFlow({
         setResetLoading(false);
       }
     },
-    [resetLoading, resetToken, formData.rsPassword, formData.rsConfirmPassword],
+    [
+      resetLoading,
+      resetToken,
+      formData.rsEmail,
+      formData.rsPassword,
+      formData.rsConfirmPassword,
+    ],
   );
 
   const handleOpenEmailApp = (e) => {

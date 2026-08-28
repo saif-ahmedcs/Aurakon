@@ -401,7 +401,7 @@ async function setResetToken(userId, tokenHash, expiresAt, db = pool) {
 
 async function findResetTokenState(tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, password_hash, reset_token_expires, reset_token_consumed_at
+    `SELECT id, email, password_hash, reset_token_expires, reset_token_consumed_at
      FROM users
      WHERE reset_token_hash = ?
      FOR UPDATE`,
@@ -411,6 +411,7 @@ async function findResetTokenState(tokenHash, db = pool) {
   if (!row) return null;
   return {
     id: row.id,
+    email: row.email,
     passwordHash: row.password_hash,
     expiresAt: row.reset_token_expires,
     consumedAt: row.reset_token_consumed_at,
