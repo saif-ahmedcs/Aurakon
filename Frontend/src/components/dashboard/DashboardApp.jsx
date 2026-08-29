@@ -155,6 +155,7 @@ export default function DashboardApp() {
     resolveHabitDate,
     refreshHabit,
     refreshHabits,
+    trackMutation,
   } = useHabits({ showToast });
 
   useEffect(() => {
@@ -370,6 +371,7 @@ export default function DashboardApp() {
     showToast,
     onProgressChanged: refreshProgress,
     onHabitChanged: syncHabitFromServer,
+    trackMutation,
   });
   const { openReviewSession } = review;
   const autoPopupCheckedRef = useRef(false);

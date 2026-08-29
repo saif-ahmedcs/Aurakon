@@ -33,6 +33,7 @@ export function useReviewSession({
   showToast,
   onProgressChanged,
   onHabitChanged,
+  trackMutation,
 }) {
   const [reviewQueue, setReviewQueue] = useState([]);
   const [reviewIndex, setReviewIndex] = useState(0);
@@ -120,7 +121,7 @@ export function useReviewSession({
       setDecisionInFlight(true);
 
       try {
-        const payload = await applyReviewDecisionsRequest([
+        const decisionRequest = applyReviewDecisionsRequest([
           {
             habitId: item.habitId,
             missedDate: item.date,
@@ -128,6 +129,9 @@ export function useReviewSession({
             ...(useShield ? { useShield: true } : {}),
           },
         ]);
+        const payload = trackMutation
+          ? await trackMutation(decisionRequest)
+          : await decisionRequest;
 
         const result =
           payload &&
@@ -230,6 +234,7 @@ export function useReviewSession({
       finishReviewSession,
       onHabitChanged,
       showToast,
+      trackMutation,
     ],
   );
 

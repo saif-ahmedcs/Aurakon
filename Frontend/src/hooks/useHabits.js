@@ -113,18 +113,16 @@ export function useHabits({ showToast }) {
 
   const toggleInFlight = useRef(false);
   const refreshSeq = useRef({});
-  // Bumped by every confirmed mutation below (toggle, undo, delete,
-  // create, rename). A full load() spans several network round trips;
-  // if a mutation commits while one is in flight, the load's snapshot
-  // was taken before that mutation existed and must never be allowed
-  // to clobber the newer, already-confirmed state.
-  const mutationEpoch = useRef(0);
-
   const pendingMutations = useRef(new Set());
+
+  const mutationEpoch = useRef(0);
 
   const trackMutation = useCallback((promise) => {
     pendingMutations.current.add(promise);
-    promise.finally(() => pendingMutations.current.delete(promise));
+    promise.finally(() => {
+      pendingMutations.current.delete(promise);
+      mutationEpoch.current += 1;
+    });
     return promise;
   }, []);
 
@@ -546,5 +544,6 @@ export function useHabits({ showToast }) {
     resolveHabitDate,
     refreshHabit,
     refreshHabits,
+    trackMutation,
   };
 }
