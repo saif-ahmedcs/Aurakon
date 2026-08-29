@@ -42,7 +42,7 @@ router.post(
       difficulty,
       req.user.timezone,
     );
-    res.status(201).json(habit);
+    res.status(201).json({ ...habit, affectedHabitIds: req.reconciledHabitIds });
   }),
 );
 
@@ -54,7 +54,7 @@ router.get(
       req.user.id,
       req.user.timezone,
     );
-    res.status(200).json(habit);
+    res.status(200).json({ ...habit, affectedHabitIds: req.reconciledHabitIds });
   }),
 );
 
@@ -68,7 +68,9 @@ router.patch(
       req.user.id,
       title,
     );
-    res.status(200).json(updated);
+    res
+      .status(200)
+      .json({ ...updated, affectedHabitIds: req.reconciledHabitIds });
   }),
 );
 
@@ -76,7 +78,10 @@ router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
     await habitService.deleteHabit(req.habitId, req.user.id, req.user.timezone);
-    return res.status(200).json({ message: "Habit deleted successfully" });
+    return res.status(200).json({
+      message: "Habit deleted successfully",
+      affectedHabitIds: req.reconciledHabitIds,
+    });
   }),
 );
 
@@ -100,6 +105,9 @@ router.post(
       req.user.id,
       req.user.timezone,
     );
+    const merged = [
+      ...new Set([...(affectedHabitIds || []), ...req.reconciledHabitIds]),
+    ];
     res.status(created ? 201 : 200).json({
       log,
       created,
@@ -107,7 +115,7 @@ router.post(
       shieldBalance,
       currentStreak,
       longestStreak,
-      affectedHabitIds,
+      affectedHabitIds: merged,
       consistencyBonuses,
     });
   }),
@@ -133,11 +141,14 @@ router.delete(
         req.user.id,
         req.user.timezone,
       );
+    const merged = [
+      ...new Set([...(affectedHabitIds || []), ...req.reconciledHabitIds]),
+    ];
     res.status(200).json({
       message: "Log undone successfully",
       currentStreak,
       longestStreak,
-      affectedHabitIds,
+      affectedHabitIds: merged,
     });
   }),
 );

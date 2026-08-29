@@ -19,6 +19,7 @@ export function HabitRow({
   isMenuOpen,
   onToggleMenu,
   onToggleComplete,
+  checkInLocked,
   onAction,
   onOpenDetail,
 }) {
@@ -44,13 +45,16 @@ export function HabitRow({
           (missed ? " habit-check-missed" : "")
         }
         onClick={() => onToggleComplete(habit.id)}
+        disabled={checkInLocked}
         aria-pressed={habit.completedToday}
         aria-label={
-          missed
-            ? habit.name + " - trial missed today"
-            : habit.completedToday
-              ? "Mark " + habit.name + " as not done today"
-              : "Mark " + habit.name + " done today"
+          checkInLocked
+            ? "Saving a review decision - please wait"
+            : missed
+              ? habit.name + " - trial missed today"
+              : habit.completedToday
+                ? "Mark " + habit.name + " as not done today"
+                : "Mark " + habit.name + " done today"
         }
       >
         {habit.completedToday ? (

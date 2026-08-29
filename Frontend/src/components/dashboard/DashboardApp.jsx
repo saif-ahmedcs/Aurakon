@@ -190,10 +190,16 @@ export default function DashboardApp() {
       const progress = await getProgressRequest();
       if (seq !== progressSeq.current) return; // superseded - discard
       setProgressData(progress);
+      // finalizeReviews runs ahead of this GET too, and can silently
+      // reconcile Guardian Shields on habits unrelated to whatever
+      // triggered this refresh - chase those down as well.
+      if (progress?.affectedHabitIds?.length > 0) {
+        refreshHabits(progress.affectedHabitIds, meData && meData.timezone);
+      }
     } catch {
       // Transient - keep showing the last known values.
     }
-  }, []);
+  }, [refreshHabits, meData]);
 
   /* Re-sync one or more habits' server-computed state (streaks, pending
    * reviews) after a mutation elsewhere, e.g. review decisions. Accepts
@@ -211,11 +217,27 @@ export default function DashboardApp() {
     [refreshHabit, refreshHabits, meData],
   );
 
-  const handleAccountTimeZoneChange = useCallback((nextTz) => {
-    setMeData((prev) =>
-      prev ? { ...prev, timezone: nextTz, timezoneSource: "manual" } : prev,
-    );
-  }, []);
+  const handleAccountTimeZoneChange = useCallback(
+    async (nextTz) => {
+      setMeData((prev) =>
+        prev ? { ...prev, timezone: nextTz, timezoneSource: "manual" } : prev,
+      );
+
+      // The backend applies the new timezone to all "today" computation
+      // immediately (PATCH /timezone), but the habits already loaded in
+      // state still reflect completedToday/pendingReviewDates baked in
+      // against the old zone's "today". Re-sync both against the new
+      // zone right away instead of waiting for the next day boundary,
+      // mutation, or 409 to trigger a resync.
+      try {
+        await loadHabits(nextTz);
+      } catch {
+        // Transient - keep showing the last known state.
+      }
+      refreshProgress();
+    },
+    [loadHabits, refreshProgress],
+  );
 
   const account = useAccountFlow({
     showToast,
@@ -336,6 +358,9 @@ export default function DashboardApp() {
     (async () => {
       try {
         const summary = await getPendingReviewSummaryRequest();
+        if (summary?.affectedHabitIds?.length > 0) {
+          refreshHabits(summary.affectedHabitIds, meData && meData.timezone);
+        }
         if (summary && summary.shouldAutoPopup) {
           openReviewSession();
         }
@@ -343,7 +368,7 @@ export default function DashboardApp() {
         // Non-critical - the banner still lets the user open it manually.
       }
     })();
-  }, [sessionReady, openReviewSession]);
+  }, [sessionReady, openReviewSession, refreshHabits, meData]);
 
   /* -------------------------------------------------------------- */
   /* Day-boundary detection                                          */
@@ -371,13 +396,16 @@ export default function DashboardApp() {
     // API calls, so loadHabits above already triggered it).
     try {
       const summary = await getPendingReviewSummaryRequest();
+      if (summary?.affectedHabitIds?.length > 0) {
+        refreshHabits(summary.affectedHabitIds, tz);
+      }
       if (summary && summary.shouldAutoPopup) {
         openReviewSession();
       }
     } catch {
       // Non-critical.
     }
-  }, [meData, loadHabits, refreshProgress, openReviewSession]);
+  }, [meData, loadHabits, refreshProgress, openReviewSession, refreshHabits]);
 
   useDayBoundary(meData ? meData.timezone : null, handleDayChange);
 
@@ -457,6 +485,18 @@ export default function DashboardApp() {
    * habit hook re-syncs the habit itself). */
   const handleToggleComplete = useCallback(
     async (id) => {
+      // The review endpoint rewrites shared per-user progression
+      // (shield balance, aura stats, bonus reconciliation) before it
+      // takes the same row lock a check-in takes first - so a
+      // check-in fired while a review decision is still in flight can
+      // race it server-side. The modal itself can no longer be
+      // dismissed mid-request (see useReviewSession), but this is the
+      // functional backstop for any other path to this handler.
+      if (review.decisionInFlight) {
+        showToast("Finishing up your last review decision - one moment.");
+        return;
+      }
+
       const habit = habits.find((h) => h.id === id);
       const turningOn = habit && !habit.completedToday;
 
@@ -486,6 +526,7 @@ export default function DashboardApp() {
       pulseAura,
       showToast,
       refreshProgress,
+      review.decisionInFlight,
     ],
   );
 
@@ -507,13 +548,13 @@ export default function DashboardApp() {
     const name = habit ? habit.name : "Habit";
     setDeleteHabitId(null);
     try {
-      await deleteHabit(deleteHabitId);
+      await deleteHabit(deleteHabitId, meData && meData.timezone);
       showToast(name + " deleted");
       refreshProgress();
     } catch (err) {
       showToast(err.error || "Could not delete the habit. Try again.");
     }
-  }, [habits, deleteHabitId, deleteHabit, showToast, refreshProgress]);
+  }, [habits, deleteHabitId, deleteHabit, showToast, refreshProgress, meData]);
 
   const editHabit = editHabitId
     ? habits.find((h) => h.id === editHabitId)
@@ -523,14 +564,14 @@ export default function DashboardApp() {
   const saveHabitEdit = useCallback(
     async (id, updates) => {
       try {
-        await updateHabit(id, updates);
+        await updateHabit(id, updates, meData && meData.timezone);
         setEditHabitId(null);
         showToast("Habit updated");
       } catch (err) {
         showToast(err.error || "Could not update the habit. Try again.");
       }
     },
-    [updateHabit, showToast],
+    [updateHabit, showToast, meData],
   );
 
   const [addHabitOpen, setAddHabitOpen] = useState(false);
@@ -549,7 +590,7 @@ export default function DashboardApp() {
       if (atHabitLimit) return;
       createHabitInFlight.current = true;
       try {
-        await addHabit({ name, difficulty });
+        await addHabit({ name, difficulty }, meData && meData.timezone);
         setAddHabitOpen(false);
         showToast("New trial accepted, " + name);
         refreshProgress();
@@ -559,7 +600,7 @@ export default function DashboardApp() {
         createHabitInFlight.current = false;
       }
     },
-    [addHabit, showToast, refreshProgress, atHabitLimit],
+    [addHabit, showToast, refreshProgress, atHabitLimit, meData],
   );
 
   /* -------------------------------------------------------------- */
@@ -589,6 +630,10 @@ export default function DashboardApp() {
 
   const handleUndoCheckIn = useCallback(
     async (habitId, dateStr) => {
+      if (review.decisionInFlight) {
+        showToast("Finishing up your last review decision - one moment.");
+        return;
+      }
       const ok = await undoCheckIn(habitId, dateStr, meData && meData.timezone);
       if (ok) {
         showToast("Check-in undone");
@@ -596,7 +641,7 @@ export default function DashboardApp() {
         refreshProgress();
       }
     },
-    [undoCheckIn, meData, showToast, refreshProgress],
+    [undoCheckIn, meData, showToast, refreshProgress, review.decisionInFlight],
   );
 
   /* -------------------------------------------------------------- */
@@ -809,6 +854,7 @@ export default function DashboardApp() {
           setOpenHabitMenu((cur) => (cur === id ? null : id))
         }
         onToggleComplete={handleToggleComplete}
+        checkInLocked={review.decisionInFlight}
         onHabitAction={handleHabitAction}
         onOpenHabitDetail={openHabitDetail}
         onOpenAddHabit={openAddHabit}
@@ -881,6 +927,7 @@ export default function DashboardApp() {
           }
           onReviewAll={(habitId) => review.openReviewSession(habitId)}
           onUndoCheckIn={handleUndoCheckIn}
+          undoLocked={review.decisionInFlight}
           timeZone={meData ? meData.timezone : undefined}
         />
       )}
@@ -910,6 +957,7 @@ export default function DashboardApp() {
           step={review.reviewStep}
           shieldsAvailable={review.reviewShieldsAvailable}
           rateLimitCountdown={review.rateLimitCountdown}
+          closeDisabled={review.decisionInFlight}
           onRecovered={review.handleReviewRecovered}
           onMissed={review.handleReviewMissed}
           onRequestShieldUse={review.requestShieldUse}

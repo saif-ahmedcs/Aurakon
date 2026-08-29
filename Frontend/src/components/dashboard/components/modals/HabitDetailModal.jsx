@@ -201,6 +201,7 @@ function DayDetailPanel({
   dateKeyStr,
   status,
   canUndo,
+  undoLocked,
   onUndoCheckIn,
   onClose,
 }) {
@@ -238,6 +239,7 @@ function DayDetailPanel({
           type="button"
           className="btn btn-ghost day-detail-action"
           onClick={() => setConfirmingUndo(true)}
+          disabled={undoLocked}
         >
           Undo check-in
         </button>
@@ -256,6 +258,7 @@ function DayDetailPanel({
                 onUndoCheckIn(dateKeyStr);
                 setConfirmingUndo(false);
               }}
+              disabled={undoLocked}
             >
               Yes, undo it
             </button>
@@ -279,6 +282,7 @@ export function HabitDetailModal({
   onReviewDay,
   onReviewAll,
   onUndoCheckIn,
+  undoLocked,
   timeZone,
 }) {
   const { year: initYear, month: initMonth } = yearMonthInZone(timeZone);
@@ -432,6 +436,7 @@ export function HabitDetailModal({
                     ? habit.rawHistory[selectedDate] === "completed"
                     : selectedStatus === "done")
                 }
+                undoLocked={undoLocked}
                 onUndoCheckIn={(dateStr) => {
                   onUndoCheckIn(habit.id, dateStr);
                   // The day is now unlogged - close its detail panel.

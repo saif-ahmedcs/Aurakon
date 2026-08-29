@@ -20,6 +20,7 @@ export function ReviewSessionModal({
   step,
   shieldsAvailable,
   rateLimitCountdown,
+  closeDisabled,
   onRecovered,
   onMissed,
   onRequestShieldUse,
@@ -40,7 +41,10 @@ export function ReviewSessionModal({
   const isRateLimited = rateLimitCountdown > 0;
 
   return (
-    <div className="overlay overlay-center" onClick={onClose}>
+    <div
+      className="overlay overlay-center"
+      onClick={closeDisabled ? undefined : onClose}
+    >
       <div
         className={`review-dialog${step === "confirmShield" ? " review-dialog-confirm" : ""}`}
         role="dialog"
@@ -56,7 +60,12 @@ export function ReviewSessionModal({
             type="button"
             className="icon-btn detail-close-btn"
             onClick={onClose}
-            aria-label="Close review session"
+            disabled={closeDisabled}
+            aria-label={
+              closeDisabled
+                ? "Saving your decision - please wait"
+                : "Close review session"
+            }
           >
             <CloseIcon />
           </button>

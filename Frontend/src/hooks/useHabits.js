@@ -120,16 +120,25 @@ export function useHabits({ showToast }) {
   // to clobber the newer, already-confirmed state.
   const mutationEpoch = useRef(0);
 
+  const pendingMutations = useRef(new Set());
+
+  const trackMutation = useCallback((promise) => {
+    pendingMutations.current.add(promise);
+    promise.finally(() => pendingMutations.current.delete(promise));
+    return promise;
+  }, []);
+
   const replaceHabit = useCallback((next) => {
     setHabits((prev) => prev.map((h) => (h.id === next.id ? next : h)));
   }, []);
 
   const load = useCallback(async (timeZone) => {
     let withLogs;
-    let epochAtStart;
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 5;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      epochAtStart = mutationEpoch.current;
+      const epochAtStart = mutationEpoch.current;
+      const inFlightAtStart = Array.from(pendingMutations.current);
+
       const dtos = await listHabitsRequest();
       withLogs = await Promise.all(
         dtos.map(async (dto) => {
@@ -141,11 +150,23 @@ export function useHabits({ showToast }) {
           }
         }),
       );
-      if (epochAtStart === mutationEpoch.current || attempt === MAX_ATTEMPTS) {
+
+      if (inFlightAtStart.length > 0) {
+        await Promise.allSettled(inFlightAtStart);
+      }
+
+      const committedDuringFetch = epochAtStart !== mutationEpoch.current;
+      const stillInFlight = pendingMutations.current.size > 0;
+
+      if (
+        (!committedDuringFetch && !stillInFlight) ||
+        attempt === MAX_ATTEMPTS
+      ) {
         break;
       }
-      // A mutation committed mid-fetch - this snapshot is already
-      // stale relative to it. Refetch rather than apply it.
+      // Either a mutation committed mid-fetch, or one is still
+      // unresolved and could commit any moment - this snapshot cannot
+      // be trusted as final. Refetch rather than apply it.
     }
     setHabits(withLogs);
     setLoaded(true);
@@ -170,10 +191,21 @@ export function useHabits({ showToast }) {
           h.id === habitId ? buildHabitState(dto, logs, timeZone, h) : h,
         ),
       );
+      if (
+        Array.isArray(dto.affectedHabitIds) &&
+        dto.affectedHabitIds.length > 0
+      ) {
+        const otherIds = dto.affectedHabitIds.filter((id) => id !== habitId);
+        if (otherIds.length > 0) {
+          refreshHabitsRef.current?.(otherIds, timeZone);
+        }
+      }
     } catch {
       // Keep the optimistic state; the next full load reconciles.
     }
   }, []);
+
+  const refreshHabitsRef = useRef(null);
 
   const refreshHabits = useCallback(
     (habitIds, timeZone) => {
@@ -181,6 +213,39 @@ export function useHabits({ showToast }) {
       return Promise.all(ids.map((id) => refreshHabit(id, timeZone)));
     },
     [refreshHabit],
+  );
+  refreshHabitsRef.current = refreshHabits;
+
+  const reconcileAfterFailedMutation = useCallback(
+    async (id, timeZone, snapshot) => {
+      try {
+        const [dto, logs] = await Promise.all([
+          getHabitDetailRequest(id),
+          listHabitLogsRequest(id),
+        ]);
+        setHabits((prev) =>
+          prev.map((h) =>
+            h.id === id ? buildHabitState(dto, logs, timeZone, h) : h,
+          ),
+        );
+        if (
+          Array.isArray(dto.affectedHabitIds) &&
+          dto.affectedHabitIds.length > 0
+        ) {
+          const otherIds = dto.affectedHabitIds.filter((oid) => oid !== id);
+          if (otherIds.length > 0) {
+            refreshHabitsRef.current?.(otherIds, timeZone);
+          }
+        }
+      } catch (refetchErr) {
+        if (refetchErr?.status === 404) {
+          setHabits((prev) => prev.filter((h) => h.id !== id));
+        } else {
+          replaceHabit(snapshot);
+        }
+      }
+    },
+    [replaceHabit],
   );
 
   /* Flip completedToday: checking in posts today's log (or recovers a
@@ -249,7 +314,9 @@ export function useHabits({ showToast }) {
         let streakPatch = null;
         let affectedHabitIds = [];
         if (nowDone) {
-          const response = await createHabitLogRequest(id, today);
+          const response = await trackMutation(
+            createHabitLogRequest(id, today),
+          );
           shieldEarned = response?.shieldEarned;
           consistencyBonuses = response?.consistencyBonuses || [];
           affectedHabitIds = response?.affectedHabitIds || [];
@@ -263,7 +330,7 @@ export function useHabits({ showToast }) {
             showToast("🛡️ Guardian Shield earned!");
           }
         } else {
-          const response = await undoHabitLogRequest(id, today);
+          const response = await trackMutation(undoHabitLogRequest(id, today));
           affectedHabitIds = response?.affectedHabitIds || [];
           if (typeof response?.currentStreak === "number") {
             streakPatch = {
@@ -293,7 +360,9 @@ export function useHabits({ showToast }) {
           mutationEpoch.current += 1;
           refreshHabit(id, timeZone);
         } else {
-          replaceHabit(snapshot);
+          // Don't assume the snapshot is still valid - e.g. the habit
+          // may have just been deleted out from under this request.
+          reconcileAfterFailedMutation(id, timeZone, snapshot);
         }
         showToast(err.error || "Could not update the trial. Try again.");
         return { success: false };
@@ -301,7 +370,15 @@ export function useHabits({ showToast }) {
         toggleInFlight.current = false;
       }
     },
-    [habits, replaceHabit, showToast, refreshHabit, refreshHabits],
+    [
+      habits,
+      replaceHabit,
+      showToast,
+      refreshHabit,
+      refreshHabits,
+      trackMutation,
+      reconcileAfterFailedMutation,
+    ],
   );
 
   /* Undo a check-in from the habit detail calendar. The backend only
@@ -312,7 +389,9 @@ export function useHabits({ showToast }) {
   const undoCheckIn = useCallback(
     async (habitId, dateStr, timeZone) => {
       try {
-        const response = await undoHabitLogRequest(habitId, dateStr);
+        const response = await trackMutation(
+          undoHabitLogRequest(habitId, dateStr),
+        );
         setHabits((prev) =>
           prev.map((h) => {
             if (h.id !== habitId) return h;
@@ -349,20 +428,28 @@ export function useHabits({ showToast }) {
         return false;
       }
     },
-    [showToast, refreshHabit, refreshHabits],
+    [showToast, refreshHabit, refreshHabits, trackMutation],
   );
 
-  const deleteHabit = useCallback(async (id) => {
-    await deleteHabitRequest(id);
-    mutationEpoch.current += 1;
-    setHabits((prev) => prev.filter((h) => h.id !== id));
-    return true;
-  }, []);
+  const deleteHabit = useCallback(
+    async (id, timeZone) => {
+      const dto = await trackMutation(deleteHabitRequest(id));
+      mutationEpoch.current += 1;
+      setHabits((prev) => prev.filter((h) => h.id !== id));
+      if (dto?.affectedHabitIds?.length > 0) {
+        refreshHabitsRef.current?.(dto.affectedHabitIds, timeZone);
+      }
+      return true;
+    },
+    [trackMutation],
+  );
 
   /* The backend only persists renames; difficulty is fixed at creation. */
   const updateHabit = useCallback(
-    async (id, updates) => {
-      const dto = await updateHabitRequest(id, { title: updates.name });
+    async (id, updates, timeZone) => {
+      const dto = await trackMutation(
+        updateHabitRequest(id, { title: updates.name }),
+      );
       mutationEpoch.current += 1;
       const existing = habits.find((h) => h.id === id);
       const next = {
@@ -370,18 +457,29 @@ export function useHabits({ showToast }) {
         name: dto.title,
       };
       replaceHabit(next);
+      if (dto?.affectedHabitIds?.length > 0) {
+        refreshHabitsRef.current?.(dto.affectedHabitIds, timeZone);
+      }
       return next;
     },
-    [habits, replaceHabit],
+    [habits, replaceHabit, trackMutation],
   );
 
-  const addHabit = useCallback(async ({ name, difficulty }) => {
-    const dto = await createHabitRequest({ title: name, difficulty });
-    mutationEpoch.current += 1;
-    const created = mapHabit(dto, [], undefined);
-    setHabits((prev) => [...prev, created]);
-    return created;
-  }, []);
+  const addHabit = useCallback(
+    async ({ name, difficulty }, timeZone) => {
+      const dto = await trackMutation(
+        createHabitRequest({ title: name, difficulty }),
+      );
+      mutationEpoch.current += 1;
+      const created = mapHabit(dto, [], undefined);
+      setHabits((prev) => [...prev, created]);
+      if (dto?.affectedHabitIds?.length > 0) {
+        refreshHabitsRef.current?.(dto.affectedHabitIds, timeZone);
+      }
+      return created;
+    },
+    [trackMutation],
+  );
 
   /* Resolve a pending-review day once the server accepted the review
    * decision: drop it from pendingReviewDates and write the outcome

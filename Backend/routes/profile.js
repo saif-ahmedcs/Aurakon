@@ -33,6 +33,7 @@ router.get(
       totalXp: safeProgress.total_xp,
       title,
       shieldBalance: safeProgress.shield_balance,
+      affectedHabitIds: req.reconciledHabitIds,
     });
   }),
 );

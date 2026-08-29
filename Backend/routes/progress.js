@@ -51,6 +51,7 @@ router.get(
       auraEnergyToday: todayStats ? todayStats.aura_energy : 0,
       globalDailyStreak: reconciledStreak,
       shieldBalance: progress.shield_balance,
+      affectedHabitIds: req.reconciledHabitIds,
     });
   }),
 );

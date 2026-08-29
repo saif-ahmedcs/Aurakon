@@ -23,7 +23,9 @@ router.get(
   "/pending",
   asyncHandler(async (req, res) => {
     const result = await reviewService.getPendingReviews(req.user.id);
-    res.status(200).json(result);
+    res
+      .status(200)
+      .json({ ...result, affectedHabitIds: req.reconciledHabitIds });
   }),
 );
 
@@ -39,7 +41,12 @@ router.post(
         req.user.id,
         req.user.timezone,
       );
-    res.status(200).json({ results, consistencyBonuses, affectedHabitIds });
+    const merged = [
+      ...new Set([...(affectedHabitIds || []), ...req.reconciledHabitIds]),
+    ];
+    res
+      .status(200)
+      .json({ results, consistencyBonuses, affectedHabitIds: merged });
   }),
 );
 

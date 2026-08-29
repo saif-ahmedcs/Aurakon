@@ -42,6 +42,18 @@ export function useReviewSession({
   const reviewSummary = useRef({ recovered: 0, missed: 0, shielded: 0 });
   const decisionsCommitted = useRef(false);
   const resolvingRef = useRef(false);
+  // Reactive mirror of resolvingRef: while true, a decision commit is
+  // outstanding against the backend (POST /api/review/decisions). The
+  // ref alone can't drive UI, but this state is what closes the actual
+  // race - the review endpoint reads and rewrites shared per-user
+  // progression (shield balance, aura stats, bonus reconciliation)
+  // *before* it takes the same row lock a habit check-in/undo takes
+  // first thing, so those two writes can interleave if the user is
+  // able to back out of the modal and fire a check-in while a
+  // decision from this session is still in flight. Consumers use this
+  // to keep the modal open (can't dismiss mid-request) and to hold off
+  // check-in/undo actions elsewhere until it clears.
+  const [decisionInFlight, setDecisionInFlight] = useState(false);
   const countdownTimerRef = useRef(null);
 
   const [reviewShieldsAvailable, setReviewShieldsAvailable] =
@@ -105,6 +117,7 @@ export function useReviewSession({
       const item = reviewQueue[reviewIndex];
       if (!item || resolvingRef.current) return;
       resolvingRef.current = true;
+      setDecisionInFlight(true);
 
       try {
         const payload = await applyReviewDecisionsRequest([
@@ -186,6 +199,7 @@ export function useReviewSession({
         }
       } finally {
         resolvingRef.current = false;
+        setDecisionInFlight(false);
       }
     },
     [
@@ -252,6 +266,13 @@ export function useReviewSession({
   );
 
   const closeReviewSession = useCallback(() => {
+    // A decision commit is still outstanding - closing now would hand
+    // the (now-interactive) dashboard back to the user while that
+    // write is unresolved, opening the exact window a concurrent
+    // check-in/undo could race against it. Ignore the close until it
+    // settles; resolveCurrentReviewItem's finally block clears
+    // resolvingRef/decisionInFlight either way, so this never sticks.
+    if (resolvingRef.current) return;
     setReviewOpen(false);
     setReviewQueue([]);
     setReviewIndex(0);
@@ -270,6 +291,7 @@ export function useReviewSession({
     reviewStep,
     reviewShieldsAvailable,
     rateLimitCountdown,
+    decisionInFlight,
     openReviewSession,
     closeReviewSession,
     handleReviewRecovered,

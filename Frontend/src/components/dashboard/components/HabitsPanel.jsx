@@ -9,6 +9,7 @@ export function HabitsPanel({
   openMenuId,
   onToggleMenu,
   onToggleComplete,
+  checkInLocked,
   onAction,
   onOpenDetail,
   onAddHabit,
@@ -49,6 +50,7 @@ export function HabitsPanel({
             isMenuOpen={openMenuId === h.id}
             onToggleMenu={onToggleMenu}
             onToggleComplete={onToggleComplete}
+            checkInLocked={checkInLocked}
             onAction={onAction}
             onOpenDetail={onOpenDetail}
           />

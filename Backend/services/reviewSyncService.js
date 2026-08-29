@@ -36,7 +36,15 @@ async function markDayMissed(habit, date, tx, cache) {
   updateHabitLogCache(cache, habit.id, date, "missed");
 }
 
-async function finalizeDay(userId, date, tx, timezone, cache) {
+async function finalizeDay(
+  userId,
+  date,
+  tx,
+  timezone,
+  cache,
+  affectedHabitIds,
+) {
+  const ids = affectedHabitIds || new Set();
   const allCandidates = await habitLogModel.getHabitsMissingLogForDate(
     userId,
     date,
@@ -73,14 +81,16 @@ async function finalizeDay(userId, date, tx, timezone, cache) {
     );
 
     if (currentStreak > 0 || existingSession) {
-      await pendingReviewSessionService.addMissedDay(
-        userId,
-        habit.id,
-        date,
-        tx,
-        timezone,
-        cache,
-      );
+      const { affectedHabitIds: touchedIds } =
+        await pendingReviewSessionService.addMissedDay(
+          userId,
+          habit.id,
+          date,
+          tx,
+          timezone,
+          cache,
+        );
+      for (const id of touchedIds) ids.add(id);
       if (
         existingSession &&
         isSessionExpired(existingSession.last_missed_date, parseToUTCDay(date))
@@ -104,6 +114,8 @@ async function finalizeDay(userId, date, tx, timezone, cache) {
     timezone,
     cache,
   );
+
+  return { affectedHabitIds: [...ids] };
 }
 
 async function hasPendingWork(userId, timezone) {
@@ -122,11 +134,10 @@ async function hasPendingWork(userId, timezone) {
 
   if (nextDate <= yesterday) return true;
 
-  // daily_aura_stats may exist for yesterday (e.g. a check-in was created
-  // and later undone the same day), yet no habit_logs row was left behind.
-  // Detect that gap so finalizeDay still runs for yesterday.
-  const missingYesterday =
-    await habitLogModel.getHabitsMissingLogForDate(userId, yesterday);
+  const missingYesterday = await habitLogModel.getHabitsMissingLogForDate(
+    userId,
+    yesterday,
+  );
   if (missingYesterday.length > 0) return true;
 
   const cutoffDate = addUtcDays(todayInTimezone(timezone), -GRACE_PERIOD_DAYS);
@@ -156,7 +167,12 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
     ]);
 
     if (!earliestCreatedAt) {
-      return { hasHabits: false, nextDate: null, didWork: false };
+      return {
+        hasHabits: false,
+        nextDate: null,
+        didWork: false,
+        affectedHabitIds: [],
+      };
     }
 
     const earliestHabitDate = toLocalDateString(earliestCreatedAt, timezone);
@@ -165,10 +181,6 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
       ? addUtcDays(latestStatDate, 1)
       : earliestHabitDate;
 
-    // daily_aura_stats may already cover yesterday (e.g. a same-day
-    // check-in + undo created stats but no habit_log), so the normal
-    // range [nextDate..yesterday] would skip it.  Pull the window back
-    // to include yesterday when habits are missing there.
     if (date > yesterday) {
       const missingYesterday = await habitLogModel.getHabitsMissingLogForDate(
         userId,
@@ -181,33 +193,41 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
     }
 
     let didWork = false;
+    const affectedHabitIds = new Set();
     const cache = streakService.createFullCompletionCache();
     for (let i = 0; i < CATCH_UP_BATCH_DAYS && date <= yesterday; i++) {
-      await finalizeDay(userId, date, tx, timezone, cache);
+      await finalizeDay(userId, date, tx, timezone, cache, affectedHabitIds);
       didWork = true;
       date = addUtcDays(date, 1);
     }
 
-    return { hasHabits: true, nextDate: date, didWork };
+    return {
+      hasHabits: true,
+      nextDate: date,
+      didWork,
+      affectedHabitIds: [...affectedHabitIds],
+    };
   });
 }
 
 async function runEvaluatePendingReviews(userId, timezone) {
   if (!(await hasPendingWork(userId, timezone))) {
-    return;
+    return { affectedHabitIds: [] };
   }
 
   const yesterday = getPreviousLocalDate(timezone);
   let didWork = false;
   let nextDate;
+  const affectedHabitIds = new Set();
 
   do {
     const batch = await runCatchUpBatch(userId, timezone, yesterday);
     if (!batch.hasHabits) {
-      return;
+      return { affectedHabitIds: [...affectedHabitIds] };
     }
     didWork = didWork || batch.didWork;
     nextDate = batch.nextDate;
+    for (const id of batch.affectedHabitIds) affectedHabitIds.add(id);
   } while (nextDate <= yesterday);
 
   return runInTransaction(async (tx) => {
@@ -232,6 +252,7 @@ async function runEvaluatePendingReviews(userId, timezone) {
       if (!current || logDate < current) {
         earliestExpiredDateByHabit.set(habitId, logDate);
       }
+      affectedHabitIds.add(habitId);
     }
 
     const cache = streakService.createFullCompletionCache();
@@ -241,20 +262,24 @@ async function runEvaluatePendingReviews(userId, timezone) {
         tx,
         cache,
       );
-      await guardianShieldService.reconcileShieldsFromDate(
-        userId,
-        habitId,
-        logs,
-        fromDate,
-        tx,
-        timezone,
-        cache,
-      );
+      const { affectedHabitIds: crossIds } =
+        await guardianShieldService.reconcileShieldsFromDate(
+          userId,
+          habitId,
+          logs,
+          fromDate,
+          tx,
+          timezone,
+          cache,
+        );
+      for (const id of crossIds) affectedHabitIds.add(id);
     }
 
     if (didWork) {
       await levelService.recalculateAndPersistLevel(userId, tx, timezone);
     }
+
+    return { affectedHabitIds: [...affectedHabitIds] };
   });
 }
 

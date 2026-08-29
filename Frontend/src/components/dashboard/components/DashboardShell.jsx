@@ -61,6 +61,7 @@ export function DashboardShell({
   openHabitMenuId,
   onToggleHabitMenu,
   onToggleComplete,
+  checkInLocked,
   onHabitAction,
   onOpenHabitDetail,
   onOpenAddHabit,
@@ -134,6 +135,7 @@ export function DashboardShell({
               openMenuId={openHabitMenuId}
               onToggleMenu={onToggleHabitMenu}
               onToggleComplete={onToggleComplete}
+              checkInLocked={checkInLocked}
               onAction={onHabitAction}
               onOpenDetail={onOpenHabitDetail}
               onAddHabit={onOpenAddHabit}

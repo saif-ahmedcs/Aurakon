@@ -50,15 +50,17 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
         tx,
         fullCompletionCache,
       );
-      await guardianShieldService.reconcileShieldsFromDate(
-        userId,
-        habitId,
-        logs,
-        earliestDate,
-        tx,
-        timezone,
-        fullCompletionCache,
-      );
+      const { affectedHabitIds: crossHabitIds } =
+        await guardianShieldService.reconcileShieldsFromDate(
+          userId,
+          habitId,
+          logs,
+          earliestDate,
+          tx,
+          timezone,
+          fullCompletionCache,
+        );
+      return { affectedHabitIds: [...new Set([habitId, ...crossHabitIds])] };
     }
   }
 
@@ -78,7 +80,7 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
         concurrentSession.id,
         tx,
       );
-      return;
+      return { affectedHabitIds: [] };
     }
 
     await habitLogModel.insertPendingReviewLog(
@@ -87,10 +89,11 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
       sessionId,
       tx,
     );
-    return;
+    return { affectedHabitIds: [] };
   }
 
   await attachMissedDayToSession(habitId, missedDate, session.id, tx);
+  return { affectedHabitIds: [] };
 }
 
 async function resolveSessionIfComplete(habitId, tx) {
