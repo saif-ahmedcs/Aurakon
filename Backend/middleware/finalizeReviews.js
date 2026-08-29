@@ -7,6 +7,8 @@ const finalizeReviews = asyncHandler(async (req, res, next) => {
     req.user.timezone,
   );
   req.reconciledHabitIds = (result && result.affectedHabitIds) || [];
+  req.reconciledReversedBonuses = (result && result.reversedBonuses) || [];
+  req.reconciledReversedShields = (result && result.reversedShields) || [];
   next();
 });
 

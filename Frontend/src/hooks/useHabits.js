@@ -311,6 +311,13 @@ export function useHabits({ showToast }) {
       try {
         let shieldEarned = false;
         let consistencyBonuses = [];
+        // Un-checking today's completion can itself break a full-
+        // completion streak that had already earned a bonus/shield -
+        // the backend reverses that reward server-side (a real state
+        // transition, not just "no bonus was awarded"), so surface it
+        // the same way an award is surfaced.
+        let reversedBonuses = [];
+        let reversedShields = [];
         let streakPatch = null;
         let affectedHabitIds = [];
         if (nowDone) {
@@ -319,6 +326,8 @@ export function useHabits({ showToast }) {
           );
           shieldEarned = response?.shieldEarned;
           consistencyBonuses = response?.consistencyBonuses || [];
+          reversedBonuses = response?.reversedBonuses || [];
+          reversedShields = response?.reversedShields || [];
           affectedHabitIds = response?.affectedHabitIds || [];
           if (typeof response?.currentStreak === "number") {
             streakPatch = {
@@ -332,6 +341,8 @@ export function useHabits({ showToast }) {
         } else {
           const response = await trackMutation(undoHabitLogRequest(id, today));
           affectedHabitIds = response?.affectedHabitIds || [];
+          reversedBonuses = response?.reversedBonuses || [];
+          reversedShields = response?.reversedShields || [];
           if (typeof response?.currentStreak === "number") {
             streakPatch = {
               currentStreak: response.currentStreak,
@@ -351,7 +362,12 @@ export function useHabits({ showToast }) {
         if (affectedHabitIds.length > 0) {
           refreshHabits(affectedHabitIds, timeZone);
         }
-        return { success: true, consistencyBonuses };
+        return {
+          success: true,
+          consistencyBonuses,
+          reversedBonuses,
+          reversedShields,
+        };
       } catch (err) {
         if (err?.status === 409) {
           // The server state changed underneath this request (e.g. a
@@ -422,10 +438,14 @@ export function useHabits({ showToast }) {
         if (response?.affectedHabitIds?.length > 0) {
           refreshHabits(response.affectedHabitIds, timeZone);
         }
-        return true;
+        return {
+          success: true,
+          reversedBonuses: response?.reversedBonuses || [],
+          reversedShields: response?.reversedShields || [],
+        };
       } catch (err) {
         showToast(err.error || "Could not undo this check-in.");
-        return false;
+        return { success: false };
       }
     },
     [showToast, refreshHabit, refreshHabits, trackMutation],

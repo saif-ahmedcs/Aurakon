@@ -109,8 +109,29 @@ function resolveStageIndex(stages, title) {
   return index === -1 ? 0 : index;
 }
 
+/* Undoing a check-in or marking a pending day "missed" can break a
+ * full-completion streak that had already earned a 7/30-day bonus or a
+ * Guardian Shield - the backend deletes that award and reverses the XP
+ * server-side (a real reward-reversal, not just "no bonus this time").
+ * refreshProgress() alone makes totalXp/shieldBalance land on the right
+ * number, but with nothing surfaced here that drop would read as
+ * unexplained data loss. Mirrors the "bonus earned" toast shape. */
+function announceReversedRewards(showToast, reversedBonuses, reversedShields) {
+  for (const bonus of reversedBonuses || []) {
+    const bonusLabel =
+      bonus.bonusType === "7day" ? "7-Day Streak" : "30-Day Streak";
+    const bonusXp = Math.abs(bonus.delta || 0);
+    showToast(`⚠️ ${bonusLabel} bonus reversed · −${bonusXp} XP`);
+  }
+  for (const shield of reversedShields || []) {
+    showToast(
+      `🛡️ Guardian Shield revoked · ${shield.milestone}-day streak broke`,
+    );
+  }
+}
+
 export default function DashboardApp() {
-  const { toast, showToast } = useToast();
+  const { toast, toastId, showToast } = useToast();
   const habitsLoadStarted = useRef(false);
 
   /* -------------------------------------------------------------- */
@@ -517,6 +538,14 @@ export default function DashboardApp() {
           }
         }
       }
+      // Unchecking can itself break a streak that had already earned a
+      // bonus/shield - announce the clawback either way (turningOn only
+      // gates the "+XP" toast above, not this).
+      announceReversedRewards(
+        showToast,
+        result.reversedBonuses,
+        result.reversedShields,
+      );
       refreshProgress();
     },
     [
@@ -634,10 +663,20 @@ export default function DashboardApp() {
         showToast("Finishing up your last review decision - one moment.");
         return;
       }
-      const ok = await undoCheckIn(habitId, dateStr, meData && meData.timezone);
-      if (ok) {
+      const result = await undoCheckIn(
+        habitId,
+        dateStr,
+        meData && meData.timezone,
+      );
+      if (result?.success) {
         showToast("Check-in undone");
-        // The server reversed XP and reconciled aura/bonuses/shields.
+        // The server reversed XP and reconciled aura/bonuses/shields -
+        // announce any bonus/shield it clawed back as a consequence.
+        announceReversedRewards(
+          showToast,
+          result.reversedBonuses,
+          result.reversedShields,
+        );
         refreshProgress();
       }
     },
@@ -969,7 +1008,7 @@ export default function DashboardApp() {
       )}
 
       {toast && (
-        <div className="toast" role="status">
+        <div className="toast" role="status" key={toastId}>
           {toast}
         </div>
       )}

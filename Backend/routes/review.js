@@ -35,18 +35,33 @@ router.post(
   validate(reviewDecisionsSchema),
   asyncHandler(async (req, res) => {
     const { decisions } = req.body;
-    const { results, consistencyBonuses, affectedHabitIds } =
-      await reviewService.applyDecisions(
-        decisions,
-        req.user.id,
-        req.user.timezone,
-      );
+    const {
+      results,
+      consistencyBonuses,
+      affectedHabitIds,
+      reversedBonuses,
+      reversedShields,
+    } = await reviewService.applyDecisions(
+      decisions,
+      req.user.id,
+      req.user.timezone,
+    );
     const merged = [
       ...new Set([...(affectedHabitIds || []), ...req.reconciledHabitIds]),
     ];
-    res
-      .status(200)
-      .json({ results, consistencyBonuses, affectedHabitIds: merged });
+    res.status(200).json({
+      results,
+      consistencyBonuses,
+      affectedHabitIds: merged,
+      reversedBonuses: [
+        ...(reversedBonuses || []),
+        ...(req.reconciledReversedBonuses || []),
+      ],
+      reversedShields: [
+        ...(reversedShields || []),
+        ...(req.reconciledReversedShields || []),
+      ],
+    });
   }),
 );
 

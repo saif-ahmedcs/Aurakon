@@ -105,13 +105,21 @@ async function reconcileShieldsFromDate(
   timezone,
   cache,
   affectedHabitIds,
+  reversedBonusesAcc,
+  reversedShieldsAcc,
 ) {
   const fullCompletionCache =
     cache || streakService.createFullCompletionCache();
   const crossHabitIds = affectedHabitIds || new Set();
+  const reversedBonuses = reversedBonusesAcc || [];
+  const reversedShields = reversedShieldsAcc || [];
   const habit = await habitModel.findById(habitId, userId, tx);
   if (!habit) {
-    return { affectedHabitIds: [...crossHabitIds] };
+    return {
+      affectedHabitIds: [...crossHabitIds],
+      reversedBonuses,
+      reversedShields,
+    };
   }
 
   const deferredSince = await habitModel.getShieldDeferredSince(habitId, tx);
@@ -174,12 +182,15 @@ async function reconcileShieldsFromDate(
           timezone,
           fullCompletionCache,
         );
-        await bonusService.reconcileBonusesFromDate(
+        const bonusReconcileResult = await bonusService.reconcileBonusesFromDate(
           userId,
           reverted.log_date,
           tx,
           fullCompletionCache,
         );
+        if (bonusReconcileResult?.reversedBonuses?.length) {
+          reversedBonuses.push(...bonusReconcileResult.reversedBonuses);
+        }
 
         if (reverted.habit_id !== habitId) {
           crossHabitIds.add(reverted.habit_id);
@@ -197,6 +208,8 @@ async function reconcileShieldsFromDate(
             timezone,
             fullCompletionCache,
             crossHabitIds,
+            reversedBonuses,
+            reversedShields,
           );
         }
 
@@ -210,6 +223,13 @@ async function reconcileShieldsFromDate(
 
     await guardianShieldLogModel.deleteAward(award.id, award.status, tx);
     await recalculateShieldBalance(userId, tx);
+    reversedShields.push({
+      habitId,
+      milestone: award.milestone,
+      streakStartDate: award.streak_start_date,
+      awardedAt: award.awarded_at,
+      wasSpent: award.status === "spent",
+    });
   }
 
   const asOfDate = todayInTimezone(timezone);
@@ -227,6 +247,8 @@ async function reconcileShieldsFromDate(
     currentStreak: finalCurrentStreak,
     longestStreak: finalLongestStreak,
     affectedHabitIds: [...crossHabitIds],
+    reversedBonuses,
+    reversedShields,
   };
 
   if (!isShieldEligibleDifficulty(habit.difficulty)) {

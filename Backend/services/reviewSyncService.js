@@ -212,18 +212,24 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
 
 async function runEvaluatePendingReviews(userId, timezone) {
   if (!(await hasPendingWork(userId, timezone))) {
-    return { affectedHabitIds: [] };
+    return { affectedHabitIds: [], reversedBonuses: [], reversedShields: [] };
   }
 
   const yesterday = getPreviousLocalDate(timezone);
   let didWork = false;
   let nextDate;
   const affectedHabitIds = new Set();
+  const reversedBonuses = [];
+  const reversedShields = [];
 
   do {
     const batch = await runCatchUpBatch(userId, timezone, yesterday);
     if (!batch.hasHabits) {
-      return { affectedHabitIds: [...affectedHabitIds] };
+      return {
+        affectedHabitIds: [...affectedHabitIds],
+        reversedBonuses,
+        reversedShields,
+      };
     }
     didWork = didWork || batch.didWork;
     nextDate = batch.nextDate;
@@ -262,24 +268,37 @@ async function runEvaluatePendingReviews(userId, timezone) {
         tx,
         cache,
       );
-      const { affectedHabitIds: crossIds } =
-        await guardianShieldService.reconcileShieldsFromDate(
-          userId,
-          habitId,
-          logs,
-          fromDate,
-          tx,
-          timezone,
-          cache,
-        );
+      const {
+        affectedHabitIds: crossIds,
+        reversedBonuses: shieldReversedBonuses,
+        reversedShields: shieldReversedShields,
+      } = await guardianShieldService.reconcileShieldsFromDate(
+        userId,
+        habitId,
+        logs,
+        fromDate,
+        tx,
+        timezone,
+        cache,
+      );
       for (const id of crossIds) affectedHabitIds.add(id);
+      if (shieldReversedBonuses?.length) {
+        reversedBonuses.push(...shieldReversedBonuses);
+      }
+      if (shieldReversedShields?.length) {
+        reversedShields.push(...shieldReversedShields);
+      }
     }
 
     if (didWork) {
       await levelService.recalculateAndPersistLevel(userId, tx, timezone);
     }
 
-    return { affectedHabitIds: [...affectedHabitIds] };
+    return {
+      affectedHabitIds: [...affectedHabitIds],
+      reversedBonuses,
+      reversedShields,
+    };
   });
 }
 

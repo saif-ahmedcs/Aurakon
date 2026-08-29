@@ -169,6 +169,27 @@ export function useReviewSession({
           }
         }
 
+        // A "missed" decision (or a shield spend that fails to hold)
+        // can itself break a full-completion streak that had already
+        // earned a bonus, or revoke a Guardian Shield outright - the
+        // backend reverses that reward server-side, so announce it the
+        // same way an award is announced above.
+        if (payload.reversedBonuses && payload.reversedBonuses.length > 0) {
+          for (const bonus of payload.reversedBonuses) {
+            const bonusLabel =
+              bonus.bonusType === "7day" ? "7-Day Streak" : "30-Day Streak";
+            const bonusXp = Math.abs(bonus.delta || 0);
+            showToast(`⚠️ ${bonusLabel} bonus reversed · −${bonusXp} XP`);
+          }
+        }
+        if (payload.reversedShields && payload.reversedShields.length > 0) {
+          for (const shield of payload.reversedShields) {
+            showToast(
+              `🛡️ Guardian Shield revoked · ${shield.milestone}-day streak broke`,
+            );
+          }
+        }
+
         decisionsCommitted.current = true;
 
         // The server recomputed this habit's streak (bridging rules and

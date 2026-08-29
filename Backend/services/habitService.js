@@ -176,8 +176,9 @@ async function logHabit(habitId, date, userId, timezone) {
       fullCompletionCache,
     );
 
+    let recoveryBonusReconcile = null;
     if (!created) {
-      await bonusService.reconcileBonusesFromDate(
+      recoveryBonusReconcile = await bonusService.reconcileBonusesFromDate(
         userId,
         date,
         tx,
@@ -257,6 +258,11 @@ async function logHabit(habitId, date, userId, timezone) {
       longestStreak: finalStreak.longestStreak,
       affectedHabitIds: finalStreak.affectedHabitIds || [],
       consistencyBonuses: rewardResult.consistencyBonuses || [],
+      reversedBonuses: [
+        ...(recoveryBonusReconcile?.reversedBonuses || []),
+        ...(finalStreak.reversedBonuses || []),
+      ],
+      reversedShields: finalStreak.reversedShields || [],
     };
   });
 }
@@ -296,7 +302,7 @@ async function undoLog(habitId, date, userId, timezone) {
       timezone,
       fullCompletionCache,
     );
-    await bonusService.reconcileBonusesFromDate(
+    const bonusReconcile = await bonusService.reconcileBonusesFromDate(
       userId,
       date,
       tx,
@@ -324,6 +330,11 @@ async function undoLog(habitId, date, userId, timezone) {
       currentStreak: finalStreak?.currentStreak ?? habit.current_streak ?? 0,
       longestStreak: finalStreak?.longestStreak ?? habit.longest_streak ?? 0,
       affectedHabitIds: finalStreak?.affectedHabitIds || [],
+      reversedBonuses: [
+        ...(bonusReconcile?.reversedBonuses || []),
+        ...(finalStreak?.reversedBonuses || []),
+      ],
+      reversedShields: finalStreak?.reversedShields || [],
     };
   });
 }

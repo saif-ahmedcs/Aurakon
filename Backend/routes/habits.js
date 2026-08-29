@@ -42,7 +42,9 @@ router.post(
       difficulty,
       req.user.timezone,
     );
-    res.status(201).json({ ...habit, affectedHabitIds: req.reconciledHabitIds });
+    res
+      .status(201)
+      .json({ ...habit, affectedHabitIds: req.reconciledHabitIds });
   }),
 );
 
@@ -54,7 +56,9 @@ router.get(
       req.user.id,
       req.user.timezone,
     );
-    res.status(200).json({ ...habit, affectedHabitIds: req.reconciledHabitIds });
+    res
+      .status(200)
+      .json({ ...habit, affectedHabitIds: req.reconciledHabitIds });
   }),
 );
 
@@ -99,6 +103,8 @@ router.post(
       longestStreak,
       affectedHabitIds,
       consistencyBonuses,
+      reversedBonuses,
+      reversedShields,
     } = await habitService.logHabit(
       req.habitId,
       date,
@@ -117,6 +123,14 @@ router.post(
       longestStreak,
       affectedHabitIds: merged,
       consistencyBonuses,
+      reversedBonuses: [
+        ...(reversedBonuses || []),
+        ...(req.reconciledReversedBonuses || []),
+      ],
+      reversedShields: [
+        ...(reversedShields || []),
+        ...(req.reconciledReversedShields || []),
+      ],
     });
   }),
 );
@@ -134,13 +148,18 @@ router.delete(
   validate(logDateParamSchema, "params"),
   asyncHandler(async (req, res) => {
     const { date } = req.params;
-    const { currentStreak, longestStreak, affectedHabitIds } =
-      await habitService.undoLog(
-        req.habitId,
-        date,
-        req.user.id,
-        req.user.timezone,
-      );
+    const {
+      currentStreak,
+      longestStreak,
+      affectedHabitIds,
+      reversedBonuses,
+      reversedShields,
+    } = await habitService.undoLog(
+      req.habitId,
+      date,
+      req.user.id,
+      req.user.timezone,
+    );
     const merged = [
       ...new Set([...(affectedHabitIds || []), ...req.reconciledHabitIds]),
     ];
@@ -149,6 +168,14 @@ router.delete(
       currentStreak,
       longestStreak,
       affectedHabitIds: merged,
+      reversedBonuses: [
+        ...(reversedBonuses || []),
+        ...(req.reconciledReversedBonuses || []),
+      ],
+      reversedShields: [
+        ...(reversedShields || []),
+        ...(req.reconciledReversedShields || []),
+      ],
     });
   }),
 );
