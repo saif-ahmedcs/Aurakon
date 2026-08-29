@@ -110,8 +110,7 @@ function mapHabit(dto, logs, timeZone) {
 export function useHabits({ showToast }) {
   const [habits, setHabits] = useState([]);
   const [loaded, setLoaded] = useState(false);
-
-  const toggleInFlight = useRef(false);
+  const toggleInFlight = useRef(new Set());
   const refreshSeq = useRef({});
   const pendingMutations = useRef(new Set());
 
@@ -255,12 +254,15 @@ export function useHabits({ showToast }) {
    * Returns true when the server accepted the change. */
   const toggleHabitCompletion = useCallback(
     async (id, timeZone) => {
-      if (toggleInFlight.current) return false;
-      toggleInFlight.current = true;
+      if (toggleInFlight.current.has(id)) {
+        showToast("Still saving that check-in - one moment.");
+        return { success: false, duplicate: true };
+      }
+      toggleInFlight.current.add(id);
 
       const snapshot = habits.find((h) => h.id === id);
       if (!snapshot) {
-        toggleInFlight.current = false;
+        toggleInFlight.current.delete(id);
         return false;
       }
 
@@ -381,7 +383,7 @@ export function useHabits({ showToast }) {
         showToast(err.error || "Could not update the trial. Try again.");
         return { success: false };
       } finally {
-        toggleInFlight.current = false;
+        toggleInFlight.current.delete(id);
       }
     },
     [
@@ -489,7 +491,7 @@ export function useHabits({ showToast }) {
         createHabitRequest({ title: name, difficulty }),
       );
       mutationEpoch.current += 1;
-      const created = mapHabit(dto, [], undefined);
+      const created = mapHabit(dto, [], timeZone);
       setHabits((prev) => [...prev, created]);
       if (dto?.affectedHabitIds?.length > 0) {
         refreshHabitsRef.current?.(dto.affectedHabitIds, timeZone);
