@@ -184,7 +184,10 @@ async function runApplyDecisions(decisions, userId, timezone) {
         timezone,
         fullCompletionCache,
       );
-      if (auraResult.consistencyBonuses && auraResult.consistencyBonuses.length > 0) {
+      if (
+        auraResult.consistencyBonuses &&
+        auraResult.consistencyBonuses.length > 0
+      ) {
         allConsistencyBonuses.push(...auraResult.consistencyBonuses);
       }
     }
@@ -213,6 +216,8 @@ async function runApplyDecisions(decisions, userId, timezone) {
       }
     }
 
+    const crossHabitIds = new Set();
+
     for (const [habitId, earliestDate] of affectedHabitEarliestDate) {
       const logs = await streakService.getLogsForHabitCached(
         habitId,
@@ -227,6 +232,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
         tx,
         timezone,
         fullCompletionCache,
+        crossHabitIds,
       );
     }
 
@@ -236,7 +242,16 @@ async function runApplyDecisions(decisions, userId, timezone) {
       resultsByKey.get(`${habitId}|${missedDate}`),
     );
 
-    return { results, consistencyBonuses: allConsistencyBonuses };
+    const decidedHabitIds = new Set(decisions.map((d) => d.habitId));
+    const affectedHabitIds = [...crossHabitIds].filter(
+      (id) => !decidedHabitIds.has(id),
+    );
+
+    return {
+      results,
+      consistencyBonuses: allConsistencyBonuses,
+      affectedHabitIds,
+    };
   });
 }
 

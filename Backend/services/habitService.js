@@ -200,6 +200,7 @@ async function logHabit(habitId, date, userId, timezone) {
     let finalStreak = {
       currentStreak: habitStreak,
       longestStreak: habitLongestStreak,
+      affectedHabitIds: [],
     };
 
     if (created) {
@@ -254,6 +255,7 @@ async function logHabit(habitId, date, userId, timezone) {
       shieldBalance: newShieldBalance,
       currentStreak: finalStreak.currentStreak,
       longestStreak: finalStreak.longestStreak,
+      affectedHabitIds: finalStreak.affectedHabitIds || [],
       consistencyBonuses: rewardResult.consistencyBonuses || [],
     };
   });
@@ -321,6 +323,7 @@ async function undoLog(habitId, date, userId, timezone) {
     return {
       currentStreak: finalStreak?.currentStreak ?? habit.current_streak ?? 0,
       longestStreak: finalStreak?.longestStreak ?? habit.longest_streak ?? 0,
+      affectedHabitIds: finalStreak?.affectedHabitIds || [],
     };
   });
 }

@@ -33,12 +33,13 @@ router.post(
   validate(reviewDecisionsSchema),
   asyncHandler(async (req, res) => {
     const { decisions } = req.body;
-    const { results, consistencyBonuses } = await reviewService.applyDecisions(
-      decisions,
-      req.user.id,
-      req.user.timezone,
-    );
-    res.status(200).json({ results, consistencyBonuses });
+    const { results, consistencyBonuses, affectedHabitIds } =
+      await reviewService.applyDecisions(
+        decisions,
+        req.user.id,
+        req.user.timezone,
+      );
+    res.status(200).json({ results, consistencyBonuses, affectedHabitIds });
   }),
 );
 

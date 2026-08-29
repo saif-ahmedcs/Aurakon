@@ -159,8 +159,16 @@ export function useReviewSession({
         decisionsCommitted.current = true;
 
         // The server recomputed this habit's streak (bridging rules and
-        // reconciliation) - pull its authoritative state back.
-        if (onHabitChanged) onHabitChanged(item.habitId);
+        // reconciliation) - pull its authoritative state back. Guardian
+        // Shields are a shared wallet, so this decision can also have
+        // silently reverted a shielded/missed day on a *different*
+        // habit (docs/04-guardian-shield.md, "Reconciliation"); the
+        // response's affectedHabitIds names any such habits so they get
+        // the same re-sync instead of quietly drifting from the server.
+        if (onHabitChanged) {
+          const idsToSync = [item.habitId, ...(payload.affectedHabitIds || [])];
+          onHabitChanged(idsToSync);
+        }
 
         const nextIndex = reviewIndex + 1;
         if (nextIndex >= reviewQueue.length) {

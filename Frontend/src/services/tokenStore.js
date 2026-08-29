@@ -31,6 +31,11 @@ export function clearAccessToken() {
 /* ------------------------------------------------------------------ */
 /*  Cross-tab refresh coordination                                     */
 /* ------------------------------------------------------------------ */
+
+const LOCK_KEY = "aurakon:refresh-lock";
+const LOCK_TIMEOUT_MS = 4000;
+const CHANNEL_NAME = "aurakon:token-refresh";
+
 let refreshInFlight = null;
 
 function acquireLock() {

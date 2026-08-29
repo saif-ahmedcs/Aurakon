@@ -175,6 +175,14 @@ export function useHabits({ showToast }) {
     }
   }, []);
 
+  const refreshHabits = useCallback(
+    (habitIds, timeZone) => {
+      const ids = [...new Set((habitIds || []).filter(Boolean))];
+      return Promise.all(ids.map((id) => refreshHabit(id, timeZone)));
+    },
+    [refreshHabit],
+  );
+
   /* Flip completedToday: checking in posts today's log (or recovers a
    * pending day), un-checking deletes it. Optimistic flip, reverted on
    * failure. The displayed streak is bumped in the same tick for the
@@ -239,10 +247,12 @@ export function useHabits({ showToast }) {
         let shieldEarned = false;
         let consistencyBonuses = [];
         let streakPatch = null;
+        let affectedHabitIds = [];
         if (nowDone) {
           const response = await createHabitLogRequest(id, today);
           shieldEarned = response?.shieldEarned;
           consistencyBonuses = response?.consistencyBonuses || [];
+          affectedHabitIds = response?.affectedHabitIds || [];
           if (typeof response?.currentStreak === "number") {
             streakPatch = {
               currentStreak: response.currentStreak,
@@ -254,6 +264,7 @@ export function useHabits({ showToast }) {
           }
         } else {
           const response = await undoHabitLogRequest(id, today);
+          affectedHabitIds = response?.affectedHabitIds || [];
           if (typeof response?.currentStreak === "number") {
             streakPatch = {
               currentStreak: response.currentStreak,
@@ -268,6 +279,11 @@ export function useHabits({ showToast }) {
         }
         mutationEpoch.current += 1;
         refreshHabit(id, timeZone);
+        // Cross-habit Guardian Shield fallout (see refreshHabits above) -
+        // re-sync any other habit the server silently rewrote too.
+        if (affectedHabitIds.length > 0) {
+          refreshHabits(affectedHabitIds, timeZone);
+        }
         return { success: true, consistencyBonuses };
       } catch (err) {
         if (err?.status === 409) {
@@ -285,7 +301,7 @@ export function useHabits({ showToast }) {
         toggleInFlight.current = false;
       }
     },
-    [habits, replaceHabit, showToast, refreshHabit],
+    [habits, replaceHabit, showToast, refreshHabit, refreshHabits],
   );
 
   /* Undo a check-in from the habit detail calendar. The backend only
@@ -324,13 +340,16 @@ export function useHabits({ showToast }) {
         );
         mutationEpoch.current += 1;
         refreshHabit(habitId, timeZone);
+        if (response?.affectedHabitIds?.length > 0) {
+          refreshHabits(response.affectedHabitIds, timeZone);
+        }
         return true;
       } catch (err) {
         showToast(err.error || "Could not undo this check-in.");
         return false;
       }
     },
-    [showToast, refreshHabit],
+    [showToast, refreshHabit, refreshHabits],
   );
 
   const deleteHabit = useCallback(async (id) => {
@@ -408,5 +427,6 @@ export function useHabits({ showToast }) {
     undoCheckIn,
     resolveHabitDate,
     refreshHabit,
+    refreshHabits,
   };
 }

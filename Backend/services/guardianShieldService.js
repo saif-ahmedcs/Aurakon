@@ -104,12 +104,14 @@ async function reconcileShieldsFromDate(
   tx,
   timezone,
   cache,
+  affectedHabitIds,
 ) {
   const fullCompletionCache =
     cache || streakService.createFullCompletionCache();
+  const crossHabitIds = affectedHabitIds || new Set();
   const habit = await habitModel.findById(habitId, userId, tx);
   if (!habit) {
-    return;
+    return { affectedHabitIds: [...crossHabitIds] };
   }
 
   const deferredSince = await habitModel.getShieldDeferredSince(habitId, tx);
@@ -180,6 +182,7 @@ async function reconcileShieldsFromDate(
         );
 
         if (reverted.habit_id !== habitId) {
+          crossHabitIds.add(reverted.habit_id);
           const affectedLogs = await streakService.getLogsForHabitCached(
             reverted.habit_id,
             tx,
@@ -193,6 +196,7 @@ async function reconcileShieldsFromDate(
             tx,
             timezone,
             fullCompletionCache,
+            crossHabitIds,
           );
         }
 
@@ -222,6 +226,7 @@ async function reconcileShieldsFromDate(
   const streakResult = {
     currentStreak: finalCurrentStreak,
     longestStreak: finalLongestStreak,
+    affectedHabitIds: [...crossHabitIds],
   };
 
   if (!isShieldEligibleDifficulty(habit.difficulty)) {

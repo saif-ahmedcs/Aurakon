@@ -133,6 +133,7 @@ export default function DashboardApp() {
     undoCheckIn,
     resolveHabitDate,
     refreshHabit,
+    refreshHabits,
   } = useHabits({ showToast });
 
   useEffect(() => {
@@ -194,11 +195,20 @@ export default function DashboardApp() {
     }
   }, []);
 
-  /* Re-sync one habit's server-computed state (streaks, pending
-   * reviews) after a mutation elsewhere, e.g. review decisions. */
+  /* Re-sync one or more habits' server-computed state (streaks, pending
+   * reviews) after a mutation elsewhere, e.g. review decisions. Accepts
+   * either a single habit id or an array - review decisions can also
+   * name extra habits touched by cross-habit Guardian Shield
+   * reconciliation, which need the same authoritative re-sync. */
   const syncHabitFromServer = useCallback(
-    (habitId) => refreshHabit(habitId, meData ? meData.timezone : undefined),
-    [refreshHabit, meData],
+    (habitIdOrIds) => {
+      const timeZone = meData ? meData.timezone : undefined;
+      if (Array.isArray(habitIdOrIds)) {
+        return refreshHabits(habitIdOrIds, timeZone);
+      }
+      return refreshHabit(habitIdOrIds, timeZone);
+    },
+    [refreshHabit, refreshHabits, meData],
   );
 
   const handleAccountTimeZoneChange = useCallback((nextTz) => {

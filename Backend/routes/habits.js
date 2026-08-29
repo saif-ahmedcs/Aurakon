@@ -92,6 +92,7 @@ router.post(
       shieldBalance,
       currentStreak,
       longestStreak,
+      affectedHabitIds,
       consistencyBonuses,
     } = await habitService.logHabit(
       req.habitId,
@@ -106,6 +107,7 @@ router.post(
       shieldBalance,
       currentStreak,
       longestStreak,
+      affectedHabitIds,
       consistencyBonuses,
     });
   }),
@@ -124,16 +126,18 @@ router.delete(
   validate(logDateParamSchema, "params"),
   asyncHandler(async (req, res) => {
     const { date } = req.params;
-    const { currentStreak, longestStreak } = await habitService.undoLog(
-      req.habitId,
-      date,
-      req.user.id,
-      req.user.timezone,
-    );
+    const { currentStreak, longestStreak, affectedHabitIds } =
+      await habitService.undoLog(
+        req.habitId,
+        date,
+        req.user.id,
+        req.user.timezone,
+      );
     res.status(200).json({
       message: "Log undone successfully",
       currentStreak,
       longestStreak,
+      affectedHabitIds,
     });
   }),
 );
