@@ -59,6 +59,12 @@ function mapLogStatus(status) {
   return null;
 }
 
+function isPresentStatus(status) {
+  return (
+    status === "completed" || status === "recovered" || status === "shielded"
+  );
+}
+
 function buildHabitState(dto, logs, timeZone, existing) {
   const history = {};
   const rawHistory = {};
@@ -71,7 +77,7 @@ function buildHabitState(dto, logs, timeZone, existing) {
     // Keep the untouched backend status: undo eligibility depends on
     // it (only plain completed logs can be undone, not recovered ones).
     rawHistory[log.date] = log.status;
-    count += 1;
+    if (isPresentStatus(log.status)) count += 1;
   }
 
   const pendingReviewDates = [
@@ -372,16 +378,19 @@ export function useHabits({ showToast }) {
         if (err?.status === 409) {
           // The server state changed underneath this request (e.g. a
           // duplicate log already exists) - still a confirmed change
-          // in server truth that any in-flight load() must not clobber.
+          // in server truth that any in-flight load() must not clobber,
+          // and one that already moved XP/level/aura/shields/global
+          // streak server-side (e.g. another device beat this one to
+          // it), so callers must treat this as a real mutation for
+          // progress-refresh purposes even though it "failed" locally.
           mutationEpoch.current += 1;
           refreshHabit(id, timeZone);
-        } else {
-          // Don't assume the snapshot is still valid - e.g. the habit
-          // may have just been deleted out from under this request.
-          reconcileAfterFailedMutation(id, timeZone, snapshot);
+          showToast(err.error || "Could not update the trial. Try again.");
+          return { success: false, confirmed: true };
         }
+        reconcileAfterFailedMutation(id, timeZone, snapshot);
         showToast(err.error || "Could not update the trial. Try again.");
-        return { success: false };
+        return { success: false, confirmed: false };
       } finally {
         toggleInFlight.current.delete(id);
       }
@@ -444,8 +453,14 @@ export function useHabits({ showToast }) {
           reversedShields: response?.reversedShields || [],
         };
       } catch (err) {
+        if (err?.status === 409) {
+          mutationEpoch.current += 1;
+          refreshHabit(habitId, timeZone);
+          showToast(err.error || "Could not undo this check-in.");
+          return { success: false, confirmed: true };
+        }
         showToast(err.error || "Could not undo this check-in.");
-        return { success: false };
+        return { success: false, confirmed: false };
       }
     },
     [showToast, refreshHabit, refreshHabits, trackMutation],

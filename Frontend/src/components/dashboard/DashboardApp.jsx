@@ -524,7 +524,10 @@ export default function DashboardApp() {
       const turningOn = habit && !habit.completedToday;
 
       const result = await toggleHabitCompletion(id, meData && meData.timezone);
-      if (!result?.success) return;
+      if (!result?.success) {
+        if (result?.confirmed) refreshProgress();
+        return;
+      }
 
       if (turningOn) {
         pulseAura();
@@ -679,6 +682,8 @@ export default function DashboardApp() {
           result.reversedBonuses,
           result.reversedShields,
         );
+        refreshProgress();
+      } else if (result?.confirmed) {
         refreshProgress();
       }
     },
