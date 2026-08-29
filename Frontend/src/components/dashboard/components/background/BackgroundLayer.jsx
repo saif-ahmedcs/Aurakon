@@ -13,9 +13,16 @@ import {
    character, at this rank, this far along." Shared between the desktop
    full-bleed hero and the mobile character card so both read as the
    same moment. */
-function HeroPlate({ name, stageTitle, level, xpCurrent, xpTotal, xpPercent }) {
-  // The backend reports nextRank: null once every title tier is held.
-  const atMaxRank = xpTotal > 0 && xpCurrent >= xpTotal;
+function HeroPlate({
+  name,
+  stageTitle,
+  level,
+  xpCurrent,
+  xpTotal,
+  xpPercent,
+  isMaxRank,
+}) {
+  const atMaxRank = Boolean(isMaxRank);
   return (
     <div className="hero-plate">
       <span className="hero-plate-eyebrow">
@@ -53,6 +60,7 @@ export function BackgroundLayer({
   xpCurrent,
   xpTotal,
   xpPercent,
+  isMaxRank,
 }) {
   const src = CHARACTER_ASSETS[gender][String(stage)];
   const { current, incoming } = useCrossfadeImage(src);
@@ -113,6 +121,7 @@ export function BackgroundLayer({
         xpCurrent={xpCurrent}
         xpTotal={xpTotal}
         xpPercent={xpPercent}
+        isMaxRank={isMaxRank}
       />
     </div>
   );
@@ -157,6 +166,7 @@ export function CharacterCard({
   xpCurrent,
   xpTotal,
   xpPercent,
+  isMaxRank,
 }) {
   const src = CHARACTER_ASSETS[gender][String(stage)];
   const { current, incoming } = useCrossfadeImage(src);
@@ -179,6 +189,7 @@ export function CharacterCard({
         xpCurrent={xpCurrent}
         xpTotal={xpTotal}
         xpPercent={xpPercent}
+        isMaxRank={isMaxRank}
       />
     </div>
   );

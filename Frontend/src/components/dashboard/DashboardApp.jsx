@@ -272,17 +272,41 @@ export default function DashboardApp() {
 
   const heroLevel = progressData ? Number(progressData.level) || 1 : 1;
   const xpCurrent = progressData ? Number(progressData.totalXp) : 0;
-  // XP needed for the next title tier - the plate reads
-  // "current / next-rank XP toward next rank".
-  const xpTotal = progressData
-    ? progressData.nextRank
+  // Progress is measured within the *current tier's band*, not against
+  // lifetime XP: the plate reads "XP earned in this rank / XP needed to
+  // clear this rank", so it always starts at 0% right after a rank-up.
+  const currentTierMinXp = (() => {
+    const titles = progressData ? progressData.titles : null;
+    if (!Array.isArray(titles)) return 0;
+    const currentTier = titles.find((t) => t.current);
+    return currentTier ? Number(currentTier.minXp) : 0;
+  })();
+  // Next tier's absolute XP threshold - derived from the backend's
+  // xpNeeded (XP remaining to the next threshold) plus current XP.
+  const nextTierMinXp =
+    progressData && progressData.nextRank
       ? xpCurrent + Number(progressData.nextRank.xpNeeded)
-      : xpCurrent
-    : 1;
+      : null;
+  const xpIntoTier = Math.max(0, xpCurrent - currentTierMinXp);
+  const xpTierSpan =
+    nextTierMinXp !== null ? nextTierMinXp - currentTierMinXp : 0;
+  // xpTotal/percent below now represent progress *within the current
+  // tier band* (used by the hero plate bar/label), not lifetime XP.
+  // At max rank there's no next tier to band against, so xpTotal
+  // just mirrors xpIntoTier (isMaxRank below is what actually flags
+  // the "highest rank achieved" state to the plate).
+  const xpTotal = nextTierMinXp !== null ? xpTierSpan : xpIntoTier;
   const xpPercent =
     progressData && xpTotal > 0
-      ? Math.min(100, Math.round((xpCurrent / xpTotal) * 100))
+      ? nextTierMinXp !== null
+        ? Math.min(100, Math.round((xpIntoTier / xpTierSpan) * 100))
+        : 100
       : 0;
+  // Explicit signal for "highest rank achieved" - driven by the
+  // backend's nextRank being null, not an xpTotal/xpCurrent
+  // comparison (which is unreliable right at the max tier's own
+  // threshold, where both are 0).
+  const isMaxRank = Boolean(progressData) && nextTierMinXp === null;
 
   const shieldsAvailable = progressData ? progressData.shieldBalance : 0;
 
@@ -751,9 +775,10 @@ export default function DashboardApp() {
         stageTitle={stageTitle}
         level={heroLevel}
         title={progressData ? progressData.title : ""}
-        xpCurrent={xpCurrent}
+        xpCurrent={xpIntoTier}
         xpTotal={xpTotal}
         xpPercent={xpPercent}
+        isMaxRank={isMaxRank}
         activeStageIndex={activeStageIndex}
         journeyStages={journeyStages}
         titlesAchieved={titlesAchieved}

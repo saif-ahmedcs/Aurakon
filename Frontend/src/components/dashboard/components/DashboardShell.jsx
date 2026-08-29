@@ -30,6 +30,7 @@ export function DashboardShell({
   xpCurrent,
   xpTotal,
   xpPercent,
+  isMaxRank,
   activeStageIndex,
   journeyStages,
   titlesAchieved,
@@ -85,6 +86,7 @@ export function DashboardShell({
         xpCurrent={xpCurrent}
         xpTotal={xpTotal}
         xpPercent={xpPercent}
+        isMaxRank={isMaxRank}
       />
       <AmbientSparkField />
 
@@ -123,6 +125,7 @@ export function DashboardShell({
               xpCurrent={xpCurrent}
               xpTotal={xpTotal}
               xpPercent={xpPercent}
+              isMaxRank={isMaxRank}
             />
 
             {/* 1. Habits - highest priority content */}
