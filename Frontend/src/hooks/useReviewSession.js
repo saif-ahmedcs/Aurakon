@@ -150,14 +150,23 @@ export function useReviewSession({
           else if (status === "missed") reviewSummary.current.missed += 1;
           else if (status === "shielded") reviewSummary.current.shielded += 1;
 
-          if (result === "shielded") {
-            setReviewShieldsAvailable((prev) => Math.max(0, prev - 1));
-          } else if (result === "missed_no_shield") {
-            setReviewShieldsAvailable(0);
+          if (result === "missed_no_shield") {
             showToast(
               "No shields left - that day was marked as missed instead.",
             );
           }
+        }
+
+        if (typeof payload.shieldBalance === "number") {
+          setReviewShieldsAvailable(payload.shieldBalance);
+          if (payload.shieldEarned) {
+            showToast("🛡️ Guardian Shield earned!");
+          }
+        } else if (result === "shielded") {
+          // Defensive fallback if an older backend doesn't send balance.
+          setReviewShieldsAvailable((prev) => Math.max(0, prev - 1));
+        } else if (result === "missed_no_shield") {
+          setReviewShieldsAvailable(0);
         }
 
         // Show consistency bonus toasts if any were awarded

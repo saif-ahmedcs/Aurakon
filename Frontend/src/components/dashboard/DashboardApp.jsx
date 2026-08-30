@@ -181,6 +181,11 @@ export default function DashboardApp() {
         setMeData(me);
         setProgressData(progress);
         setProfileData(profile);
+        announceReversedRewards(
+          showToast,
+          progress?.reversedBonuses,
+          progress?.reversedShields,
+        );
       } catch (err) {
         if (cancelled) return;
         clearAccessToken();
@@ -218,10 +223,21 @@ export default function DashboardApp() {
       if (progress?.affectedHabitIds?.length > 0) {
         refreshHabits(progress.affectedHabitIds, meData && meData.timezone);
       }
+      // That same lazy reconciliation (a pending review silently
+      // expiring) can revoke an already-awarded bonus/shield with no
+      // action from the user at all - e.g. simply reopening the app
+      // after a few days. Announce it here too, or the totalXp/
+      // shieldBalance drop this refresh just applied reads as
+      // unexplained data loss.
+      announceReversedRewards(
+        showToast,
+        progress?.reversedBonuses,
+        progress?.reversedShields,
+      );
     } catch {
       // Transient - keep showing the last known values.
     }
-  }, [refreshHabits, meData]);
+  }, [refreshHabits, meData, showToast]);
 
   /* Re-sync one or more habits' server-computed state (streaks, pending
    * reviews) after a mutation elsewhere, e.g. review decisions. Accepts
@@ -582,8 +598,18 @@ export default function DashboardApp() {
     const name = habit ? habit.name : "Habit";
     setDeleteHabitId(null);
     try {
-      await deleteHabit(deleteHabitId, meData && meData.timezone);
+      const dto = await deleteHabit(deleteHabitId, meData && meData.timezone);
       showToast(name + " deleted");
+
+      if (dto?.consistencyBonuses && dto.consistencyBonuses.length > 0) {
+        for (const bonus of dto.consistencyBonuses) {
+          const bonusLabel =
+            bonus.bonusType === "7day" ? "7-Day Streak" : "30-Day Streak";
+          const bonusXp = bonus.delta;
+          showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonusXp} XP!`);
+        }
+      }
+      announceReversedRewards(showToast, dto?.reversedBonuses, dto?.reversedShields);
       refreshProgress();
     } catch (err) {
       showToast(err.error || "Could not delete the habit. Try again.");

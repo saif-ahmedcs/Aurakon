@@ -474,7 +474,7 @@ export function useHabits({ showToast }) {
       if (dto?.affectedHabitIds?.length > 0) {
         refreshHabitsRef.current?.(dto.affectedHabitIds, timeZone);
       }
-      return true;
+      return dto;
     },
     [trackMutation],
   );

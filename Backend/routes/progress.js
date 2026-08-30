@@ -52,6 +52,8 @@ router.get(
       globalDailyStreak: reconciledStreak,
       shieldBalance: progress.shield_balance,
       affectedHabitIds: req.reconciledHabitIds,
+      reversedBonuses: req.reconciledReversedBonuses,
+      reversedShields: req.reconciledReversedShields,
     });
   }),
 );

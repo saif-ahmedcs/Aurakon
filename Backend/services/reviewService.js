@@ -1,6 +1,7 @@
 const { runInTransaction } = require("../db");
 const habitLogModel = require("../models/habitLogModel");
 const habitModel = require("../models/habitModel");
+const userProgressModel = require("../models/userProgressModel");
 const levelService = require("./levelService");
 const completionRewardService = require("./completionRewardService");
 const dailyAuraStatsService = require("./dailyAuraStatsService");
@@ -92,6 +93,13 @@ async function runApplyDecisions(decisions, userId, timezone) {
     }
 
     const fullCompletionCache = streakService.createFullCompletionCache();
+
+    const progressBefore = await userProgressModel.getProgress(
+      userId,
+      tx,
+      true,
+    );
+    const shieldBalanceBefore = progressBefore?.shield_balance ?? 0;
 
     for (const item of sortedDecisions) {
       const { habitId, missedDate, decision, useShield } = item;
@@ -245,6 +253,10 @@ async function runApplyDecisions(decisions, userId, timezone) {
 
     await levelService.recalculateAndPersistLevel(userId, tx, timezone);
 
+    const progressAfter = await userProgressModel.getProgress(userId, tx, true);
+    const shieldBalance = progressAfter?.shield_balance ?? 0;
+    const shieldEarned = shieldBalance > shieldBalanceBefore;
+
     const results = decisions.map(({ habitId, missedDate }) =>
       resultsByKey.get(`${habitId}|${missedDate}`),
     );
@@ -260,6 +272,8 @@ async function runApplyDecisions(decisions, userId, timezone) {
       affectedHabitIds,
       reversedBonuses: allReversedBonuses,
       reversedShields: allReversedShields,
+      shieldBalance,
+      shieldEarned,
     };
   });
 }

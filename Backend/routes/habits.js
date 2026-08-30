@@ -81,10 +81,17 @@ router.patch(
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    await habitService.deleteHabit(req.habitId, req.user.id, req.user.timezone);
+    const { consistencyBonuses } = await habitService.deleteHabit(
+      req.habitId,
+      req.user.id,
+      req.user.timezone,
+    );
     return res.status(200).json({
       message: "Habit deleted successfully",
       affectedHabitIds: req.reconciledHabitIds,
+      consistencyBonuses: consistencyBonuses || [],
+      reversedBonuses: req.reconciledReversedBonuses || [],
+      reversedShields: req.reconciledReversedShields || [],
     });
   }),
 );

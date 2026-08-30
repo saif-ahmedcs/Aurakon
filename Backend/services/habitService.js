@@ -31,13 +31,14 @@ async function attachPendingReviewAndSerialize(habitRow) {
 
 async function recalculateStatsAndLevelForToday(userId, tx, timezone) {
   const today = todayInTimezone(timezone);
-  await dailyAuraStatsService.recalculateDailyAuraStats(
+  const auraResult = await dailyAuraStatsService.recalculateDailyAuraStats(
     userId,
     today,
     tx,
     timezone,
   );
   await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+  return auraResult.consistencyBonuses || [];
 }
 
 async function listHabitsWithPending(userId, timezone) {
@@ -98,7 +99,13 @@ async function deleteHabit(habitId, userId, timezone) {
     await habitLogModel.resolvePendingReviewsForHabit(habitId, tx);
     await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
 
-    await recalculateStatsAndLevelForToday(userId, tx, timezone);
+    const consistencyBonuses = await recalculateStatsAndLevelForToday(
+      userId,
+      tx,
+      timezone,
+    );
+
+    return { consistencyBonuses };
   });
 }
 

@@ -41,6 +41,8 @@ router.post(
       affectedHabitIds,
       reversedBonuses,
       reversedShields,
+      shieldBalance,
+      shieldEarned,
     } = await reviewService.applyDecisions(
       decisions,
       req.user.id,
@@ -61,6 +63,8 @@ router.post(
         ...(reversedShields || []),
         ...(req.reconciledReversedShields || []),
       ],
+      shieldBalance,
+      shieldEarned,
     });
   }),
 );
