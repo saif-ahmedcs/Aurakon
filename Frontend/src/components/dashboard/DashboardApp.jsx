@@ -267,12 +267,18 @@ export default function DashboardApp() {
       // against the old zone's "today". Re-sync both against the new
       // zone right away instead of waiting for the next day boundary,
       // mutation, or 409 to trigger a resync.
+      //
+      // refreshProgress() goes first, same reasoning as handleDayChange:
+      // finalizeReviews' catch-up reconciliation is idempotent per user,
+      // so whichever request reaches the backend first is the one that
+      // gets the reversedBonuses/reversedShields payload back. Only
+      // GET /api/progress surfaces that to announceReversedRewards.
+      await refreshProgress();
       try {
         await loadHabits(nextTz);
       } catch {
         // Transient - keep showing the last known state.
       }
-      refreshProgress();
     },
     [loadHabits, refreshProgress],
   );
@@ -423,16 +429,16 @@ export default function DashboardApp() {
   const handleDayChange = useCallback(async () => {
     const tz = meData ? meData.timezone : undefined;
     if (!tz) return;
+    await refreshProgress();
     try {
       await loadHabits(tz);
     } catch {
       // Transient - keep showing the last known state.
     }
-    refreshProgress();
 
     // Re-check whether a pending-review session should auto-popup
     // for the new day (the backend's finalizeReviews runs lazily on
-    // API calls, so loadHabits above already triggered it).
+    // API calls, so refreshProgress above already triggered it).
     try {
       const summary = await getPendingReviewSummaryRequest();
       if (summary?.affectedHabitIds?.length > 0) {
@@ -609,7 +615,11 @@ export default function DashboardApp() {
           showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonusXp} XP!`);
         }
       }
-      announceReversedRewards(showToast, dto?.reversedBonuses, dto?.reversedShields);
+      announceReversedRewards(
+        showToast,
+        dto?.reversedBonuses,
+        dto?.reversedShields,
+      );
       refreshProgress();
     } catch (err) {
       showToast(err.error || "Could not delete the habit. Try again.");
@@ -709,7 +719,12 @@ export default function DashboardApp() {
           result.reversedShields,
         );
         refreshProgress();
-      } else if (result?.confirmed) {
+      } else {
+        // Even an unconfirmed failure can be a network drop that hit
+        // *after* the server already committed the reversal (XP/level/
+        // shields all change server-side) - refreshProgress() either
+        // way is a cheap, harmless GET on the (common) case it truly
+        // failed, and the only way to self-correct on the case it didn't.
         refreshProgress();
       }
     },

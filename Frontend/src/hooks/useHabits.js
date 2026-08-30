@@ -413,6 +413,7 @@ export function useHabits({ showToast }) {
    * server-computed streak stays accurate. */
   const undoCheckIn = useCallback(
     async (habitId, dateStr, timeZone) => {
+      const snapshot = habits.find((h) => h.id === habitId);
       try {
         const response = await trackMutation(
           undoHabitLogRequest(habitId, dateStr),
@@ -459,11 +460,22 @@ export function useHabits({ showToast }) {
           showToast(err.error || "Could not undo this check-in.");
           return { success: false, confirmed: true };
         }
+
+        if (snapshot) {
+          reconcileAfterFailedMutation(habitId, timeZone, snapshot);
+        }
         showToast(err.error || "Could not undo this check-in.");
         return { success: false, confirmed: false };
       }
     },
-    [showToast, refreshHabit, refreshHabits, trackMutation],
+    [
+      habits,
+      showToast,
+      refreshHabit,
+      refreshHabits,
+      trackMutation,
+      reconcileAfterFailedMutation,
+    ],
   );
 
   const deleteHabit = useCallback(
