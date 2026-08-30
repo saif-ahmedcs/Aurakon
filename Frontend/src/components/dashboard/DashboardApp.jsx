@@ -396,6 +396,8 @@ export default function DashboardApp() {
     trackMutation,
   });
   const { openReviewSession } = review;
+  const openReviewSessionRef = useRef(openReviewSession);
+  openReviewSessionRef.current = openReviewSession;
   const autoPopupCheckedRef = useRef(false);
   useEffect(() => {
     if (!sessionReady || autoPopupCheckedRef.current) return;
@@ -407,13 +409,13 @@ export default function DashboardApp() {
           refreshHabits(summary.affectedHabitIds, meData && meData.timezone);
         }
         if (summary && summary.shouldAutoPopup) {
-          openReviewSession();
+          openReviewSessionRef.current();
         }
       } catch {
         // Non-critical - the banner still lets the user open it manually.
       }
     })();
-  }, [sessionReady, openReviewSession, refreshHabits, meData]);
+  }, [sessionReady, refreshHabits, meData]);
 
   /* -------------------------------------------------------------- */
   /* Day-boundary detection                                          */
@@ -445,12 +447,12 @@ export default function DashboardApp() {
         refreshHabits(summary.affectedHabitIds, tz);
       }
       if (summary && summary.shouldAutoPopup) {
-        openReviewSession();
+        openReviewSessionRef.current();
       }
     } catch {
       // Non-critical.
     }
-  }, [meData, loadHabits, refreshProgress, openReviewSession, refreshHabits]);
+  }, [meData, loadHabits, refreshProgress, refreshHabits]);
 
   useDayBoundary(meData ? meData.timezone : null, handleDayChange);
 
