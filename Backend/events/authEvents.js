@@ -19,7 +19,9 @@ const appBaseUrl = (() => {
   try {
     parsedUrl = new URL(rawValue);
   } catch (err) {
-    throw new Error("APP_BASE_URL is invalid");
+    throw new Error(
+      "APP_BASE_URL is invalid: must be a valid absolute URL (e.g. https://yourdomain.com or http://localhost:3001)",
+    );
   }
 
   const isLocalhost =
@@ -27,7 +29,9 @@ const appBaseUrl = (() => {
     ["localhost", "127.0.0.1", "::1"].includes(parsedUrl.hostname);
 
   if (parsedUrl.protocol !== "https:" && !isLocalhost) {
-    throw new Error("APP_BASE_URL is invalid");
+    throw new Error(
+      "APP_BASE_URL is invalid: must use https:// in production or http:// with localhost/127.0.0.1/::1 for local development",
+    );
   }
 
   return parsedUrl.toString().replace(/\/$/, "");

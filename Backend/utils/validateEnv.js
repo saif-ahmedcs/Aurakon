@@ -39,3 +39,24 @@ if (
   );
   process.exit(1);
 }
+
+let parsedAppBaseUrl;
+try {
+  parsedAppBaseUrl = new URL(process.env.APP_BASE_URL);
+} catch (err) {
+  console.error(
+    "[startup] FATAL: APP_BASE_URL must be a valid absolute URL (e.g. https://yourdomain.com or http://localhost:3001).",
+  );
+  process.exit(1);
+}
+
+const isLocalhost =
+  parsedAppBaseUrl.protocol === "http:" &&
+  ["localhost", "127.0.0.1", "::1"].includes(parsedAppBaseUrl.hostname);
+
+if (parsedAppBaseUrl.protocol !== "https:" && !isLocalhost) {
+  console.error(
+    "[startup] FATAL: APP_BASE_URL must use https:// in production. Plain http:// is only permitted for localhost / 127.0.0.1 / ::1 in local development.",
+  );
+  process.exit(1);
+}
