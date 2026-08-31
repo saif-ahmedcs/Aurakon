@@ -21,14 +21,6 @@ async function lockRow(userId, date, db = pool) {
   );
 }
 
-async function getLatestStatDate(userId, db = pool) {
-  const [rows] = await db.query(
-    `SELECT MAX(stat_date) AS latestDate FROM daily_aura_stats WHERE user_id = ?`,
-    [userId],
-  );
-  return rows[0] ? rows[0].latestDate : null;
-}
-
 async function upsertCounts(
   userId,
   date,
@@ -86,9 +78,6 @@ async function getLifetimeStats(userId, db = pool) {
     fullyCompletedDays: Number(row.fullyCompletedDays) || 0,
     lifetimeCompleted: Number(row.lifetimeCompleted) || 0,
     lifetimeTotal: Number(row.lifetimeTotal) || 0,
-    // Distinct calendar days with a stats row - one per (user_id, stat_date)
-    // thanks to the unique_user_date constraint, so this is a true count of
-    // elapsed tracked days regardless of how many habits are active.
     daysTracked: Number(row.daysTracked) || 0,
   };
 }
@@ -96,7 +85,6 @@ async function getLifetimeStats(userId, db = pool) {
 module.exports = {
   getByDate,
   lockRow,
-  getLatestStatDate,
   upsertCounts,
   getLifetimeStats,
   getFullCompletionDates,

@@ -107,6 +107,12 @@ CREATE TABLE daily_aura_stats (
   KEY idx_user_full_completion (user_id, full_completion, stat_date)
 );
 
+CREATE TABLE user_finalization_checkpoint (
+  user_id INT PRIMARY KEY,
+  last_finalized_date DATE NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE xp_bonus_log (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
