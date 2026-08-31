@@ -43,8 +43,15 @@ async function finalizeDay(
   timezone,
   cache,
   affectedHabitIds,
+  rewards,
 ) {
   const ids = affectedHabitIds || new Set();
+  const rewardAccumulators = rewards || {
+    reversedBonuses: [],
+    reversedShields: [],
+    earnedBonuses: [],
+    earnedShields: [],
+  };
   const allCandidates = await habitLogModel.getHabitsMissingLogForDate(
     userId,
     date,
@@ -81,16 +88,33 @@ async function finalizeDay(
     );
 
     if (currentStreak > 0 || existingSession) {
-      const { affectedHabitIds: touchedIds } =
-        await pendingReviewSessionService.addMissedDay(
-          userId,
-          habit.id,
-          date,
-          tx,
-          timezone,
-          cache,
-        );
+      const {
+        affectedHabitIds: touchedIds,
+        reversedBonuses: dayReversedBonuses,
+        reversedShields: dayReversedShields,
+        earnedBonuses: dayEarnedBonuses,
+        earnedShields: dayEarnedShields,
+      } = await pendingReviewSessionService.addMissedDay(
+        userId,
+        habit.id,
+        date,
+        tx,
+        timezone,
+        cache,
+      );
       for (const id of touchedIds) ids.add(id);
+      if (dayReversedBonuses?.length) {
+        rewardAccumulators.reversedBonuses.push(...dayReversedBonuses);
+      }
+      if (dayReversedShields?.length) {
+        rewardAccumulators.reversedShields.push(...dayReversedShields);
+      }
+      if (dayEarnedBonuses?.length) {
+        rewardAccumulators.earnedBonuses.push(...dayEarnedBonuses);
+      }
+      if (dayEarnedShields?.length) {
+        rewardAccumulators.earnedShields.push(...dayEarnedShields);
+      }
       if (
         existingSession &&
         isSessionExpired(existingSession.last_missed_date, parseToUTCDay(date))
@@ -115,7 +139,13 @@ async function finalizeDay(
     cache,
   );
 
-  return { affectedHabitIds: [...ids] };
+  return {
+    affectedHabitIds: [...ids],
+    reversedBonuses: rewardAccumulators.reversedBonuses,
+    reversedShields: rewardAccumulators.reversedShields,
+    earnedBonuses: rewardAccumulators.earnedBonuses,
+    earnedShields: rewardAccumulators.earnedShields,
+  };
 }
 
 async function hasPendingWork(userId, timezone) {
@@ -166,15 +196,15 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
         nextDate: null,
         didWork: false,
         affectedHabitIds: [],
+        reversedBonuses: [],
+        reversedShields: [],
+        earnedBonuses: [],
+        earnedShields: [],
       };
     }
 
     const earliestHabitDate = toLocalDateString(earliestCreatedAt, timezone);
 
-    // This checkpoint is only ever advanced below, after finalizeDay has
-    // actually run for a date - so unlike the old daily_aura_stats-derived
-    // resume point, it can never drift ahead of what's genuinely been
-    // swept. No "peek at yesterday" fallback is needed to compensate.
     let date = lastFinalizedDate
       ? addUtcDays(lastFinalizedDate, 1)
       : earliestHabitDate;
@@ -182,9 +212,23 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
     let didWork = false;
     let lastProcessed = null;
     const affectedHabitIds = new Set();
+    const rewards = {
+      reversedBonuses: [],
+      reversedShields: [],
+      earnedBonuses: [],
+      earnedShields: [],
+    };
     const cache = streakService.createFullCompletionCache();
     for (let i = 0; i < CATCH_UP_BATCH_DAYS && date <= yesterday; i++) {
-      await finalizeDay(userId, date, tx, timezone, cache, affectedHabitIds);
+      await finalizeDay(
+        userId,
+        date,
+        tx,
+        timezone,
+        cache,
+        affectedHabitIds,
+        rewards,
+      );
       lastProcessed = date;
       didWork = true;
       date = addUtcDays(date, 1);
@@ -203,13 +247,23 @@ async function runCatchUpBatch(userId, timezone, yesterday) {
       nextDate: date,
       didWork,
       affectedHabitIds: [...affectedHabitIds],
+      reversedBonuses: rewards.reversedBonuses,
+      reversedShields: rewards.reversedShields,
+      earnedBonuses: rewards.earnedBonuses,
+      earnedShields: rewards.earnedShields,
     };
   });
 }
 
 async function runEvaluatePendingReviews(userId, timezone) {
   if (!(await hasPendingWork(userId, timezone))) {
-    return { affectedHabitIds: [], reversedBonuses: [], reversedShields: [] };
+    return {
+      affectedHabitIds: [],
+      reversedBonuses: [],
+      reversedShields: [],
+      earnedBonuses: [],
+      earnedShields: [],
+    };
   }
 
   const yesterday = getPreviousLocalDate(timezone);
@@ -218,14 +272,30 @@ async function runEvaluatePendingReviews(userId, timezone) {
   const affectedHabitIds = new Set();
   const reversedBonuses = [];
   const reversedShields = [];
+  const earnedBonuses = [];
+  const earnedShields = [];
 
   do {
     const batch = await runCatchUpBatch(userId, timezone, yesterday);
+    if (batch.reversedBonuses?.length) {
+      reversedBonuses.push(...batch.reversedBonuses);
+    }
+    if (batch.reversedShields?.length) {
+      reversedShields.push(...batch.reversedShields);
+    }
+    if (batch.earnedBonuses?.length) {
+      earnedBonuses.push(...batch.earnedBonuses);
+    }
+    if (batch.earnedShields?.length) {
+      earnedShields.push(...batch.earnedShields);
+    }
     if (!batch.hasHabits) {
       return {
         affectedHabitIds: [...affectedHabitIds],
         reversedBonuses,
         reversedShields,
+        earnedBonuses,
+        earnedShields,
       };
     }
     didWork = didWork || batch.didWork;
@@ -269,6 +339,8 @@ async function runEvaluatePendingReviews(userId, timezone) {
         affectedHabitIds: crossIds,
         reversedBonuses: shieldReversedBonuses,
         reversedShields: shieldReversedShields,
+        earnedBonuses: shieldEarnedBonuses,
+        earnedShields: shieldEarnedShields,
       } = await guardianShieldService.reconcileShieldsFromDate(
         userId,
         habitId,
@@ -285,6 +357,12 @@ async function runEvaluatePendingReviews(userId, timezone) {
       if (shieldReversedShields?.length) {
         reversedShields.push(...shieldReversedShields);
       }
+      if (shieldEarnedBonuses?.length) {
+        earnedBonuses.push(...shieldEarnedBonuses);
+      }
+      if (shieldEarnedShields?.length) {
+        earnedShields.push(...shieldEarnedShields);
+      }
     }
 
     if (didWork) {
@@ -295,6 +373,8 @@ async function runEvaluatePendingReviews(userId, timezone) {
       affectedHabitIds: [...affectedHabitIds],
       reversedBonuses,
       reversedShields,
+      earnedBonuses,
+      earnedShields,
     };
   });
 }
