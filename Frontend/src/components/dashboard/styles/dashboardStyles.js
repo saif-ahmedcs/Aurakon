@@ -248,13 +248,13 @@ export const STYLES = `
 .brand-mark {
   position: relative;
   display: flex; align-items: center; justify-content: flex-start;
-  height: 40px;
+  height: 56px;
   transition: transform .2s ease;
 }
 .brand-mark::before {
   content: "";
-  position: absolute; left: -10px; top: 50%; transform: translateY(-50%);
-  width: 60px; height: 60px;
+  position: absolute; left: -14px; top: 50%; transform: translateY(-50%);
+  width: 84px; height: 84px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(168,85,247,0.35), transparent 72%);
   filter: blur(8px);
@@ -265,7 +265,7 @@ export const STYLES = `
 .logo:hover .brand-mark { transform: scale(1.03); }
 .brand-mark-img {
   position: relative; z-index: 1;
-  height: 40px; width: auto;
+  height: 56px; width: auto;
   display: block;
   filter: drop-shadow(0 0 10px rgba(168,85,247,.4)) drop-shadow(0 1px 2px rgba(0,0,0,.55));
   user-select: none;
@@ -1393,8 +1393,8 @@ button.detail-day:hover { filter: brightness(1.18); }
   .topbar { padding: 16px 16px; gap: 10px; }
   .topbar-left { gap: 10px; min-width: 0; flex: 1 1 auto; }
   .logo { min-width: 0; }
-  .brand-mark { height: 30px; }
-  .brand-mark-img { height: 30px; max-width: 100%; }
+  .brand-mark { height: 42px; }
+  .brand-mark-img { height: 42px; max-width: 100%; }
   .profile-block { flex: none; gap: 0; padding: 4px; }
   .profile-text { display: none; }
   .character-card { height: 240px; }

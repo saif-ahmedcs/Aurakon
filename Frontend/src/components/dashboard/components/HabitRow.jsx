@@ -90,7 +90,7 @@ export function HabitRow({
                   " awaiting review"
                 }
               >
-                <PendingIcon size={11} />
+                <PendingIcon size={16} />
                 <span>{pendingCount}</span>
               </button>
             )}
@@ -101,7 +101,10 @@ export function HabitRow({
             <span className="habit-top-meta">
               {/* Backend-computed per-habit streak (GET /api/habits). */}
               <span
-                className={"habit-streak" + (habit.currentStreak > 0 ? " habit-streak-live" : "")}
+                className={
+                  "habit-streak" +
+                  (habit.currentStreak > 0 ? " habit-streak-live" : "")
+                }
                 title={
                   "Current streak: " +
                   (habit.currentStreak || 0) +

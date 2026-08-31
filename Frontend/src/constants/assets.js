@@ -12,7 +12,7 @@ export const SCENE_BACKGROUND_IMAGE = "/assets/scene-bg.jpg";
 /* Dashboard asset paths (also served from /public).                   */
 /* ------------------------------------------------------------------ */
 
-export const BRAND_LOGO = "/assets/brand-logo.png";
+export const BRAND_LOGO = "/assets/logo.png";
 export const GLOBAL_STREAK_LOGO = "/assets/global-streak-logo.png";
 export const XP_ICON = "/assets/xp-icon.png";
 export const CURRENT_STREAK_ICON = "/assets/current streak.png";
