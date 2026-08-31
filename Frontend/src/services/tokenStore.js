@@ -28,6 +28,16 @@ export function clearAccessToken() {
   window[TOKEN_KEY] = null;
 }
 
+let logoutGeneration = 0;
+
+export function getLogoutGeneration() {
+  return logoutGeneration;
+}
+
+export function beginLogout() {
+  logoutGeneration += 1;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Cross-tab refresh coordination                                     */
 /* ------------------------------------------------------------------ */
@@ -87,9 +97,13 @@ export function refreshAccessToken() {
 
 async function performRefreshAsLeader() {
   const channel = broadcastChannel();
+  const startGeneration = logoutGeneration;
+
   try {
     const res = await refreshSessionRequest();
-    setAccessToken(res.accessToken);
+    if (startGeneration === logoutGeneration) {
+      setAccessToken(res.accessToken);
+    }
     channel?.postMessage({ ok: true, accessToken: res.accessToken });
     return res.accessToken;
   } catch (err) {
@@ -103,6 +117,7 @@ async function performRefreshAsLeader() {
 }
 
 function waitForRefreshResult() {
+  const startGeneration = logoutGeneration;
   return new Promise((resolve, reject) => {
     const channel = broadcastChannel();
     if (!channel) {
@@ -110,7 +125,9 @@ function waitForRefreshResult() {
       // The backend grace window (5 s) protects against a benign race.
       refreshSessionRequest()
         .then((res) => {
-          setAccessToken(res.accessToken);
+          if (startGeneration === logoutGeneration) {
+            setAccessToken(res.accessToken);
+          }
           resolve(res.accessToken);
         })
         .catch(reject);
@@ -123,7 +140,9 @@ function waitForRefreshResult() {
       localStorage.removeItem(LOCK_KEY);
       refreshSessionRequest()
         .then((res) => {
-          setAccessToken(res.accessToken);
+          if (startGeneration === logoutGeneration) {
+            setAccessToken(res.accessToken);
+          }
           resolve(res.accessToken);
         })
         .catch(reject);
@@ -133,7 +152,9 @@ function waitForRefreshResult() {
       clearTimeout(timeout);
       channel.close();
       if (e.data.ok) {
-        setAccessToken(e.data.accessToken);
+        if (startGeneration === logoutGeneration) {
+          setAccessToken(e.data.accessToken);
+        }
         resolve(e.data.accessToken);
       } else {
         reject(e.data.error);

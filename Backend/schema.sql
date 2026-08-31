@@ -88,10 +88,13 @@ CREATE TABLE refresh_tokens (
   token_hash CHAR(64) NOT NULL UNIQUE,
   expires_at DATETIME NOT NULL,
   used_at DATETIME NULL,
+  rotated_to_id INT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (rotated_to_id) REFERENCES refresh_tokens(id) ON DELETE SET NULL,
   KEY idx_refresh_tokens_expires_at (expires_at),
-  KEY idx_refresh_tokens_user_used (user_id, used_at)
+  KEY idx_refresh_tokens_user_used (user_id, used_at),
+  KEY idx_refresh_tokens_rotated_to_id (rotated_to_id)
 );
 
 CREATE TABLE daily_aura_stats (

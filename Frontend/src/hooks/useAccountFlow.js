@@ -8,7 +8,7 @@ import {
   updateTimezoneRequest,
   requestAccountDeletionRequest,
 } from "../services/dashboardApi";
-import { clearAccessToken } from "../services/tokenStore";
+import { clearAccessToken, beginLogout } from "../services/tokenStore";
 import { openEmailProvider } from "../utils/emailProvider";
 
 /* ------------------------------------------------------------------
@@ -40,6 +40,7 @@ export function useAccountFlow({
   const [loggedOut, setLoggedOut] = useState(false);
 
   const logOut = useCallback(async () => {
+    beginLogout();
     try {
       await logoutRequest();
     } catch {
@@ -50,6 +51,7 @@ export function useAccountFlow({
   }, []);
 
   const logOutAllDevices = useCallback(async () => {
+    beginLogout();
     try {
       await logoutAllDevicesRequest();
     } catch {

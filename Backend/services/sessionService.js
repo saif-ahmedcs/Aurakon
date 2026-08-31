@@ -57,12 +57,13 @@ async function refresh(rawRefreshToken) {
         generateRefreshToken();
 
       await refreshTokenModel.markUsed(stored.id, tx);
-      await refreshTokenModel.insert(
+      const newTokenId = await refreshTokenModel.insert(
         stored.user_id,
         refreshTokenHash,
         stored.expires_at,
         tx,
       );
+      await refreshTokenModel.setRotatedTo(stored.id, newTokenId, tx);
 
       return {
         accessToken,
@@ -82,10 +83,30 @@ async function refresh(rawRefreshToken) {
 
 // ------------- LOGOUT --------------
 async function logout(rawRefreshToken) {
-  if (rawRefreshToken) {
-    const tokenHash = hashToken(rawRefreshToken);
-    await refreshTokenModel.deleteByTokenHash(tokenHash);
-  }
+  if (!rawRefreshToken) return;
+
+  const tokenHash = hashToken(rawRefreshToken);
+
+  await runInTransaction(async (tx) => {
+    const idsToDelete = [];
+    let current = await refreshTokenModel.findByTokenHashForUpdate(
+      tokenHash,
+      tx,
+    );
+
+    while (current) {
+      idsToDelete.push(current.id);
+      if (!current.rotated_to_id) break;
+      current = await refreshTokenModel.findByIdForUpdate(
+        current.rotated_to_id,
+        tx,
+      );
+    }
+
+    if (idsToDelete.length > 0) {
+      await refreshTokenModel.deleteByIds(idsToDelete, tx);
+    }
+  });
 }
 
 // ------------- LOGOUT ALL --------------

@@ -9,7 +9,11 @@
  * if that also fails the error propagates (the caller signs out).
  */
 
-import { getAccessToken, refreshAccessToken } from "./tokenStore";
+import {
+  getAccessToken,
+  refreshAccessToken,
+  getLogoutGeneration,
+} from "./tokenStore";
 
 async function handleResponse(res) {
   const data = await res.json().catch(() => null);
@@ -41,8 +45,19 @@ function handleNetworkError() {
  * sessions working without any user-visible re-auth while the refresh
  * cookie is valid. Concurrent 401s share a single refresh request via
  * refreshAccessToken() (the backend rotates its single-use refresh
- * tokens - parallel refreshes would look like token replay). */
+ * tokens - parallel refreshes would look like token replay).
+ *
+ * The refresh above is a separate, independently-timed round trip, so
+ * the user can click "Log Out" while it's still in flight. We snapshot
+ * the logout generation before making the refresh call; if it has moved
+ * on by the time we come back (i.e. logOut()/logOutAllDevices() ran
+ * meanwhile), this request is stale and must not retry with whatever
+ * token the refresh reinstated - otherwise a real, state-mutating
+ * action could complete after the user has already been shown the
+ * signed-out screen. */
 async function authedFetch(path, options = {}) {
+  const startGeneration = getLogoutGeneration();
+
   const run = (token) =>
     fetch(path, {
       ...options,
@@ -64,7 +79,7 @@ async function authedFetch(path, options = {}) {
     } catch {
       // Refresh failed - fall through and surface the original 401.
     }
-    if (refreshed) {
+    if (refreshed && getLogoutGeneration() === startGeneration) {
       res = await run(getAccessToken()).catch(() => {
         throw handleNetworkError();
       });

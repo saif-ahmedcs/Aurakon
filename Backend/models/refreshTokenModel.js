@@ -1,20 +1,32 @@
 const { pool } = require("../db");
 
 async function insert(userId, tokenHash, expiresAt, db = pool) {
-  await db.query(
+  const [result] = await db.query(
     `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, created_at)
      VALUES (?, ?, ?, UTC_TIMESTAMP())`,
     [userId, tokenHash, expiresAt],
   );
+  return result.insertId;
 }
 
 async function findByTokenHashForUpdate(tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, user_id, expires_at, used_at
+    `SELECT id, user_id, expires_at, used_at, rotated_to_id
      FROM refresh_tokens
      WHERE token_hash = ?
      FOR UPDATE`,
     [tokenHash],
+  );
+  return rows[0] || null;
+}
+
+async function findByIdForUpdate(id, db = pool) {
+  const [rows] = await db.query(
+    `SELECT id, user_id, expires_at, used_at, rotated_to_id
+     FROM refresh_tokens
+     WHERE id = ?
+     FOR UPDATE`,
+    [id],
   );
   return rows[0] || null;
 }
@@ -27,10 +39,26 @@ async function markUsed(id, db = pool) {
   return result.affectedRows > 0;
 }
 
+async function setRotatedTo(id, rotatedToId, db = pool) {
+  await db.query(`UPDATE refresh_tokens SET rotated_to_id = ? WHERE id = ?`, [
+    rotatedToId,
+    id,
+  ]);
+}
+
 async function deleteByTokenHash(tokenHash, db = pool) {
   const [result] = await db.query(
     `DELETE FROM refresh_tokens WHERE token_hash = ?`,
     [tokenHash],
+  );
+  return result.affectedRows;
+}
+
+async function deleteByIds(ids, db = pool) {
+  if (!ids || ids.length === 0) return 0;
+  const [result] = await db.query(
+    `DELETE FROM refresh_tokens WHERE id IN (?)`,
+    [ids],
   );
   return result.affectedRows;
 }
@@ -87,8 +115,11 @@ async function deleteOldestByUserId(userId, db = pool) {
 module.exports = {
   insert,
   findByTokenHashForUpdate,
+  findByIdForUpdate,
   markUsed,
+  setRotatedTo,
   deleteByTokenHash,
+  deleteByIds,
   deleteAllByUserId,
   deleteExpiredForUser,
   lockActiveForUser,
