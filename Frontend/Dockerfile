@@ -15,7 +15,6 @@ COPY next.config.js eslint.config.mjs ./
 COPY public/ ./public/
 COPY src/ ./src/
 
-ENV BACKEND_INTERNAL_URL=http://backend:3000
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build

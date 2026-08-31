@@ -45,8 +45,6 @@ const securityHeaders = [
   },
 ];
 
-const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://localhost:3000";
-
 const nextConfig = {
   output: "standalone",
   devIndicators: false,
@@ -77,14 +75,6 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: securityHeaders,
-      },
-    ];
-  },
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },
