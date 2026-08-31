@@ -672,6 +672,11 @@ export default function DashboardApp() {
         const dto = await updateHabit(id, updates, meData && meData.timezone);
         setEditHabitId(null);
         showToast("Habit updated");
+        announceReversedRewards(
+          showToast,
+          dto?.reversedBonuses,
+          dto?.reversedShields,
+        );
         announceEarnedRewards(
           showToast,
           dto?.earnedBonuses,
@@ -707,6 +712,11 @@ export default function DashboardApp() {
         );
         setAddHabitOpen(false);
         showToast("New trial accepted, " + name);
+        announceReversedRewards(
+          showToast,
+          dto?.reversedBonuses,
+          dto?.reversedShields,
+        );
         announceEarnedRewards(
           showToast,
           dto?.earnedBonuses,

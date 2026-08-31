@@ -521,6 +521,8 @@ export function useHabits({ showToast }) {
         ...next,
         earnedBonuses: dto?.earnedBonuses || [],
         earnedShields: dto?.earnedShields || [],
+        reversedBonuses: dto?.reversedBonuses || [],
+        reversedShields: dto?.reversedShields || [],
       };
     },
     [habits, replaceHabit, trackMutation],
@@ -541,6 +543,8 @@ export function useHabits({ showToast }) {
         ...created,
         earnedBonuses: dto?.earnedBonuses || [],
         earnedShields: dto?.earnedShields || [],
+        reversedBonuses: dto?.reversedBonuses || [],
+        reversedShields: dto?.reversedShields || [],
       };
     },
     [trackMutation],
