@@ -130,6 +130,19 @@ function announceReversedRewards(showToast, reversedBonuses, reversedShields) {
   }
 }
 
+function announceEarnedRewards(showToast, earnedBonuses, earnedShields) {
+  for (const bonus of earnedBonuses || []) {
+    const bonusLabel =
+      bonus.bonusType === "7day" ? "7-Day Streak" : "30-Day Streak";
+    showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonus.delta} XP!`);
+  }
+  for (const shield of earnedShields || []) {
+    showToast(
+      `🛡️ Guardian Shield earned · ${shield.milestone}-day streak!`,
+    );
+  }
+}
+
 export default function DashboardApp() {
   const { toast, toastId, showToast } = useToast();
   const habitsLoadStarted = useRef(false);
@@ -186,6 +199,11 @@ export default function DashboardApp() {
           progress?.reversedBonuses,
           progress?.reversedShields,
         );
+        announceEarnedRewards(
+          showToast,
+          progress?.earnedBonuses,
+          progress?.earnedShields,
+        );
       } catch (err) {
         if (cancelled) return;
         clearAccessToken();
@@ -233,6 +251,11 @@ export default function DashboardApp() {
         showToast,
         progress?.reversedBonuses,
         progress?.reversedShields,
+      );
+      announceEarnedRewards(
+        showToast,
+        progress?.earnedBonuses,
+        progress?.earnedShields,
       );
     } catch {
       // Transient - keep showing the last known values.
@@ -575,6 +598,11 @@ export default function DashboardApp() {
         result.reversedBonuses,
         result.reversedShields,
       );
+      announceEarnedRewards(
+        showToast,
+        result.earnedBonuses,
+        result.earnedShields,
+      );
       refreshProgress();
     },
     [
@@ -622,6 +650,11 @@ export default function DashboardApp() {
         dto?.reversedBonuses,
         dto?.reversedShields,
       );
+      announceEarnedRewards(
+        showToast,
+        dto?.earnedBonuses,
+        dto?.earnedShields,
+      );
       refreshProgress();
     } catch (err) {
       showToast(err.error || "Could not delete the habit. Try again.");
@@ -636,14 +669,20 @@ export default function DashboardApp() {
   const saveHabitEdit = useCallback(
     async (id, updates) => {
       try {
-        await updateHabit(id, updates, meData && meData.timezone);
+        const dto = await updateHabit(id, updates, meData && meData.timezone);
         setEditHabitId(null);
         showToast("Habit updated");
+        announceEarnedRewards(
+          showToast,
+          dto?.earnedBonuses,
+          dto?.earnedShields,
+        );
+        refreshProgress();
       } catch (err) {
         showToast(err.error || "Could not update the habit. Try again.");
       }
     },
-    [updateHabit, showToast, meData],
+    [updateHabit, showToast, meData, refreshProgress],
   );
 
   const [addHabitOpen, setAddHabitOpen] = useState(false);
@@ -662,9 +701,17 @@ export default function DashboardApp() {
       if (atHabitLimit) return;
       createHabitInFlight.current = true;
       try {
-        await addHabit({ name, difficulty }, meData && meData.timezone);
+        const dto = await addHabit(
+          { name, difficulty },
+          meData && meData.timezone,
+        );
         setAddHabitOpen(false);
         showToast("New trial accepted, " + name);
+        announceEarnedRewards(
+          showToast,
+          dto?.earnedBonuses,
+          dto?.earnedShields,
+        );
         refreshProgress();
       } catch (err) {
         showToast(err.error || "Could not create the habit. Try again.");
@@ -719,6 +766,11 @@ export default function DashboardApp() {
           showToast,
           result.reversedBonuses,
           result.reversedShields,
+        );
+        announceEarnedRewards(
+          showToast,
+          result.earnedBonuses,
+          result.earnedShields,
         );
         refreshProgress();
       } else {

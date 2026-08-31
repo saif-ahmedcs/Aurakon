@@ -54,6 +54,8 @@ router.get(
       affectedHabitIds: req.reconciledHabitIds,
       reversedBonuses: req.reconciledReversedBonuses,
       reversedShields: req.reconciledReversedShields,
+      earnedBonuses: req.reconciledEarnedBonuses,
+      earnedShields: req.reconciledEarnedShields,
     });
   }),
 );

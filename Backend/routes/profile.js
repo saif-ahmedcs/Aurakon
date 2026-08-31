@@ -34,6 +34,10 @@ router.get(
       title,
       shieldBalance: safeProgress.shield_balance,
       affectedHabitIds: req.reconciledHabitIds,
+      reversedBonuses: req.reconciledReversedBonuses,
+      reversedShields: req.reconciledReversedShields,
+      earnedBonuses: req.reconciledEarnedBonuses,
+      earnedShields: req.reconciledEarnedShields,
     });
   }),
 );

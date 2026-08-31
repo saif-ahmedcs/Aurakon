@@ -26,6 +26,19 @@ function resultToStatus(result) {
   return "missed"; // "missed" | "missed_no_shield"
 }
 
+function announceEarnedRewards(showToast, earnedBonuses, earnedShields) {
+  for (const bonus of earnedBonuses || []) {
+    const bonusLabel =
+      bonus.bonusType === "7day" ? "7-Day Streak" : "30-Day Streak";
+    showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonus.delta} XP!`);
+  }
+  for (const shield of earnedShields || []) {
+    showToast(
+      `🛡️ Guardian Shield earned · ${shield.milestone}-day streak!`,
+    );
+  }
+}
+
 export function useReviewSession({
   habits,
   resolveHabitDate,
@@ -202,6 +215,12 @@ export function useReviewSession({
             );
           }
         }
+
+        announceEarnedRewards(
+          showToast,
+          payload.earnedBonuses,
+          payload.earnedShields,
+        );
 
         decisionsCommitted.current = true;
 

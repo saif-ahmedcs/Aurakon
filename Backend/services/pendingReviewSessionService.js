@@ -50,7 +50,13 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
         tx,
         fullCompletionCache,
       );
-      const { affectedHabitIds: crossHabitIds } =
+      const {
+        affectedHabitIds: crossHabitIds,
+        reversedBonuses,
+        reversedShields,
+        earnedBonuses,
+        earnedShields,
+      } =
         await guardianShieldService.reconcileShieldsFromDate(
           userId,
           habitId,
@@ -60,7 +66,13 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
           timezone,
           fullCompletionCache,
         );
-      return { affectedHabitIds: [...new Set([habitId, ...crossHabitIds])] };
+      return {
+        affectedHabitIds: [...new Set([habitId, ...crossHabitIds])],
+        reversedBonuses: reversedBonuses || [],
+        reversedShields: reversedShields || [],
+        earnedBonuses: earnedBonuses || [],
+        earnedShields: earnedShields || [],
+      };
     }
   }
 
@@ -80,7 +92,13 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
         concurrentSession.id,
         tx,
       );
-      return { affectedHabitIds: [] };
+      return {
+        affectedHabitIds: [],
+        reversedBonuses: [],
+        reversedShields: [],
+        earnedBonuses: [],
+        earnedShields: [],
+      };
     }
 
     await habitLogModel.insertPendingReviewLog(
@@ -89,11 +107,23 @@ async function addMissedDay(userId, habitId, missedDate, tx, timezone, cache) {
       sessionId,
       tx,
     );
-    return { affectedHabitIds: [] };
+    return {
+      affectedHabitIds: [],
+      reversedBonuses: [],
+      reversedShields: [],
+      earnedBonuses: [],
+      earnedShields: [],
+    };
   }
 
   await attachMissedDayToSession(habitId, missedDate, session.id, tx);
-  return { affectedHabitIds: [] };
+  return {
+    affectedHabitIds: [],
+    reversedBonuses: [],
+    reversedShields: [],
+    earnedBonuses: [],
+    earnedShields: [],
+  };
 }
 
 async function resolveSessionIfComplete(habitId, tx) {

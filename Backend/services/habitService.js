@@ -270,6 +270,11 @@ async function logHabit(habitId, date, userId, timezone) {
         ...(finalStreak.reversedBonuses || []),
       ],
       reversedShields: finalStreak.reversedShields || [],
+      earnedBonuses: [
+        ...(recoveryBonusReconcile?.earnedBonuses || []),
+        ...(finalStreak.earnedBonuses || []),
+      ],
+      earnedShields: finalStreak.earnedShields || [],
     };
   });
 }
@@ -342,6 +347,11 @@ async function undoLog(habitId, date, userId, timezone) {
         ...(finalStreak?.reversedBonuses || []),
       ],
       reversedShields: finalStreak?.reversedShields || [],
+      earnedBonuses: [
+        ...(bonusReconcile?.earnedBonuses || []),
+        ...(finalStreak?.earnedBonuses || []),
+      ],
+      earnedShields: finalStreak?.earnedShields || [],
     };
   });
 }

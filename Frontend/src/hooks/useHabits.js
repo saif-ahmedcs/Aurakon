@@ -324,6 +324,8 @@ export function useHabits({ showToast }) {
         // the same way an award is surfaced.
         let reversedBonuses = [];
         let reversedShields = [];
+        let earnedBonuses = [];
+        let earnedShields = [];
         let streakPatch = null;
         let affectedHabitIds = [];
         if (nowDone) {
@@ -334,6 +336,8 @@ export function useHabits({ showToast }) {
           consistencyBonuses = response?.consistencyBonuses || [];
           reversedBonuses = response?.reversedBonuses || [];
           reversedShields = response?.reversedShields || [];
+          earnedBonuses = response?.earnedBonuses || [];
+          earnedShields = response?.earnedShields || [];
           affectedHabitIds = response?.affectedHabitIds || [];
           if (typeof response?.currentStreak === "number") {
             streakPatch = {
@@ -349,6 +353,8 @@ export function useHabits({ showToast }) {
           affectedHabitIds = response?.affectedHabitIds || [];
           reversedBonuses = response?.reversedBonuses || [];
           reversedShields = response?.reversedShields || [];
+          earnedBonuses = response?.earnedBonuses || [];
+          earnedShields = response?.earnedShields || [];
           if (typeof response?.currentStreak === "number") {
             streakPatch = {
               currentStreak: response.currentStreak,
@@ -373,6 +379,8 @@ export function useHabits({ showToast }) {
           consistencyBonuses,
           reversedBonuses,
           reversedShields,
+          earnedBonuses,
+          earnedShields,
         };
       } catch (err) {
         if (err?.status === 409) {
@@ -452,6 +460,8 @@ export function useHabits({ showToast }) {
           success: true,
           reversedBonuses: response?.reversedBonuses || [],
           reversedShields: response?.reversedShields || [],
+          earnedBonuses: response?.earnedBonuses || [],
+          earnedShields: response?.earnedShields || [],
         };
       } catch (err) {
         if (err?.status === 409) {
@@ -507,7 +517,11 @@ export function useHabits({ showToast }) {
       if (dto?.affectedHabitIds?.length > 0) {
         refreshHabitsRef.current?.(dto.affectedHabitIds, timeZone);
       }
-      return next;
+      return {
+        ...next,
+        earnedBonuses: dto?.earnedBonuses || [],
+        earnedShields: dto?.earnedShields || [],
+      };
     },
     [habits, replaceHabit, trackMutation],
   );
@@ -523,7 +537,11 @@ export function useHabits({ showToast }) {
       if (dto?.affectedHabitIds?.length > 0) {
         refreshHabitsRef.current?.(dto.affectedHabitIds, timeZone);
       }
-      return created;
+      return {
+        ...created,
+        earnedBonuses: dto?.earnedBonuses || [],
+        earnedShields: dto?.earnedShields || [],
+      };
     },
     [trackMutation],
   );

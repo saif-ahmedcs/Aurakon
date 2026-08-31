@@ -25,7 +25,14 @@ router.get(
     const result = await reviewService.getPendingReviews(req.user.id);
     res
       .status(200)
-      .json({ ...result, affectedHabitIds: req.reconciledHabitIds });
+      .json({
+        ...result,
+        affectedHabitIds: req.reconciledHabitIds,
+        reversedBonuses: req.reconciledReversedBonuses || [],
+        reversedShields: req.reconciledReversedShields || [],
+        earnedBonuses: req.reconciledEarnedBonuses || [],
+        earnedShields: req.reconciledEarnedShields || [],
+      });
   }),
 );
 
@@ -41,6 +48,8 @@ router.post(
       affectedHabitIds,
       reversedBonuses,
       reversedShields,
+      earnedBonuses,
+      earnedShields,
       shieldBalance,
       shieldEarned,
     } = await reviewService.applyDecisions(
@@ -62,6 +71,14 @@ router.post(
       reversedShields: [
         ...(reversedShields || []),
         ...(req.reconciledReversedShields || []),
+      ],
+      earnedBonuses: [
+        ...(earnedBonuses || []),
+        ...(req.reconciledEarnedBonuses || []),
+      ],
+      earnedShields: [
+        ...(earnedShields || []),
+        ...(req.reconciledEarnedShields || []),
       ],
       shieldBalance,
       shieldEarned,

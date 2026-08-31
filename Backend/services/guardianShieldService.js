@@ -107,18 +107,24 @@ async function reconcileShieldsFromDate(
   affectedHabitIds,
   reversedBonusesAcc,
   reversedShieldsAcc,
+  earnedBonusesAcc,
+  earnedShieldsAcc,
 ) {
   const fullCompletionCache =
     cache || streakService.createFullCompletionCache();
   const crossHabitIds = affectedHabitIds || new Set();
   const reversedBonuses = reversedBonusesAcc || [];
   const reversedShields = reversedShieldsAcc || [];
+  const earnedBonuses = earnedBonusesAcc || [];
+  const earnedShields = earnedShieldsAcc || [];
   const habit = await habitModel.findById(habitId, userId, tx);
   if (!habit) {
     return {
       affectedHabitIds: [...crossHabitIds],
       reversedBonuses,
       reversedShields,
+      earnedBonuses,
+      earnedShields,
     };
   }
 
@@ -175,13 +181,16 @@ async function reconcileShieldsFromDate(
           "missed",
         );
 
-        await dailyAuraStatsService.recalculateDailyAuraStats(
+        const auraResult = await dailyAuraStatsService.recalculateDailyAuraStats(
           userId,
           reverted.log_date,
           tx,
           timezone,
           fullCompletionCache,
         );
+        if (auraResult?.consistencyBonuses?.length) {
+          earnedBonuses.push(...auraResult.consistencyBonuses);
+        }
         const bonusReconcileResult = await bonusService.reconcileBonusesFromDate(
           userId,
           reverted.log_date,
@@ -190,6 +199,9 @@ async function reconcileShieldsFromDate(
         );
         if (bonusReconcileResult?.reversedBonuses?.length) {
           reversedBonuses.push(...bonusReconcileResult.reversedBonuses);
+        }
+        if (bonusReconcileResult?.earnedBonuses?.length) {
+          earnedBonuses.push(...bonusReconcileResult.earnedBonuses);
         }
 
         if (reverted.habit_id !== habitId) {
@@ -210,6 +222,8 @@ async function reconcileShieldsFromDate(
             crossHabitIds,
             reversedBonuses,
             reversedShields,
+            earnedBonuses,
+            earnedShields,
           );
         }
 
@@ -249,6 +263,8 @@ async function reconcileShieldsFromDate(
     affectedHabitIds: [...crossHabitIds],
     reversedBonuses,
     reversedShields,
+    earnedBonuses,
+    earnedShields,
   };
 
   if (!isShieldEligibleDifficulty(habit.difficulty)) {
@@ -272,7 +288,7 @@ async function reconcileShieldsFromDate(
       date,
     );
     if (isShieldMilestone(currentStreak, habit.difficulty)) {
-      await earnShieldIfEligible(
+      const earnedShield = await earnShieldIfEligible(
         userId,
         habitId,
         habit.difficulty,
@@ -281,6 +297,14 @@ async function reconcileShieldsFromDate(
         date,
         tx,
       );
+      if (earnedShield) {
+        earnedShields.push({
+          habitId,
+          milestone: currentStreak,
+          streakStartDate: currentStreakStartDate,
+          awardedAt: date,
+        });
+      }
     }
   }
 

@@ -84,6 +84,8 @@ async function runApplyDecisions(decisions, userId, timezone) {
     const allConsistencyBonuses = [];
     const allReversedBonuses = [];
     const allReversedShields = [];
+    const allEarnedBonuses = [];
+    const allEarnedShields = [];
 
     function trackEarliest(habitId, date) {
       const current = affectedHabitEarliestDate.get(habitId);
@@ -213,6 +215,9 @@ async function runApplyDecisions(decisions, userId, timezone) {
       if (bonusReconcileResult?.reversedBonuses?.length) {
         allReversedBonuses.push(...bonusReconcileResult.reversedBonuses);
       }
+      if (bonusReconcileResult?.earnedBonuses?.length) {
+        allEarnedBonuses.push(...bonusReconcileResult.earnedBonuses);
+      }
     }
 
     for (const [habitId, dates] of recoveredHabitDates) {
@@ -248,6 +253,8 @@ async function runApplyDecisions(decisions, userId, timezone) {
         crossHabitIds,
         allReversedBonuses,
         allReversedShields,
+        allEarnedBonuses,
+        allEarnedShields,
       );
     }
 
@@ -272,6 +279,8 @@ async function runApplyDecisions(decisions, userId, timezone) {
       affectedHabitIds,
       reversedBonuses: allReversedBonuses,
       reversedShields: allReversedShields,
+      earnedBonuses: allEarnedBonuses,
+      earnedShields: allEarnedShields,
       shieldBalance,
       shieldEarned,
     };

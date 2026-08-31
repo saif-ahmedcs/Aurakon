@@ -44,7 +44,14 @@ router.post(
     );
     res
       .status(201)
-      .json({ ...habit, affectedHabitIds: req.reconciledHabitIds });
+      .json({
+        ...habit,
+        affectedHabitIds: req.reconciledHabitIds,
+        reversedBonuses: req.reconciledReversedBonuses || [],
+        reversedShields: req.reconciledReversedShields || [],
+        earnedBonuses: req.reconciledEarnedBonuses || [],
+        earnedShields: req.reconciledEarnedShields || [],
+      });
   }),
 );
 
@@ -58,7 +65,14 @@ router.get(
     );
     res
       .status(200)
-      .json({ ...habit, affectedHabitIds: req.reconciledHabitIds });
+      .json({
+        ...habit,
+        affectedHabitIds: req.reconciledHabitIds,
+        reversedBonuses: req.reconciledReversedBonuses || [],
+        reversedShields: req.reconciledReversedShields || [],
+        earnedBonuses: req.reconciledEarnedBonuses || [],
+        earnedShields: req.reconciledEarnedShields || [],
+      });
   }),
 );
 
@@ -74,7 +88,14 @@ router.patch(
     );
     res
       .status(200)
-      .json({ ...updated, affectedHabitIds: req.reconciledHabitIds });
+      .json({
+        ...updated,
+        affectedHabitIds: req.reconciledHabitIds,
+        reversedBonuses: req.reconciledReversedBonuses || [],
+        reversedShields: req.reconciledReversedShields || [],
+        earnedBonuses: req.reconciledEarnedBonuses || [],
+        earnedShields: req.reconciledEarnedShields || [],
+      });
   }),
 );
 
@@ -92,6 +113,8 @@ router.delete(
       consistencyBonuses: consistencyBonuses || [],
       reversedBonuses: req.reconciledReversedBonuses || [],
       reversedShields: req.reconciledReversedShields || [],
+      earnedBonuses: req.reconciledEarnedBonuses || [],
+      earnedShields: req.reconciledEarnedShields || [],
     });
   }),
 );
@@ -112,6 +135,8 @@ router.post(
       consistencyBonuses,
       reversedBonuses,
       reversedShields,
+      earnedBonuses,
+      earnedShields,
     } = await habitService.logHabit(
       req.habitId,
       date,
@@ -138,6 +163,14 @@ router.post(
         ...(reversedShields || []),
         ...(req.reconciledReversedShields || []),
       ],
+      earnedBonuses: [
+        ...(earnedBonuses || []),
+        ...(req.reconciledEarnedBonuses || []),
+      ],
+      earnedShields: [
+        ...(earnedShields || []),
+        ...(req.reconciledEarnedShields || []),
+      ],
     });
   }),
 );
@@ -161,6 +194,8 @@ router.delete(
       affectedHabitIds,
       reversedBonuses,
       reversedShields,
+      earnedBonuses,
+      earnedShields,
     } = await habitService.undoLog(
       req.habitId,
       date,
@@ -182,6 +217,14 @@ router.delete(
       reversedShields: [
         ...(reversedShields || []),
         ...(req.reconciledReversedShields || []),
+      ],
+      earnedBonuses: [
+        ...(earnedBonuses || []),
+        ...(req.reconciledEarnedBonuses || []),
+      ],
+      earnedShields: [
+        ...(earnedShields || []),
+        ...(req.reconciledEarnedShields || []),
       ],
     });
   }),

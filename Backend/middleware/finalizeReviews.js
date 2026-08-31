@@ -9,6 +9,8 @@ const finalizeReviews = asyncHandler(async (req, res, next) => {
   req.reconciledHabitIds = (result && result.affectedHabitIds) || [];
   req.reconciledReversedBonuses = (result && result.reversedBonuses) || [];
   req.reconciledReversedShields = (result && result.reversedShields) || [];
+  req.reconciledEarnedBonuses = (result && result.earnedBonuses) || [];
+  req.reconciledEarnedShields = (result && result.earnedShields) || [];
   next();
 });
 

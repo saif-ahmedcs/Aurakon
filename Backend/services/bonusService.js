@@ -51,6 +51,7 @@ async function checkAndAwardConsistencyBonus(
 async function reconcileBonusesFromDate(userId, fromDate, tx, cache) {
   const awards = await xpBonusLogModel.findAwardsFromDate(userId, fromDate, tx);
   const reversedBonuses = [];
+  const earnedBonuses = [];
 
   for (const award of awards) {
     const streakAtDate = await streakService.getStreakAsOfDate(
@@ -108,16 +109,19 @@ async function reconcileBonusesFromDate(userId, fromDate, tx, cache) {
       cache,
     );
     const stats = await dailyAuraStatsModel.getByDate(userId, date, tx);
-    await checkAndAwardConsistencyBonus(
+    const newBonuses = await checkAndAwardConsistencyBonus(
       userId,
       streakAtDate,
       date,
       tx,
       stats.total_habits,
     );
+    if (newBonuses.length > 0) {
+      earnedBonuses.push(...newBonuses);
+    }
   }
 
-  return { reversedBonuses };
+  return { reversedBonuses, earnedBonuses };
 }
 
 module.exports = { checkAndAwardConsistencyBonus, reconcileBonusesFromDate };
