@@ -52,6 +52,7 @@ router.post(
       earnedShields,
       shieldBalance,
       shieldEarned,
+      level,
     } = await reviewService.applyDecisions(
       decisions,
       req.user.id,
@@ -82,6 +83,7 @@ router.post(
       ],
       shieldBalance,
       shieldEarned,
+      level: level || req.reconciledLevel,
     });
   }),
 );

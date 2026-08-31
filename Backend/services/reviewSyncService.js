@@ -365,8 +365,9 @@ async function runEvaluatePendingReviews(userId, timezone) {
       }
     }
 
+    let finalLevel = undefined;
     if (didWork) {
-      await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+      finalLevel = await levelService.recalculateAndPersistLevel(userId, tx, timezone);
     }
 
     return {
@@ -375,6 +376,7 @@ async function runEvaluatePendingReviews(userId, timezone) {
       reversedShields,
       earnedBonuses,
       earnedShields,
+      level: finalLevel,
     };
   });
 }

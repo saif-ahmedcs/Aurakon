@@ -51,6 +51,7 @@ router.post(
         reversedShields: req.reconciledReversedShields || [],
         earnedBonuses: req.reconciledEarnedBonuses || [],
         earnedShields: req.reconciledEarnedShields || [],
+        level: habit.level || req.reconciledLevel,
       });
   }),
 );
@@ -95,6 +96,7 @@ router.patch(
         reversedShields: req.reconciledReversedShields || [],
         earnedBonuses: req.reconciledEarnedBonuses || [],
         earnedShields: req.reconciledEarnedShields || [],
+        level: req.reconciledLevel,
       });
   }),
 );
@@ -102,7 +104,7 @@ router.patch(
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    const { consistencyBonuses } = await habitService.deleteHabit(
+    const { consistencyBonuses, level } = await habitService.deleteHabit(
       req.habitId,
       req.user.id,
       req.user.timezone,
@@ -115,6 +117,7 @@ router.delete(
       reversedShields: req.reconciledReversedShields || [],
       earnedBonuses: req.reconciledEarnedBonuses || [],
       earnedShields: req.reconciledEarnedShields || [],
+      level: level || req.reconciledLevel,
     });
   }),
 );
@@ -137,6 +140,7 @@ router.post(
       reversedShields,
       earnedBonuses,
       earnedShields,
+      level,
     } = await habitService.logHabit(
       req.habitId,
       date,
@@ -171,6 +175,7 @@ router.post(
         ...(earnedShields || []),
         ...(req.reconciledEarnedShields || []),
       ],
+      level: level || req.reconciledLevel,
     });
   }),
 );
@@ -196,6 +201,7 @@ router.delete(
       reversedShields,
       earnedBonuses,
       earnedShields,
+      level,
     } = await habitService.undoLog(
       req.habitId,
       date,
@@ -226,6 +232,7 @@ router.delete(
         ...(earnedShields || []),
         ...(req.reconciledEarnedShields || []),
       ],
+      level: level || req.reconciledLevel,
     });
   }),
 );

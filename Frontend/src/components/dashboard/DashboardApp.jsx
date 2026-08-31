@@ -409,12 +409,34 @@ export default function DashboardApp() {
     if (progressData) setAuraEnergy(Number(progressData.auraEnergyToday) || 0);
   }, [progressData, setAuraEnergy]);
 
+  const applyProgressPatch = useCallback((patch) => {
+    if (!patch) return;
+    setProgressData((prev) => {
+      if (!prev) return prev;
+      let changed = false;
+      const next = { ...prev };
+      if (typeof patch.level === "number" && patch.level !== prev.level) {
+        next.level = patch.level;
+        changed = true;
+      }
+      if (
+        typeof patch.shieldBalance === "number" &&
+        patch.shieldBalance !== prev.shieldBalance
+      ) {
+        next.shieldBalance = patch.shieldBalance;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
   const review = useReviewSession({
     habits,
     resolveHabitDate,
     shieldsAvailable,
     showToast,
     onProgressChanged: refreshProgress,
+    onProgressDataPatch: applyProgressPatch,
     onHabitChanged: syncHabitFromServer,
     trackMutation,
   });
@@ -603,6 +625,12 @@ export default function DashboardApp() {
         result.earnedBonuses,
         result.earnedShields,
       );
+      if (result.level !== undefined || result.shieldBalance !== undefined) {
+        applyProgressPatch({
+          level: result.level,
+          shieldBalance: result.shieldBalance,
+        });
+      }
       refreshProgress();
     },
     [
@@ -611,6 +639,7 @@ export default function DashboardApp() {
       toggleHabitCompletion,
       pulseAura,
       showToast,
+      applyProgressPatch,
       refreshProgress,
       review.decisionInFlight,
     ],
@@ -655,11 +684,22 @@ export default function DashboardApp() {
         dto?.earnedBonuses,
         dto?.earnedShields,
       );
+      if (dto?.level !== undefined) {
+        applyProgressPatch({ level: dto.level });
+      }
       refreshProgress();
     } catch (err) {
       showToast(err.error || "Could not delete the habit. Try again.");
     }
-  }, [habits, deleteHabitId, deleteHabit, showToast, refreshProgress, meData]);
+  }, [
+    habits,
+    deleteHabitId,
+    deleteHabit,
+    showToast,
+    applyProgressPatch,
+    refreshProgress,
+    meData,
+  ]);
 
   const editHabit = editHabitId
     ? habits.find((h) => h.id === editHabitId)
@@ -682,12 +722,15 @@ export default function DashboardApp() {
           dto?.earnedBonuses,
           dto?.earnedShields,
         );
+        if (dto?.level !== undefined) {
+          applyProgressPatch({ level: dto.level });
+        }
         refreshProgress();
       } catch (err) {
         showToast(err.error || "Could not update the habit. Try again.");
       }
     },
-    [updateHabit, showToast, meData, refreshProgress],
+    [updateHabit, showToast, meData, applyProgressPatch, refreshProgress],
   );
 
   const [addHabitOpen, setAddHabitOpen] = useState(false);
@@ -703,7 +746,6 @@ export default function DashboardApp() {
   const createHabit = useCallback(
     async ({ name, difficulty }) => {
       if (createHabitInFlight.current) return;
-      if (atHabitLimit) return;
       createHabitInFlight.current = true;
       try {
         const dto = await addHabit(
@@ -712,6 +754,9 @@ export default function DashboardApp() {
         );
         setAddHabitOpen(false);
         showToast("New trial accepted, " + name);
+        if (dto?.level !== undefined) {
+          applyProgressPatch({ level: dto.level });
+        }
         announceReversedRewards(
           showToast,
           dto?.reversedBonuses,
@@ -725,11 +770,14 @@ export default function DashboardApp() {
         refreshProgress();
       } catch (err) {
         showToast(err.error || "Could not create the habit. Try again.");
+        if (err?.status === 409) {
+          refreshProgress();
+        }
       } finally {
         createHabitInFlight.current = false;
       }
     },
-    [addHabit, showToast, refreshProgress, atHabitLimit, meData],
+    [addHabit, showToast, applyProgressPatch, refreshProgress, meData],
   );
 
   /* -------------------------------------------------------------- */
@@ -770,6 +818,9 @@ export default function DashboardApp() {
       );
       if (result?.success) {
         showToast("Check-in undone");
+        if (result.level !== undefined) {
+          applyProgressPatch({ level: result.level });
+        }
         // The server reversed XP and reconciled aura/bonuses/shields -
         // announce any bonus/shield it clawed back as a consequence.
         announceReversedRewards(
@@ -792,7 +843,14 @@ export default function DashboardApp() {
         refreshProgress();
       }
     },
-    [undoCheckIn, meData, showToast, refreshProgress, review.decisionInFlight],
+    [
+      undoCheckIn,
+      meData,
+      showToast,
+      applyProgressPatch,
+      refreshProgress,
+      review.decisionInFlight,
+    ],
   );
 
   /* -------------------------------------------------------------- */

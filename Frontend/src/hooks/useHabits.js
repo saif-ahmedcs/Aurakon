@@ -327,11 +327,14 @@ export function useHabits({ showToast }) {
         let earnedBonuses = [];
         let earnedShields = [];
         let streakPatch = null;
-        let affectedHabitIds = [];
+        let responseLevel = undefined;
+        let responseShieldBalance = undefined;
         if (nowDone) {
           const response = await trackMutation(
             createHabitLogRequest(id, today),
           );
+          responseLevel = response?.level;
+          responseShieldBalance = response?.shieldBalance;
           shieldEarned = response?.shieldEarned;
           consistencyBonuses = response?.consistencyBonuses || [];
           reversedBonuses = response?.reversedBonuses || [];
@@ -350,6 +353,7 @@ export function useHabits({ showToast }) {
           }
         } else {
           const response = await trackMutation(undoHabitLogRequest(id, today));
+          responseLevel = response?.level;
           affectedHabitIds = response?.affectedHabitIds || [];
           reversedBonuses = response?.reversedBonuses || [];
           reversedShields = response?.reversedShields || [];
@@ -381,6 +385,8 @@ export function useHabits({ showToast }) {
           reversedShields,
           earnedBonuses,
           earnedShields,
+          level: responseLevel,
+          shieldBalance: responseShieldBalance,
         };
       } catch (err) {
         if (err?.status === 409) {
@@ -462,6 +468,7 @@ export function useHabits({ showToast }) {
           reversedShields: response?.reversedShields || [],
           earnedBonuses: response?.earnedBonuses || [],
           earnedShields: response?.earnedShields || [],
+          level: response?.level,
         };
       } catch (err) {
         if (err?.status === 409) {
@@ -523,6 +530,7 @@ export function useHabits({ showToast }) {
         earnedShields: dto?.earnedShields || [],
         reversedBonuses: dto?.reversedBonuses || [],
         reversedShields: dto?.reversedShields || [],
+        level: dto?.level,
       };
     },
     [habits, replaceHabit, trackMutation],
@@ -545,6 +553,7 @@ export function useHabits({ showToast }) {
         earnedShields: dto?.earnedShields || [],
         reversedBonuses: dto?.reversedBonuses || [],
         reversedShields: dto?.reversedShields || [],
+        level: dto?.level,
       };
     },
     [trackMutation],

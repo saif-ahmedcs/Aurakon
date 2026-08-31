@@ -11,6 +11,7 @@ const finalizeReviews = asyncHandler(async (req, res, next) => {
   req.reconciledReversedShields = (result && result.reversedShields) || [];
   req.reconciledEarnedBonuses = (result && result.earnedBonuses) || [];
   req.reconciledEarnedShields = (result && result.earnedShields) || [];
+  req.reconciledLevel = result && result.level;
   next();
 });
 

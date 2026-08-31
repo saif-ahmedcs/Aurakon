@@ -258,7 +258,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
       );
     }
 
-    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    const newLevel = await levelService.recalculateAndPersistLevel(userId, tx, timezone);
 
     const progressAfter = await userProgressModel.getProgress(userId, tx, true);
     const shieldBalance = progressAfter?.shield_balance ?? 0;
@@ -283,6 +283,7 @@ async function runApplyDecisions(decisions, userId, timezone) {
       earnedShields: allEarnedShields,
       shieldBalance,
       shieldEarned,
+      level: newLevel,
     };
   });
 }

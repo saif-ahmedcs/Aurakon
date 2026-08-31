@@ -45,6 +45,7 @@ export function useReviewSession({
   shieldsAvailable,
   showToast,
   onProgressChanged,
+  onProgressDataPatch,
   onHabitChanged,
   trackMutation,
 }) {
@@ -222,6 +223,17 @@ export function useReviewSession({
           payload.earnedShields,
         );
 
+        if (onProgressDataPatch) {
+          const patch = {};
+          if (typeof payload?.level === "number") patch.level = payload.level;
+          if (typeof payload?.shieldBalance === "number") {
+            patch.shieldBalance = payload.shieldBalance;
+          }
+          if (Object.keys(patch).length > 0) {
+            onProgressDataPatch(patch);
+          }
+        }
+
         decisionsCommitted.current = true;
 
         // The server recomputed this habit's streak (bridging rules and
@@ -261,6 +273,7 @@ export function useReviewSession({
       resolveHabitDate,
       finishReviewSession,
       onHabitChanged,
+      onProgressDataPatch,
       showToast,
       trackMutation,
     ],

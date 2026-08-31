@@ -37,8 +37,8 @@ async function recalculateStatsAndLevelForToday(userId, tx, timezone) {
     tx,
     timezone,
   );
-  await levelService.recalculateAndPersistLevel(userId, tx, timezone);
-  return auraResult.consistencyBonuses || [];
+  const level = await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+  return { consistencyBonuses: auraResult.consistencyBonuses || [], level };
 }
 
 async function listHabitsWithPending(userId, timezone) {
@@ -70,8 +70,8 @@ async function createHabit(title, userId, difficulty, timezone) {
     }
 
     const habit = await habitModel.create(title, userId, difficulty, tx);
-    await recalculateStatsAndLevelForToday(userId, tx, timezone);
-    return serializeHabit(habit, null);
+    const { level } = await recalculateStatsAndLevelForToday(userId, tx, timezone);
+    return { ...serializeHabit(habit, null), level };
   });
 }
 
@@ -99,13 +99,13 @@ async function deleteHabit(habitId, userId, timezone) {
     await habitLogModel.resolvePendingReviewsForHabit(habitId, tx);
     await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
 
-    const consistencyBonuses = await recalculateStatsAndLevelForToday(
+    const { consistencyBonuses, level } = await recalculateStatsAndLevelForToday(
       userId,
       tx,
       timezone,
     );
 
-    return { consistencyBonuses };
+    return { consistencyBonuses, level };
   });
 }
 
@@ -247,7 +247,7 @@ async function logHabit(habitId, date, userId, timezone) {
       );
     }
     // (9)
-    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    const newLevel = await levelService.recalculateAndPersistLevel(userId, tx, timezone);
 
     const progressAfter = await userProgressModel.getProgress(userId, tx, true);
     newShieldBalance = progressAfter?.shield_balance ?? 0;
@@ -275,6 +275,7 @@ async function logHabit(habitId, date, userId, timezone) {
         ...(finalStreak.earnedBonuses || []),
       ],
       earnedShields: finalStreak.earnedShields || [],
+      level: newLevel,
     };
   });
 }
@@ -336,7 +337,7 @@ async function undoLog(habitId, date, userId, timezone) {
       fullCompletionCache,
     );
 
-    await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    const newLevel = await levelService.recalculateAndPersistLevel(userId, tx, timezone);
 
     return {
       currentStreak: finalStreak?.currentStreak ?? habit.current_streak ?? 0,
@@ -352,6 +353,7 @@ async function undoLog(habitId, date, userId, timezone) {
         ...(finalStreak?.earnedBonuses || []),
       ],
       earnedShields: finalStreak?.earnedShields || [],
+      level: newLevel,
     };
   });
 }
