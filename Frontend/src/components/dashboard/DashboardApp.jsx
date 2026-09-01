@@ -137,9 +137,7 @@ function announceEarnedRewards(showToast, earnedBonuses, earnedShields) {
     showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonus.delta} XP!`);
   }
   for (const shield of earnedShields || []) {
-    showToast(
-      `🛡️ Guardian Shield earned · ${shield.milestone}-day streak!`,
-    );
+    showToast(`🛡️ Guardian Shield earned · ${shield.milestone}-day streak!`);
   }
 }
 
@@ -361,34 +359,15 @@ export default function DashboardApp() {
 
   const heroLevel = progressData ? Number(progressData.level) || 1 : 1;
   const xpCurrent = progressData ? Number(progressData.totalXp) : 0;
-  // Progress is measured within the *current tier's band*, not against
-  // lifetime XP: the plate reads "XP earned in this rank / XP needed to
-  // clear this rank", so it always starts at 0% right after a rank-up.
-  const currentTierMinXp = (() => {
-    const titles = progressData ? progressData.titles : null;
-    if (!Array.isArray(titles)) return 0;
-    const currentTier = titles.find((t) => t.current);
-    return currentTier ? Number(currentTier.minXp) : 0;
-  })();
-  // Next tier's absolute XP threshold - derived from the backend's
-  // xpNeeded (XP remaining to the next threshold) plus current XP.
   const nextTierMinXp =
     progressData && progressData.nextRank
       ? xpCurrent + Number(progressData.nextRank.xpNeeded)
       : null;
-  const xpIntoTier = Math.max(0, xpCurrent - currentTierMinXp);
-  const xpTierSpan =
-    nextTierMinXp !== null ? nextTierMinXp - currentTierMinXp : 0;
-  // xpTotal/percent below now represent progress *within the current
-  // tier band* (used by the hero plate bar/label), not lifetime XP.
-  // At max rank there's no next tier to band against, so xpTotal
-  // just mirrors xpIntoTier (isMaxRank below is what actually flags
-  // the "highest rank achieved" state to the plate).
-  const xpTotal = nextTierMinXp !== null ? xpTierSpan : xpIntoTier;
+  const xpTotal = nextTierMinXp !== null ? nextTierMinXp : xpCurrent;
   const xpPercent =
     progressData && xpTotal > 0
       ? nextTierMinXp !== null
-        ? Math.min(100, Math.round((xpIntoTier / xpTierSpan) * 100))
+        ? Math.min(100, Math.round((xpCurrent / nextTierMinXp) * 100))
         : 100
       : 0;
   // Explicit signal for "highest rank achieved" - driven by the
@@ -679,11 +658,7 @@ export default function DashboardApp() {
         dto?.reversedBonuses,
         dto?.reversedShields,
       );
-      announceEarnedRewards(
-        showToast,
-        dto?.earnedBonuses,
-        dto?.earnedShields,
-      );
+      announceEarnedRewards(showToast, dto?.earnedBonuses, dto?.earnedShields);
       if (dto?.level !== undefined) {
         applyProgressPatch({ level: dto.level });
       }
@@ -1029,7 +1004,7 @@ export default function DashboardApp() {
         stageTitle={stageTitle}
         level={heroLevel}
         title={progressData ? progressData.title : ""}
-        xpCurrent={xpIntoTier}
+        xpCurrent={xpCurrent}
         xpTotal={xpTotal}
         xpPercent={xpPercent}
         isMaxRank={isMaxRank}

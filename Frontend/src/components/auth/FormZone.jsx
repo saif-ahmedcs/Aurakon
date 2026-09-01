@@ -27,6 +27,8 @@ export default function FormZone({ initialScreen = "login", initialToken = null,
     loginLoading,
     loginError,
     loginNeedsVerification,
+    demoLoading,
+    demoError,
     signupLoading,
     signupError,
     forgotLoading,
@@ -45,6 +47,7 @@ export default function FormZone({ initialScreen = "login", initialToken = null,
     togglePasswordVisibility,
     goTo,
     handleLoginSubmit,
+    handleTryDemo,
     handleSignupSubmit,
     handleResendVerification,
     handleForgotSubmit,
@@ -71,6 +74,9 @@ export default function FormZone({ initialScreen = "login", initialToken = null,
         error={loginError}
         needsVerification={loginNeedsVerification}
         onResendVerification={handleResendVerification}
+        onTryDemo={handleTryDemo}
+        demoLoading={demoLoading}
+        demoError={demoError}
       />
     ),
     signup: (

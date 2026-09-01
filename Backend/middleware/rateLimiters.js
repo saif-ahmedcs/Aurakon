@@ -294,6 +294,15 @@ const accountFieldUpdateLimiter = createLimiter({
   message: { error: "too many requests, please try again later" },
 });
 
+// Each demo start fully rebuilds the demo account (deletes and re-seeds
+// habits, logs, XP, etc.), so it's kept much stricter than a normal login.
+const demoStartLimiter = createLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  keyGenerator: getClientIp,
+  message: { error: "too many demo requests, please try again later" },
+});
+
 module.exports = {
   globalIpLimiter,
   registerLimiter,
@@ -323,4 +332,5 @@ module.exports = {
   logoutIpLimiter,
   logoutAllLimiter,
   accountFieldUpdateLimiter,
+  demoStartLimiter,
 };

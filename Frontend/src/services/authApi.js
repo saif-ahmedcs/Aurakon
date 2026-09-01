@@ -73,6 +73,24 @@ export async function loginRequest({ email, password }) {
 }
 
 /**
+ * POST /api/demo/start
+ * Rebuilds the shared demo account to a clean state and logs the caller
+ * into it.
+ */
+export async function startDemoRequest() {
+  let res;
+  try {
+    res = await fetch("/api/demo/start", {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    throw handleNetworkError();
+  }
+  return handleResponse(res);
+}
+
+/**
  * POST /api/auth/resend-verification
  */
 export async function resendVerificationRequest({ email }) {

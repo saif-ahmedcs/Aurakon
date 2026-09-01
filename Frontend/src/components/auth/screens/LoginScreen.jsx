@@ -14,6 +14,9 @@ export function LoginScreen({
   error,
   needsVerification,
   onResendVerification,
+  onTryDemo,
+  demoLoading,
+  demoError,
 }) {
   return (
     <>
@@ -72,6 +75,22 @@ export function LoginScreen({
           {loading ? "Logging in…" : "Log In"}
         </button>
       </form>
+
+      {onTryDemo && (
+        <>
+          <button
+            type="button"
+            className="btn out"
+            onClick={onTryDemo}
+            disabled={demoLoading}
+            style={{ marginTop: "10px" }}
+          >
+            {demoLoading ? "Preparing demo…" : "Try the Demo"}
+          </button>
+          {demoError && <div className="login-err">{demoError}</div>}
+        </>
+      )}
+
       <div className="bt">
         Don't have an account?{" "}
         <span className="lk" onClick={() => goTo("signup")}>

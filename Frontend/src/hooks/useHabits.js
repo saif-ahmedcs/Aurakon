@@ -329,6 +329,7 @@ export function useHabits({ showToast }) {
         let streakPatch = null;
         let responseLevel = undefined;
         let responseShieldBalance = undefined;
+        let affectedHabitIds = [];
         if (nowDone) {
           const response = await trackMutation(
             createHabitLogRequest(id, today),

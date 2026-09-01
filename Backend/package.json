@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test test/cleanupRunner.test.js",
+    "demo:reset": "node scripts/resetDemoAccount.js",
     "cleanup:unverified": "node scripts/cleanupUnverified.js",
     "cleanup:tokens": "node scripts/Cleanupexpiredtokens.js",
     "cleanup:confirmations": "node scripts/cleanupConsumedConfirmationTokens.js"

@@ -7,6 +7,7 @@ import {
   resendVerificationRequest,
   forgotPasswordRequest,
   resetPasswordRequest,
+  startDemoRequest,
 } from "../services/authApi";
 import { setAccessToken } from "../services/tokenStore";
 import { openEmailProvider } from "../utils/emailProvider";
@@ -53,6 +54,9 @@ export function useAuthFlow({
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginNeedsVerification, setLoginNeedsVerification] = useState(false);
+
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoError, setDemoError] = useState("");
 
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState("");
@@ -193,6 +197,34 @@ export function useAuthFlow({
     },
     [loginLoading, formData.loginEmail, formData.loginPassword],
   );
+
+  // Demo handler - rebuilds the shared demo account fresh, then logs in
+  const handleTryDemo = useCallback(async () => {
+    if (demoLoading) return;
+
+    setDemoError("");
+    setDemoLoading(true);
+
+    try {
+      const { accessToken } = await startDemoRequest();
+      setAccessToken(accessToken);
+      window.location.href = "/dashboard";
+    } catch (err) {
+      let message = err.error || "Couldn't start the demo. Please try again.";
+
+      if (err.status === 429 && typeof err.retryAfter === "number") {
+        const mins = Math.ceil(err.retryAfter / 60);
+        message =
+          mins >= 2
+            ? `${message} Try again in ${mins} minutes.`
+            : `${message} Try again in ${err.retryAfter} seconds.`;
+      }
+
+      setDemoError(message);
+    } finally {
+      setDemoLoading(false);
+    }
+  }, [demoLoading]);
 
   // Signup handler with validation and backend registration
   const handleSignupSubmit = useCallback(
@@ -457,6 +489,9 @@ export function useAuthFlow({
     loginLoading,
     loginError,
     loginNeedsVerification,
+    // Demo state
+    demoLoading,
+    demoError,
     // Signup state
     signupLoading,
     signupError,
@@ -481,6 +516,7 @@ export function useAuthFlow({
     togglePasswordVisibility,
     goTo,
     handleLoginSubmit,
+    handleTryDemo,
     handleSignupSubmit,
     handleResendVerification,
     handleForgotSubmit,
