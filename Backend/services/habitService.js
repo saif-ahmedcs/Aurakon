@@ -24,6 +24,24 @@ const {
   BadRequestError,
 } = require("../utils/AppErrors");
 
+// Counts habits (archived or not) whose creation falls on the user's
+// current local calendar day. A 2-day UTC lookback is a safe superset of
+// "today" for every IANA timezone/DST offset; the exact boundary is then
+// applied in JS via toLocalDateString, consistent with how the rest of the
+// codebase reasons about local-day boundaries (see utils/timezone.js).
+async function countHabitsCreatedToday(userId, timezone, tx) {
+  const sinceUtc = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  const createdTimestamps = await habitModel.findCreatedAtSince(
+    userId,
+    sinceUtc,
+    tx,
+  );
+  const today = todayInTimezone(timezone);
+  return createdTimestamps.filter(
+    (ts) => toLocalDateString(ts, timezone) === today,
+  ).length;
+}
+
 async function attachPendingReviewAndSerialize(habitRow) {
   const pendingRows = await habitLogModel.findAllPendingByHabit(habitRow.id);
   return serializeHabit(habitRow, serializePendingReviewGroup(pendingRows));
@@ -37,7 +55,11 @@ async function recalculateStatsAndLevelForToday(userId, tx, timezone) {
     tx,
     timezone,
   );
-  const level = await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+  const level = await levelService.recalculateAndPersistLevel(
+    userId,
+    tx,
+    timezone,
+  );
   return { consistencyBonuses: auraResult.consistencyBonuses || [], level };
 }
 
@@ -69,8 +91,19 @@ async function createHabit(title, userId, difficulty, timezone) {
       throw new ConflictError("Habit limit reached for your current level.");
     }
 
+    const createdToday = await countHabitsCreatedToday(userId, timezone, tx);
+    if (createdToday >= limit) {
+      throw new ConflictError(
+        "Daily habit creation limit reached. Try again tomorrow.",
+      );
+    }
+
     const habit = await habitModel.create(title, userId, difficulty, tx);
-    const { level } = await recalculateStatsAndLevelForToday(userId, tx, timezone);
+    const { level } = await recalculateStatsAndLevelForToday(
+      userId,
+      tx,
+      timezone,
+    );
     return { ...serializeHabit(habit, null), level };
   });
 }
@@ -99,11 +132,8 @@ async function deleteHabit(habitId, userId, timezone) {
     await habitLogModel.resolvePendingReviewsForHabit(habitId, tx);
     await pendingReviewSessionService.resolveSessionIfComplete(habitId, tx);
 
-    const { consistencyBonuses, level } = await recalculateStatsAndLevelForToday(
-      userId,
-      tx,
-      timezone,
-    );
+    const { consistencyBonuses, level } =
+      await recalculateStatsAndLevelForToday(userId, tx, timezone);
 
     return { consistencyBonuses, level };
   });
@@ -247,7 +277,11 @@ async function logHabit(habitId, date, userId, timezone) {
       );
     }
     // (9)
-    const newLevel = await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    const newLevel = await levelService.recalculateAndPersistLevel(
+      userId,
+      tx,
+      timezone,
+    );
 
     const progressAfter = await userProgressModel.getProgress(userId, tx, true);
     newShieldBalance = progressAfter?.shield_balance ?? 0;
@@ -337,7 +371,11 @@ async function undoLog(habitId, date, userId, timezone) {
       fullCompletionCache,
     );
 
-    const newLevel = await levelService.recalculateAndPersistLevel(userId, tx, timezone);
+    const newLevel = await levelService.recalculateAndPersistLevel(
+      userId,
+      tx,
+      timezone,
+    );
 
     return {
       currentStreak: finalStreak?.currentStreak ?? habit.current_streak ?? 0,

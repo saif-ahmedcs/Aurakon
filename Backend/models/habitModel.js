@@ -53,6 +53,14 @@ async function countByUser(userId, db = pool) {
   return rows[0].count;
 }
 
+async function findCreatedAtSince(userId, sinceUtc, db = pool) {
+  const [rows] = await db.query(
+    "SELECT created_at FROM habits WHERE user_id = ? AND created_at >= ?",
+    [userId, sinceUtc],
+  );
+  return rows.map((r) => r.created_at);
+}
+
 async function getEarliestCreatedAt(userId, db = pool) {
   const [rows] = await db.query(
     "SELECT MIN(created_at) AS earliestCreatedAt FROM habits WHERE user_id = ?",
@@ -118,6 +126,7 @@ module.exports = {
   update,
   archive,
   countByUser,
+  findCreatedAtSince,
   getEarliestCreatedAt,
   getShieldDeferredSince,
   lockForShieldDeferral,
