@@ -42,17 +42,15 @@ router.post(
       difficulty,
       req.user.timezone,
     );
-    res
-      .status(201)
-      .json({
-        ...habit,
-        affectedHabitIds: req.reconciledHabitIds,
-        reversedBonuses: req.reconciledReversedBonuses || [],
-        reversedShields: req.reconciledReversedShields || [],
-        earnedBonuses: req.reconciledEarnedBonuses || [],
-        earnedShields: req.reconciledEarnedShields || [],
-        level: habit.level || req.reconciledLevel,
-      });
+    res.status(201).json({
+      ...habit,
+      affectedHabitIds: req.reconciledHabitIds,
+      reversedBonuses: req.reconciledReversedBonuses || [],
+      reversedShields: req.reconciledReversedShields || [],
+      earnedBonuses: req.reconciledEarnedBonuses || [],
+      earnedShields: req.reconciledEarnedShields || [],
+      level: habit.level || req.reconciledLevel,
+    });
   }),
 );
 
@@ -64,16 +62,14 @@ router.get(
       req.user.id,
       req.user.timezone,
     );
-    res
-      .status(200)
-      .json({
-        ...habit,
-        affectedHabitIds: req.reconciledHabitIds,
-        reversedBonuses: req.reconciledReversedBonuses || [],
-        reversedShields: req.reconciledReversedShields || [],
-        earnedBonuses: req.reconciledEarnedBonuses || [],
-        earnedShields: req.reconciledEarnedShields || [],
-      });
+    res.status(200).json({
+      ...habit,
+      affectedHabitIds: req.reconciledHabitIds,
+      reversedBonuses: req.reconciledReversedBonuses || [],
+      reversedShields: req.reconciledReversedShields || [],
+      earnedBonuses: req.reconciledEarnedBonuses || [],
+      earnedShields: req.reconciledEarnedShields || [],
+    });
   }),
 );
 
@@ -87,36 +83,57 @@ router.patch(
       req.user.id,
       title,
     );
-    res
-      .status(200)
-      .json({
-        ...updated,
-        affectedHabitIds: req.reconciledHabitIds,
-        reversedBonuses: req.reconciledReversedBonuses || [],
-        reversedShields: req.reconciledReversedShields || [],
-        earnedBonuses: req.reconciledEarnedBonuses || [],
-        earnedShields: req.reconciledEarnedShields || [],
-        level: req.reconciledLevel,
-      });
+    res.status(200).json({
+      ...updated,
+      affectedHabitIds: req.reconciledHabitIds,
+      reversedBonuses: req.reconciledReversedBonuses || [],
+      reversedShields: req.reconciledReversedShields || [],
+      earnedBonuses: req.reconciledEarnedBonuses || [],
+      earnedShields: req.reconciledEarnedShields || [],
+      level: req.reconciledLevel,
+    });
   }),
 );
 
 router.delete(
   "/:id",
   asyncHandler(async (req, res) => {
-    const { consistencyBonuses, level } = await habitService.deleteHabit(
+    const {
+      consistencyBonuses,
+      level,
+      affectedHabitIds,
+      reversedBonuses,
+      reversedShields,
+      earnedBonuses,
+      earnedShields,
+    } = await habitService.deleteHabit(
       req.habitId,
       req.user.id,
       req.user.timezone,
     );
+    const merged = [
+      ...new Set([...(affectedHabitIds || []), ...req.reconciledHabitIds]),
+    ];
     return res.status(200).json({
       message: "Habit deleted successfully",
-      affectedHabitIds: req.reconciledHabitIds,
+      affectedHabitIds: merged,
       consistencyBonuses: consistencyBonuses || [],
-      reversedBonuses: req.reconciledReversedBonuses || [],
-      reversedShields: req.reconciledReversedShields || [],
-      earnedBonuses: req.reconciledEarnedBonuses || [],
-      earnedShields: req.reconciledEarnedShields || [],
+      reversedBonuses: [
+        ...(reversedBonuses || []),
+        ...(req.reconciledReversedBonuses || []),
+      ],
+      reversedShields: [
+        ...(reversedShields || []),
+        ...(req.reconciledReversedShields || []),
+      ],
+      earnedBonuses: [
+        ...(earnedBonuses || []),
+        ...(req.reconciledEarnedBonuses || []),
+      ],
+      earnedShields: [
+        ...(earnedShields || []),
+        ...(req.reconciledEarnedShields || []),
+      ],
       level: level || req.reconciledLevel,
     });
   }),

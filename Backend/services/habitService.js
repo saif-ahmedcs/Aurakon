@@ -159,25 +159,32 @@ async function deleteHabit(habitId, userId, timezone) {
       throw new NotFoundError("habit not found");
     }
 
+    const affectedRows = await habitModel.archive(habitId, userId, tx);
+    if (affectedRows === 0) {
+      throw new NotFoundError("habit not found");
+    }
+
     const today = todayInTimezone(timezone);
     const todaysLog = await habitLogModel.findByHabitAndDate(
       habitId,
       today,
       tx,
     );
+    let reversal = null;
     if (todaysLog && todaysLog.status === "completed") {
       const affectedLogRows = await habitLogModel.deleteCompletedLog(
         todaysLog.id,
         tx,
       );
       if (affectedLogRows > 0) {
-        await reconcileAfterXpReversal(userId, habitId, today, timezone, tx);
+        reversal = await reconcileAfterXpReversal(
+          userId,
+          habitId,
+          today,
+          timezone,
+          tx,
+        );
       }
-    }
-
-    const affectedRows = await habitModel.archive(habitId, userId, tx);
-    if (affectedRows === 0) {
-      throw new NotFoundError("habit not found");
     }
 
     await habitLogModel.resolvePendingReviewsForHabit(habitId, tx);
@@ -186,7 +193,24 @@ async function deleteHabit(habitId, userId, timezone) {
     const { consistencyBonuses, level } =
       await recalculateStatsAndLevelForToday(userId, tx, timezone);
 
-    return { consistencyBonuses, level };
+    const bonusReconcile = reversal?.bonusReconcile;
+    const finalStreak = reversal?.finalStreak;
+
+    return {
+      consistencyBonuses,
+      level,
+      affectedHabitIds: finalStreak?.affectedHabitIds || [],
+      reversedBonuses: [
+        ...(bonusReconcile?.reversedBonuses || []),
+        ...(finalStreak?.reversedBonuses || []),
+      ],
+      reversedShields: finalStreak?.reversedShields || [],
+      earnedBonuses: [
+        ...(bonusReconcile?.earnedBonuses || []),
+        ...(finalStreak?.earnedBonuses || []),
+      ],
+      earnedShields: finalStreak?.earnedShields || [],
+    };
   });
 }
 
