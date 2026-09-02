@@ -124,10 +124,12 @@ export function useHabits({ showToast }) {
 
   const trackMutation = useCallback((promise) => {
     pendingMutations.current.add(promise);
-    promise.finally(() => {
-      pendingMutations.current.delete(promise);
-      mutationEpoch.current += 1;
-    });
+    promise
+      .finally(() => {
+        pendingMutations.current.delete(promise);
+        mutationEpoch.current += 1;
+      })
+      .catch(() => {});
     return promise;
   }, []);
 

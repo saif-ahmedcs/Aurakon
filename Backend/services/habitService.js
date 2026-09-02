@@ -24,11 +24,6 @@ const {
   BadRequestError,
 } = require("../utils/AppErrors");
 
-// Counts habits (archived or not) whose creation falls on the user's
-// current local calendar day. A 2-day UTC lookback is a safe superset of
-// "today" for every IANA timezone/DST offset; the exact boundary is then
-// applied in JS via toLocalDateString, consistent with how the rest of the
-// codebase reasons about local-day boundaries (see utils/timezone.js).
 async function countHabitsCreatedToday(userId, timezone, tx) {
   const sinceUtc = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   const createdTimestamps = await habitModel.findCreatedAtSince(
@@ -40,6 +35,40 @@ async function countHabitsCreatedToday(userId, timezone, tx) {
   return createdTimestamps.filter(
     (ts) => toLocalDateString(ts, timezone) === today,
   ).length;
+}
+
+async function reconcileAfterXpReversal(userId, habitId, date, timezone, tx) {
+  const fullCompletionCache = streakService.createFullCompletionCache();
+
+  await xpService.reverseCompletionXp(userId, habitId, date, tx);
+  await dailyAuraStatsService.recalculateDailyAuraStats(
+    userId,
+    date,
+    tx,
+    timezone,
+    fullCompletionCache,
+  );
+  const bonusReconcile = await bonusService.reconcileBonusesFromDate(
+    userId,
+    date,
+    tx,
+    fullCompletionCache,
+  );
+  const logs = await streakService.getLogsForHabitCached(
+    habitId,
+    tx,
+    fullCompletionCache,
+  );
+  const finalStreak = await guardianShieldService.reconcileShieldsFromDate(
+    userId,
+    habitId,
+    logs,
+    date,
+    tx,
+    timezone,
+    fullCompletionCache,
+  );
+  return { bonusReconcile, finalStreak };
 }
 
 async function attachPendingReviewAndSerialize(habitRow) {
@@ -124,6 +153,28 @@ async function updateHabit(habit, userId, title) {
 async function deleteHabit(habitId, userId, timezone) {
   return runInTransaction(async (tx) => {
     await userProgressModel.getProgress(userId, tx, true);
+
+    const habit = await habitModel.findById(habitId, userId, tx);
+    if (!habit) {
+      throw new NotFoundError("habit not found");
+    }
+
+    const today = todayInTimezone(timezone);
+    const todaysLog = await habitLogModel.findByHabitAndDate(
+      habitId,
+      today,
+      tx,
+    );
+    if (todaysLog && todaysLog.status === "completed") {
+      const affectedLogRows = await habitLogModel.deleteCompletedLog(
+        todaysLog.id,
+        tx,
+      );
+      if (affectedLogRows > 0) {
+        await reconcileAfterXpReversal(userId, habitId, today, timezone, tx);
+      }
+    }
+
     const affectedRows = await habitModel.archive(habitId, userId, tx);
     if (affectedRows === 0) {
       throw new NotFoundError("habit not found");
@@ -339,36 +390,12 @@ async function undoLog(habitId, date, userId, timezone) {
       throw new ConflictError("only completed logs can be undone");
     }
 
-    const fullCompletionCache = streakService.createFullCompletionCache();
-
-    await xpService.reverseCompletionXp(userId, habit.id, date, tx);
-    await dailyAuraStatsService.recalculateDailyAuraStats(
+    const { bonusReconcile, finalStreak } = await reconcileAfterXpReversal(
       userId,
+      habit.id,
       date,
-      tx,
       timezone,
-      fullCompletionCache,
-    );
-    const bonusReconcile = await bonusService.reconcileBonusesFromDate(
-      userId,
-      date,
       tx,
-      fullCompletionCache,
-    );
-
-    const logs = await streakService.getLogsForHabitCached(
-      habitId,
-      tx,
-      fullCompletionCache,
-    );
-    const finalStreak = await guardianShieldService.reconcileShieldsFromDate(
-      userId,
-      habitId,
-      logs,
-      date,
-      tx,
-      timezone,
-      fullCompletionCache,
     );
 
     const newLevel = await levelService.recalculateAndPersistLevel(
