@@ -33,9 +33,7 @@ function announceEarnedRewards(showToast, earnedBonuses, earnedShields) {
     showToast(`🎉 Consistency Bonus: ${bonusLabel} · +${bonus.delta} XP!`);
   }
   for (const shield of earnedShields || []) {
-    showToast(
-      `🛡️ Guardian Shield earned · ${shield.milestone}-day streak!`,
-    );
+    showToast(`🛡️ Guardian Shield earned · ${shield.milestone}-day streak!`);
   }
 }
 
@@ -261,6 +259,8 @@ export function useReviewSession({
           showToast(`Rate limited. Retry in ${err.retryAfter}s...`);
         } else {
           showToast(err.error || "Could not save that decision. Try again.");
+          if (onHabitChanged) onHabitChanged([item.habitId]);
+          if (onProgressChanged) onProgressChanged();
         }
       } finally {
         resolvingRef.current = false;
@@ -273,6 +273,7 @@ export function useReviewSession({
       resolveHabitDate,
       finishReviewSession,
       onHabitChanged,
+      onProgressChanged,
       onProgressDataPatch,
       showToast,
       trackMutation,

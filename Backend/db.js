@@ -1,5 +1,16 @@
 require("dotenv").config();
+const fs = require("fs");
 const mysql = require("mysql2/promise");
+
+const sslEnabled = process.env.DB_SSL === "true";
+const sslOptions = sslEnabled
+  ? {
+      minVersion: "TLSv1.2",
+      ...(process.env.DB_SSL_CA_PATH
+        ? { ca: fs.readFileSync(process.env.DB_SSL_CA_PATH) }
+        : {}),
+    }
+  : undefined;
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -10,6 +21,7 @@ const pool = mysql.createPool({
   dateStrings: true,
   timezone: "Z",
   connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || "10", 10),
+  ...(sslOptions ? { ssl: sslOptions } : {}),
 });
 
 pool.on("connection", (connection) => {

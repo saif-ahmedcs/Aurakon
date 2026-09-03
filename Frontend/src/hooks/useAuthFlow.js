@@ -198,7 +198,7 @@ export function useAuthFlow({
     [loginLoading, formData.loginEmail, formData.loginPassword],
   );
 
-  // Demo handler - rebuilds the shared demo account fresh, then logs in
+  // Demo handler - provisions a fresh, isolated demo account, then logs in
   const handleTryDemo = useCallback(async () => {
     if (demoLoading) return;
 

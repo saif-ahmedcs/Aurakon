@@ -19,21 +19,64 @@ self-healing against partial failures, retries, or out-of-order sync,
 instead of depending on every write path getting every delta exactly right,
 forever.
 
-## Production Network Architecture & Trust Boundary
+## Network Architecture & Trust Boundary
 
-### 1. Network Isolation
-- In Docker Compose and production deployments, the **Backend** and **MySQL** services reside entirely on the internal container network and are **not** published to public host ports.
-- The **Frontend** (Next.js) acts as the public-facing entrypoint for client traffic and proxies `/api/*` calls internally to `http://backend:3000`.
+**Status: the target production architecture below is _prepared_, not deployed.**
+Local development currently runs Backend + Frontend + MySQL via
+`docker-compose.yml` with no reverse proxy in front of them. The previous
+VPS setup (nginx + certbot + Let's Encrypt) has been removed; it is not
+part of local development or the target architecture.
 
-### 2. Reverse Proxy & Trust Boundary (`trust proxy`)
-- Express runs with `app.set("trust proxy", 1)`. In the Docker topology, exactly one trusted proxy hop sits immediately in front of Express (the Next.js server rewrite).
-- Because Backend port 3000 is internal-only and inaccessible to public clients, external attackers cannot directly connect to Express to forge or manipulate `X-Forwarded-For` headers.
-- **Production Edge Proxy Requirements:** When placing an external reverse proxy or load balancer (e.g., NGINX, Cloudflare, AWS ALB) in front of the application:
-  1. The edge proxy must terminate TLS and sanitize / overwrite incoming `X-Forwarded-For` headers with the real client IP.
-  2. Public traffic must never route directly to the Backend service, preserving the single-hop internal trust boundary.
+### 1. Local development topology
 
-### 3. HTTPS & Cookie Security
-- In production (`NODE_ENV=production`), refresh tokens are stored in HTTP-only cookies with `secure: true` and `sameSite: strict`.
-- The public entrypoint must terminate TLS and serve the application over HTTPS.
-- `APP_BASE_URL` must be configured with a public `https://` origin so that transactional verification and password reset email links resolve correctly to the secure production endpoint.
+- `docker-compose.yml` runs **mysql**, **backend**, and **frontend** only.
+  `backend` publishes `3000:3000` and `frontend` publishes `3001:3001`
+  directly to the host — there is no proxy in between locally.
+- `NODE_ENV` defaults to `development` in this stack, so refresh-token
+  cookies are issued without `Secure` and work over plain `http://localhost`.
 
+### 2. Target production topology (future — not yet configured)
+
+- **Frontend** → Vercel. **Backend** → Render. **Database** → TiDB Cloud.
+- Neither Backend nor Frontend will sit behind a self-managed reverse proxy
+  in this architecture; Render terminates TLS for the Backend directly, and
+  Vercel terminates TLS for the Frontend directly. The frontend calls the
+  backend over `BACKEND_INTERNAL_URL` (see `Frontend/.env.example`),
+  currently unset for production — it must be pointed at the Render backend
+  URL when that deployment actually happens, not before.
+- Database access uses TiDB Cloud's TLS-required public endpoint rather
+  than an unencrypted internal MySQL connection. See `Backend/db.js` and
+  `Backend/.env.example` (`DB_SSL`, `DB_SSL_CA_PATH`) — TLS is opt-in and
+  currently disabled by default so local MySQL is unaffected.
+
+### 3. Reverse Proxy & Trust Boundary (`trust proxy`)
+
+- Express runs with `app.set("trust proxy", 1)`, which trusts exactly one
+  proxy hop's `X-Forwarded-For` / `X-Forwarded-Proto` headers.
+- **This assumption must be re-verified once the Render deployment is
+  configured.** Render's own edge is expected to be that single trusted
+  hop, terminating TLS and setting those headers from the real client
+  connection — but this has not yet been confirmed against Render's actual
+  topology (e.g. whether any additional hop sits in front of it) and should
+  be checked before relying on `req.ip` / rate limiting in production.
+- Locally, there is currently no proxy hop at all: requests reach Express
+  directly, so `X-Forwarded-For` should not be trusted in local dev.
+
+### 4. HTTPS & Cookie Security
+
+- In production (`NODE_ENV=production`), refresh tokens are stored in
+  HTTP-only cookies with `secure: true` and `sameSite: strict`. If the app
+  is ever served over plain HTTP with `NODE_ENV=production`, the browser
+  silently drops the refresh cookie and breaks session persistence for
+  every user (access tokens live in memory only and expire after 15
+  minutes).
+- `NODE_ENV=production` must only be used where TLS is actually terminated
+  in front of the Backend. Locally that is never the case (see §1), so
+  local `.env` files should keep `NODE_ENV=development`. In the target
+  architecture, Render is expected to terminate TLS for the Backend, making
+  `NODE_ENV=production` safe to use there once that deployment exists.
+- `APP_BASE_URL` must be a public `https://` origin matching wherever the
+  Frontend is actually served, so verification and password-reset email
+  links resolve correctly. In the target architecture this will be the
+  Vercel frontend URL (or a custom domain pointed at it); do not set a
+  production URL here until that deployment exists.

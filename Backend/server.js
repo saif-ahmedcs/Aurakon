@@ -13,7 +13,6 @@ const demoRouter = require("./routes/demo");
 const errorHandler = require("./middleware/errorHandler");
 const { pool } = require("./db");
 const { createCleanupRunner } = require("./services/cleanupRunner");
-const { resetDemoAccount } = require("./scripts/resetDemoAccount");
 
 const app = express();
 const PORT = 3000;
@@ -54,21 +53,9 @@ app.use(errorHandler);
 
 const cleanupRunner = createCleanupRunner();
 
-const DEMO_RESET_INTERVAL_MS = 30 * 60 * 1000;
-const demoResetRunner = createCleanupRunner({
-  jobs: [
-    {
-      name: "demo account reset",
-      intervalMs: DEMO_RESET_INTERVAL_MS,
-      run: resetDemoAccount,
-    },
-  ],
-});
-
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   cleanupRunner.start();
-  demoResetRunner.start();
 });
 
 let shuttingDown = false;
@@ -79,7 +66,6 @@ function shutdown(signal) {
   console.log(`[shutdown] ${signal} received; stopping server.`);
 
   const cleanupStopped = cleanupRunner.stop();
-  const demoResetStopped = demoResetRunner.stop();
   server.close(async (error) => {
     if (error) {
       console.error("[shutdown] Failed to close HTTP server:", error);
@@ -88,7 +74,6 @@ function shutdown(signal) {
 
     try {
       await cleanupStopped;
-      await demoResetStopped;
       await pool.end();
       console.log("[shutdown] Server stopped.");
     } catch (shutdownError) {

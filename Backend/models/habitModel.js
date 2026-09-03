@@ -30,11 +30,11 @@ async function create(title, userId, difficulty, db = pool) {
 }
 
 async function update(id, userId, title, difficulty, db = pool) {
-  await db.query(
-    "UPDATE habits SET title = ?, difficulty = ? WHERE id = ? AND user_id = ?",
+  const [result] = await db.query(
+    "UPDATE habits SET title = ?, difficulty = ? WHERE id = ? AND user_id = ? AND archived_at IS NULL",
     [title, difficulty, id, userId],
   );
-  return fetchById(id, db);
+  return result.affectedRows;
 }
 
 async function archive(id, userId, db = pool) {

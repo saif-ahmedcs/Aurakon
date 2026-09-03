@@ -142,11 +142,21 @@ async function getHabitDetail(habit, userId, timezone) {
 }
 
 async function updateHabit(habit, userId, title) {
-  const updated =
-    title === habit.title
-      ? habit
-      : await habitModel.update(habit.id, userId, title, habit.difficulty);
+  if (title === habit.title) {
+    return attachPendingReviewAndSerialize(habit);
+  }
 
+  const affectedRows = await habitModel.update(
+    habit.id,
+    userId,
+    title,
+    habit.difficulty,
+  );
+  if (affectedRows === 0) {
+    throw new NotFoundError("habit not found");
+  }
+
+  const updated = await habitModel.findById(habit.id, userId);
   return attachPendingReviewAndSerialize(updated);
 }
 

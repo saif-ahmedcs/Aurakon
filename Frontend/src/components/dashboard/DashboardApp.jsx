@@ -573,7 +573,7 @@ export default function DashboardApp() {
 
       const result = await toggleHabitCompletion(id, meData && meData.timezone);
       if (!result?.success) {
-        if (result?.confirmed) refreshProgress();
+        refreshProgress();
         return;
       }
 
@@ -665,6 +665,8 @@ export default function DashboardApp() {
       refreshProgress();
     } catch (err) {
       showToast(err.error || "Could not delete the habit. Try again.");
+      loadHabits(meData && meData.timezone);
+      refreshProgress();
     }
   }, [
     habits,
@@ -673,6 +675,7 @@ export default function DashboardApp() {
     showToast,
     applyProgressPatch,
     refreshProgress,
+    loadHabits,
     meData,
   ]);
 
@@ -745,14 +748,20 @@ export default function DashboardApp() {
         refreshProgress();
       } catch (err) {
         showToast(err.error || "Could not create the habit. Try again.");
-        if (err?.status === 409) {
-          refreshProgress();
-        }
+        loadHabits(meData && meData.timezone);
+        refreshProgress();
       } finally {
         createHabitInFlight.current = false;
       }
     },
-    [addHabit, showToast, applyProgressPatch, refreshProgress, meData],
+    [
+      addHabit,
+      showToast,
+      applyProgressPatch,
+      refreshProgress,
+      loadHabits,
+      meData,
+    ],
   );
 
   /* -------------------------------------------------------------- */

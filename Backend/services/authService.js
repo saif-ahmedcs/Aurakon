@@ -21,10 +21,16 @@ const {
   generateEmailVerificationToken,
 } = require("../utils/tokenUtils");
 const { DEFAULT_TIMEZONE, isValidTimezone } = require("../utils/timezone");
+const { isDemoEmail } = require("../utils/authSharedHelpers");
 
 // ------------- REGISTER --------------
 async function register(email, password, username, gender, timezone) {
   const normalizedEmail = email.toLowerCase();
+
+  if (isDemoEmail(normalizedEmail)) {
+    throw new ConflictError("email already registered");
+  }
+
   const trimmedUsername = username;
   const timezoneWasDetected = Boolean(timezone && isValidTimezone(timezone));
   const resolvedTimezone = timezoneWasDetected ? timezone : DEFAULT_TIMEZONE;

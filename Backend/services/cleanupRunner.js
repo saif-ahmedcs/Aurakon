@@ -3,6 +3,9 @@ const { cleanupExpiredTokens } = require("../scripts/Cleanupexpiredtokens");
 const {
   cleanupConsumedConfirmationTokens,
 } = require("../scripts/cleanupConsumedConfirmationTokens");
+const {
+  cleanupExpiredDemoAccounts,
+} = require("../scripts/cleanupExpiredDemoAccounts");
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -22,6 +25,11 @@ const cleanupJobs = [
     name: "unverified accounts",
     intervalMs: 24 * HOUR_MS,
     run: cleanupUnverified,
+  },
+  {
+    name: "expired demo accounts",
+    intervalMs: HOUR_MS,
+    run: cleanupExpiredDemoAccounts,
   },
 ];
 

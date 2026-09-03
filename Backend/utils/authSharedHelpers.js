@@ -58,10 +58,16 @@ async function checkTokenState({
   return { message: activeMessage };
 }
 
+function isDemoEmail(email) {
+  if (typeof email !== "string") return false;
+  return /^demo(\+[a-zA-Z0-9._-]+)?@aurakon\.app$/i.test(email);
+}
+
 module.exports = {
   assertCurrentPassword,
   assertPasswordStillValid,
   assertCooldownElapsed,
   checkTokenState,
+  isDemoEmail,
   CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
 };

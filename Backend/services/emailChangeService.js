@@ -20,12 +20,17 @@ const {
   assertPasswordStillValid,
   assertCooldownElapsed,
   checkTokenState,
+  isDemoEmail,
   CONFIRMATION_IDEMPOTENCY_WINDOW_SECONDS,
 } = require("../utils/authSharedHelpers");
 
 // ------------- REQUEST EMAIL CHANGE --------------
 async function requestEmailChange(userId, newEmail, currentPassword) {
   const normalizedEmail = newEmail.toLowerCase();
+
+  if (isDemoEmail(normalizedEmail)) {
+    throw new ConflictError("email already registered");
+  }
 
   const user = await userModel.findForEmailChange(userId);
   if (!user) {

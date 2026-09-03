@@ -128,10 +128,10 @@ function findExactCompletionPlan(amount, maxByDifficulty = null) {
 
 // ── DB operations ──────────────────────────────────────────────────────
 
-async function deleteExistingDemoUser(tx) {
+async function deleteExistingDemoUser(tx, email = DEMO_EMAIL) {
   const [users] = await tx.query(
     "SELECT id FROM users WHERE email = ? FOR UPDATE",
-    [DEMO_EMAIL],
+    [email],
   );
   const user = users[0];
   if (!user) return;
@@ -141,38 +141,25 @@ async function deleteExistingDemoUser(tx) {
     "DELETE FROM account_deletion_confirmations WHERE user_id = ?",
     [userId],
   );
-  await tx.query("DELETE FROM refresh_tokens WHERE user_id = ?", [userId]);
-  await tx.query("DELETE FROM guardian_shield_log WHERE user_id = ?", [userId]);
-  await tx.query("DELETE FROM xp_completion_log WHERE user_id = ?", [userId]);
-  await tx.query("DELETE FROM xp_bonus_log WHERE user_id = ?", [userId]);
-  await tx.query("DELETE FROM daily_aura_stats WHERE user_id = ?", [userId]);
-  await tx.query("DELETE FROM user_finalization_checkpoint WHERE user_id = ?", [
-    userId,
-  ]);
-  await tx.query(
-    `DELETE habit_logs FROM habit_logs
-     INNER JOIN habits ON habits.id = habit_logs.habit_id
-     WHERE habits.user_id = ?`,
-    [userId],
-  );
-  await tx.query(
-    `DELETE pending_review_sessions FROM pending_review_sessions
-     INNER JOIN habits ON habits.id = pending_review_sessions.habit_id
-     WHERE habits.user_id = ?`,
-    [userId],
-  );
-  await tx.query("DELETE FROM habits WHERE user_id = ?", [userId]);
+  await habitModel.deleteAllByUser(userId, tx);
   await tx.query("DELETE FROM users WHERE id = ?", [userId]);
 }
 
-async function createDemoUser(tx, createdAt) {
-  const passwordHash = await getDemoPasswordHash();
+async function createDemoUser(
+  tx,
+  email = DEMO_EMAIL,
+  password = DEMO_PASSWORD,
+) {
+  const passwordHash =
+    password === DEMO_PASSWORD
+      ? await getDemoPasswordHash()
+      : await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   const [result] = await tx.query(
     `INSERT INTO users
        (email, password_hash, username, gender, timezone, timezone_source,
         is_verified, created_at)
-     VALUES (?, ?, 'AurakonDemo', 'male', ?, 'manual', true, ?)`,
-    [DEMO_EMAIL, passwordHash, DEMO_TIMEZONE, timestampForDate(createdAt)],
+     VALUES (?, ?, 'AurakonDemo', 'male', ?, 'manual', true, UTC_TIMESTAMP())`,
+    [email, passwordHash, DEMO_TIMEZONE],
   );
   return result.insertId;
 }
@@ -435,7 +422,9 @@ function computeGlobalStreak(fullCompletionDates) {
 
 // ── Main seed ──────────────────────────────────────────────────────────
 
-async function seed() {
+async function seed(options = {}) {
+  const email = options.email || DEMO_EMAIL;
+  const password = options.password || DEMO_PASSWORD;
   const today = todayInTimezone(DEMO_TIMEZONE);
   const yesterday = addUtcDays(today, -1);
   const currentRunStart = addUtcDays(
@@ -446,8 +435,8 @@ async function seed() {
   const historicalStart = addUtcDays(historicalEnd, -(FULL_HISTORY_DAYS - 1));
 
   return runInTransaction(async (tx) => {
-    await deleteExistingDemoUser(tx);
-    const userId = await createDemoUser(tx, historicalStart);
+    await deleteExistingDemoUser(tx, email);
+    const userId = await createDemoUser(tx, email, password);
     const habitsByKey = await createHabits(tx, userId, historicalStart);
 
     const logsByDate = new Map();
@@ -778,6 +767,7 @@ async function seed() {
 
     return {
       userId,
+      email,
       today,
       readyHabitId: readyHabit.id,
       xpBeforeCheckIn: targetBeforeCheckIn,
@@ -792,8 +782,12 @@ async function seed() {
   });
 }
 
-async function resetDemoAccount() {
-  return seed();
+async function resetDemoAccount(email = DEMO_EMAIL) {
+  return seed({ email });
+}
+
+async function provisionDemoAccount(options = {}) {
+  return seed(options);
 }
 
 if (require.main === module) {
@@ -818,4 +812,9 @@ if (require.main === module) {
     });
 }
 
-module.exports = { resetDemoAccount, DEMO_EMAIL, DEMO_PASSWORD };
+module.exports = {
+  resetDemoAccount,
+  provisionDemoAccount,
+  DEMO_EMAIL,
+  DEMO_PASSWORD,
+};

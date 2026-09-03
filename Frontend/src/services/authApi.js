@@ -74,8 +74,8 @@ export async function loginRequest({ email, password }) {
 
 /**
  * POST /api/demo/start
- * Rebuilds the shared demo account to a clean state and logs the caller
- * into it.
+ * Provisions a fresh, isolated demo account unique to this caller and logs
+ * them into it.
  */
 export async function startDemoRequest() {
   let res;
