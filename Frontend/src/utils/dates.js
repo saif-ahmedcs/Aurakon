@@ -34,7 +34,9 @@ export function yearMonthInZone(timeZone) {
       const y = parseInt(parts.find((p) => p.type === "year").value, 10);
       const m = parseInt(parts.find((p) => p.type === "month").value, 10) - 1;
       return { year: y, month: m };
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
   const now = new Date();
   return { year: now.getFullYear(), month: now.getMonth() };
@@ -50,7 +52,9 @@ export function todayInZone(timeZone) {
         month: "2-digit",
         day: "2-digit",
       }).format(new Date());
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
   const now = new Date();
   return dateKey(now.getFullYear(), now.getMonth(), now.getDate());

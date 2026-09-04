@@ -35,7 +35,7 @@ export const TIME_ZONE_OPTIONS = TIME_ZONE_IDS.map((tz) => {
     }).formatToParts(new Date());
     offset = parts.find((p) => p.type === "timeZoneName")?.value || "";
   } catch {
-    offset = "";
+    // ignore
   }
   return {
     value: tz,

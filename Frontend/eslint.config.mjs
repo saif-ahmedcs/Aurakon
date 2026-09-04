@@ -14,6 +14,9 @@ import globals from "globals";
  * permanent no-op in production instead of failing loudly in CI.
  */
 const eslintConfig = [
+  {
+    ignores: [".next/**", "node_modules/**", "out/**", "dist/**"],
+  },
   js.configs.recommended,
   {
     files: ["**/*.{js,jsx,mjs,cjs}"],

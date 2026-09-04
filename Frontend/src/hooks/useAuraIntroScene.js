@@ -725,7 +725,7 @@ export function useAuraIntroScene() {
       });
 
       at(4.5, () => {
-        fz.classList.add("in");
+        if (fz) fz.classList.add("in");
         const introScr = document.querySelector(".scr.intro");
         if (introScr) introScr.classList.add("in");
         rgb.style.opacity = "0.75";

@@ -86,7 +86,6 @@ export function useCrossfadeImage(src) {
       setIncoming(null);
     }, 1100);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
   return { current, incoming };

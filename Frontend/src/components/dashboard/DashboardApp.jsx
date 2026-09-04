@@ -8,7 +8,6 @@ import { getHabitLimit } from "../../constants/habits";
 
 import {
   getAccessToken,
-  setAccessToken,
   clearAccessToken,
   refreshAccessToken,
 } from "../../services/tokenStore";
@@ -202,7 +201,7 @@ export default function DashboardApp() {
           progress?.earnedBonuses,
           progress?.earnedShields,
         );
-      } catch (err) {
+      } catch {
         if (cancelled) return;
         clearAccessToken();
         window.location.href = "/";
@@ -859,7 +858,6 @@ export default function DashboardApp() {
       const el = targets[id] && targets[id].current;
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

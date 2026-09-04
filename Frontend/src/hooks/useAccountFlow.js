@@ -9,7 +9,6 @@ import {
   requestAccountDeletionRequest,
 } from "../services/dashboardApi";
 import { clearAccessToken, beginLogout } from "../services/tokenStore";
-import { openEmailProvider } from "../utils/emailProvider";
 
 /* ------------------------------------------------------------------
  * Account / session flow: the full-page screens swapped in place of

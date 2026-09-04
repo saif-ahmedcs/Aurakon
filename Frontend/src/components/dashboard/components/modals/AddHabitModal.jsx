@@ -22,7 +22,6 @@ export function AddHabitModal({
 
   const trimmedName = name.trim();
   const isValid = trimmedName.length > 0;
-  const canCreate = isValid && !atHabitLimit;
 
   const handleCreateClick = () => {
     if (!isValid) {
