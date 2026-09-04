@@ -12,6 +12,9 @@
     "cleanup:confirmations": "node scripts/cleanupConsumedConfirmationTokens.js",
     "cleanup:demo": "node scripts/cleanupExpiredDemoAccounts.js"
   },
+  "engines": {
+    "node": "22.x"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
