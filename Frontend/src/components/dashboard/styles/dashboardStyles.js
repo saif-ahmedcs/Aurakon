@@ -1477,8 +1477,10 @@ button.detail-day:hover { filter: brightness(1.18); }
 .account-page-header {
   position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
   padding: 14px 20px;
-  background: linear-gradient(rgba(5,4,8,0.32), rgba(5,4,8,0.08));
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.account-page-header::after {
+  content: ''; position: absolute; left: 20px; right: 20px; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(216,184,255,.35) 40%, rgba(216,184,255,.35) 60%, transparent);
 }
 .account-page-header-left { display: flex; align-items: center; gap: 10px; z-index: 1; }
 .account-page-back { flex: none; }

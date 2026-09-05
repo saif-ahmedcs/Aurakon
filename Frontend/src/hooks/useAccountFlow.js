@@ -7,6 +7,9 @@ import {
   changePasswordRequest,
   updateTimezoneRequest,
   requestAccountDeletionRequest,
+  requestEmailChangeRequest,
+  resendEmailChangeRequest,
+  cancelEmailChangeRequest,
 } from "../services/dashboardApi";
 import { clearAccessToken, beginLogout } from "../services/tokenStore";
 
@@ -22,6 +25,9 @@ import { clearAccessToken, beginLogout } from "../services/tokenStore";
  * - requestDeleteAccount emails a real deletion-confirmation link;
  *   the account is only deleted once that link is confirmed on the
  *   /confirm-account-deletion route.
+ * - requestEmailChange emails a real verification link to the *new*
+ *   address (PATCH /auth/email); the account keeps its current email
+ *   until that link is confirmed on the /confirm-email-change route.
  * ------------------------------------------------------------------ */
 export function useAccountFlow({
   showToast,
@@ -32,6 +38,8 @@ export function useAccountFlow({
   const [myAccountOpen, setMyAccountOpen] = useState(false);
   const [checkEmailOpen, setCheckEmailOpen] = useState(false);
   const [deleteCheckEmailOpen, setDeleteCheckEmailOpen] = useState(false);
+  const [emailChangeCheckOpen, setEmailChangeCheckOpen] = useState(false);
+  const [pendingNewEmail, setPendingNewEmail] = useState(null);
   const [accountTimeZone, setAccountTimeZone] = useState(null);
   const [accountTimeZoneSource, setAccountTimeZoneSource] = useState(null);
 
@@ -68,6 +76,7 @@ export function useAccountFlow({
   const backToMyAccount = useCallback(() => {
     setDeleteCheckEmailOpen(false);
     setCheckEmailOpen(false);
+    setEmailChangeCheckOpen(false);
     setMyAccountOpen(true);
   }, []);
 
@@ -139,6 +148,61 @@ export function useAccountFlow({
     }
   }, []);
 
+  /* Step 1 of an email change: user submits a new email in
+   * MyAccountPage. This does NOT change anything yet - it emails a
+   * verification link to the new address, then the screen points the
+   * user at that inbox. The password is only asked for on the confirm
+   * link itself, where the change actually takes effect. Returns
+   * field-shaped errors the same way changePassword does, so the form
+   * can place them under the matching input. */
+  const requestEmailChange = useCallback(async (newEmail) => {
+    try {
+      await requestEmailChangeRequest(newEmail);
+      setPendingNewEmail(newEmail);
+      setMyAccountOpen(false);
+      setEmailChangeCheckOpen(true);
+      return { ok: true };
+    } catch (err) {
+      const fieldErrors = {};
+      if (Array.isArray(err.fields)) {
+        for (const f of err.fields) {
+          fieldErrors[f.path] = f.message;
+        }
+      }
+      return {
+        ok: false,
+        error: err.error || "Could not start the email change.",
+        fieldErrors,
+      };
+    }
+  }, []);
+
+  /* Resend the pending verification link to the same new address.
+   * Returns true/false so the check-email screen can show its own
+   * "resent" confirmation without a toast underneath it. */
+  const resendEmailChange = useCallback(async () => {
+    try {
+      await resendEmailChangeRequest();
+      return true;
+    } catch (err) {
+      showToast(err.error || "Could not resend the verification email.");
+      return false;
+    }
+  }, [showToast]);
+
+  /* Cancel a pending email change - the account keeps its current
+   * email address. */
+  const cancelEmailChange = useCallback(async () => {
+    try {
+      await cancelEmailChangeRequest();
+    } catch (err) {
+      showToast(err.error || "Could not cancel the email change.");
+    }
+    setPendingNewEmail(null);
+    setEmailChangeCheckOpen(false);
+    setMyAccountOpen(true);
+  }, [showToast]);
+
   const returnToSignIn = useCallback(() => {
     window.location.href = "/";
   }, []);
@@ -148,10 +212,12 @@ export function useAccountFlow({
     accountCreatedAt: createdAt,
     accountTimeZone,
     accountTimeZoneSource,
+    pendingNewEmail,
     loggedOut,
     myAccountOpen,
     checkEmailOpen,
     deleteCheckEmailOpen,
+    emailChangeCheckOpen,
     logOut,
     logOutAllDevices,
     openMyAccount,
@@ -161,6 +227,9 @@ export function useAccountFlow({
     startPasswordReset,
     changeTimeZone,
     changePassword,
+    requestEmailChange,
+    resendEmailChange,
+    cancelEmailChange,
     returnToSignIn,
   };
 }

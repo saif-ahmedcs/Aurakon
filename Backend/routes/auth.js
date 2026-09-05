@@ -303,11 +303,10 @@ router.patch(
   changeEmailLimiter,
   validate(requestEmailChangeSchema),
   asyncHandler(async (req, res) => {
-    const { newEmail, currentPassword } = req.body;
+    const { newEmail } = req.body;
     const result = await emailChangeService.requestEmailChange(
       req.user.id,
       newEmail,
-      currentPassword,
     );
     res.status(200).json(result);
   }),

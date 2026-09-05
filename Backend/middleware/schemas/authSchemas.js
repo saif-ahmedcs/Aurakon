@@ -73,7 +73,6 @@ const updateTimezoneSchema = z.object({
 
 const requestEmailChangeSchema = z.object({
   newEmail: boundedNormalizedEmailSchema,
-  currentPassword: z.string().min(1).max(128),
 });
 
 const updateUsernameSchema = z.object({

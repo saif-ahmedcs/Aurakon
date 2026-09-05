@@ -27,6 +27,7 @@ export function MyAccountPage({
   onChangePassword,
   onForgotPassword,
   onRequestDeleteAccount,
+  onRequestEmailChange,
   onBack,
   heroName,
 }) {
@@ -36,6 +37,10 @@ export function MyAccountPage({
   const [errors, setErrors] = useState({});
   const [savingPassword, setSavingPassword] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [emailEditing, setEmailEditing] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailErrors, setEmailErrors] = useState({});
+  const [savingEmail, setSavingEmail] = useState(false);
   const [deleteStep, setDeleteStep] = useState(null); // null | "warn" | "confirm"
   const [deleteSending, setDeleteSending] = useState(false);
   const [forgotPwOpen, setForgotPwOpen] = useState(false);
@@ -133,6 +138,50 @@ export function MyAccountPage({
     setSaved(true);
   };
 
+  const openEmailEdit = () => {
+    setNewEmail("");
+    setEmailErrors({});
+    setEmailEditing(true);
+  };
+
+  const cancelEmailEdit = () => {
+    setEmailEditing(false);
+    setNewEmail("");
+    setEmailErrors({});
+  };
+
+  const submitEmailChange = async (e) => {
+    e.preventDefault();
+    if (savingEmail) return;
+
+    const nextErrors = {};
+    if (!newEmail) nextErrors.newEmail = "Enter a new email address.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail))
+      nextErrors.newEmail = "Enter a valid email address.";
+    else if (newEmail.toLowerCase() === email.toLowerCase())
+      nextErrors.newEmail = "That's already your current email address.";
+
+    setEmailErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setSavingEmail(true);
+    const result = await onRequestEmailChange(newEmail);
+    setSavingEmail(false);
+
+    if (!result || !result.ok) {
+      const fieldErrors = (result && result.fieldErrors) || {};
+      setEmailErrors({
+        ...(fieldErrors.newEmail ? { newEmail: fieldErrors.newEmail } : {}),
+        ...(result && result.error && Object.keys(fieldErrors).length === 0
+          ? { newEmail: result.error }
+          : {}),
+      });
+      return;
+    }
+    // On success the parent swaps this whole page for the "check your
+    // email" screen, so no local reset is needed here.
+  };
+
   const confirmDeleteRequest = async () => {
     setDeleteSending(true);
     await onRequestDeleteAccount();
@@ -170,6 +219,65 @@ export function MyAccountPage({
             <span className="account-info-label">Gender</span>
             <span className="account-info-value">{genderLabel}</span>
           </div>
+        </div>
+
+        <div className="account-section">
+          <h4 className="account-section-title">Change Email</h4>
+          {!emailEditing ? (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={openEmailEdit}
+            >
+              Change Email Address
+            </button>
+          ) : (
+            <form onSubmit={submitEmailChange} autoComplete="off">
+              <label className="edit-field">
+                <span className="edit-field-label">New Email Address</span>
+                <input
+                  type="email"
+                  className={
+                    "edit-field-input" +
+                    (emailErrors.newEmail ? " edit-field-input-error" : "")
+                  }
+                  value={newEmail}
+                  onChange={(e) => {
+                    setNewEmail(e.target.value);
+                  }}
+                  placeholder="you@example.com"
+                  autoComplete="off"
+                />
+                {emailErrors.newEmail && (
+                  <span className="edit-field-error">
+                    {emailErrors.newEmail}
+                  </span>
+                )}
+              </label>
+              <p className="account-tz-unconfirmed-note">
+                We'll email a verification link to the new address. You'll enter
+                your password there to finish the change, your current email
+                stays active until then.
+              </p>
+              <div className="edit-dialog-actions confirm-actions">
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={cancelEmailEdit}
+                  disabled={savingEmail}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={savingEmail}
+                >
+                  {savingEmail ? "Sending…" : "Send Verification Email"}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         <div className="account-section">

@@ -264,6 +264,39 @@ export async function changePasswordRequest(currentPassword, newPassword) {
 }
 
 /**
+ * PATCH /api/auth/email - request a change to a new email address.
+ * The backend emails a verification link to the *new* address; the
+ * change only takes effect once that link is confirmed (password is
+ * required there) - see confirmEmailChangeRequest in authApi.js, used
+ * by the /confirm-email-change route.
+ */
+export async function requestEmailChangeRequest(newEmail) {
+  return authedJson("/api/auth/email", "PATCH", { newEmail });
+}
+
+/**
+ * POST /api/auth/email/resend - resend the pending email-change
+ * verification link to the same new address.
+ */
+export async function resendEmailChangeRequest() {
+  const res = await authedFetch("/api/auth/email/resend", {
+    method: "POST",
+  });
+  return handleResponse(res);
+}
+
+/**
+ * POST /api/auth/email/cancel - cancel a pending email change; the
+ * account keeps its current email address.
+ */
+export async function cancelEmailChangeRequest() {
+  const res = await authedFetch("/api/auth/email/cancel", {
+    method: "POST",
+  });
+  return handleResponse(res);
+}
+
+/**
  * POST /api/auth/delete-account/request - emails a one-time deletion
  * confirmation link.
  */

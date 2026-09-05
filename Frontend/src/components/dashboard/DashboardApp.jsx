@@ -37,6 +37,7 @@ import { ReviewSessionModal } from "./components/modals/ReviewSessionModal";
 import { LoggedOutScreen } from "./components/account/LoggedOutScreen";
 import { CheckEmailScreen } from "./components/account/CheckEmailScreen";
 import { DeleteAccountCheckEmailScreen } from "./components/account/DeleteAccountCheckEmailScreen";
+import { EmailChangeCheckScreen } from "./components/account/EmailChangeCheckScreen";
 import { MyAccountPage } from "./components/account/MyAccountPage";
 
 /* Shared frame for every screen: the app root class plus the global
@@ -966,6 +967,7 @@ export default function DashboardApp() {
           onChangePassword={account.changePassword}
           onForgotPassword={account.startPasswordReset}
           onRequestDeleteAccount={account.requestDeleteAccount}
+          onRequestEmailChange={account.requestEmailChange}
           onBack={account.closeMyAccount}
           heroName={heroName}
         />
@@ -990,6 +992,19 @@ export default function DashboardApp() {
         <CheckEmailScreen
           email={account.accountEmail}
           onBack={account.backToMyAccount}
+        />
+      </AppFrame>
+    );
+  }
+
+  if (account.emailChangeCheckOpen) {
+    return (
+      <AppFrame>
+        <EmailChangeCheckScreen
+          newEmail={account.pendingNewEmail}
+          onBack={account.backToMyAccount}
+          onResend={account.resendEmailChange}
+          onCancel={account.cancelEmailChange}
         />
       </AppFrame>
     );

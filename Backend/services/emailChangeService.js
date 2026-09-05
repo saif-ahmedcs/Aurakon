@@ -16,7 +16,6 @@ const {
 } = require("../utils/AppErrors");
 const { generateEmailChangeToken } = require("../utils/tokenUtils");
 const {
-  assertCurrentPassword,
   assertPasswordStillValid,
   assertCooldownElapsed,
   checkTokenState,
@@ -25,7 +24,7 @@ const {
 } = require("../utils/authSharedHelpers");
 
 // ------------- REQUEST EMAIL CHANGE --------------
-async function requestEmailChange(userId, newEmail, currentPassword) {
+async function requestEmailChange(userId, newEmail) {
   const normalizedEmail = newEmail.toLowerCase();
 
   if (isDemoEmail(normalizedEmail)) {
@@ -34,10 +33,8 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
 
   const user = await userModel.findForEmailChange(userId);
   if (!user) {
-    throw new UnauthorizedError("invalid current password");
+    throw new UnauthorizedError("user not found");
   }
-
-  await assertCurrentPassword(currentPassword, user.password_hash);
 
   const NOOP_RESPONSE = {
     message: "This is already your current email address.",
@@ -50,13 +47,7 @@ async function requestEmailChange(userId, newEmail, currentPassword) {
   const result = await runInTransaction(async (tx) => {
     const lockedUser = await userModel.findForEmailChange(userId, tx);
     if (!lockedUser) {
-      throw new UnauthorizedError("invalid current password");
-    }
-
-    if (lockedUser.password_hash !== user.password_hash) {
-      throw new ConflictError(
-        "password was changed concurrently, please retry",
-      );
+      throw new UnauthorizedError("user not found");
     }
 
     if (normalizedEmail === lockedUser.email) {
