@@ -53,9 +53,9 @@ real state machines is expressed as separate routes.
 - On `/`, `useAuthFlow` owns a `screen` field (`login` / `signup` /
   `forgot` / `reset` / …) that swaps which auth screen renders.
 - On `/dashboard`, `DashboardApp` owns a set of early-return checks —
-  session still loading, logged out, My Account open, a check-your-email
-  interstitial, or the main dashboard — that swap the entire rendered
-  output.
+  session still loading, logged out, My Account open, one of the
+  check-your-email interstitials (password reset, account deletion, email
+  change), or the main dashboard — that swap the entire rendered output.
 
 > Neither switch touches the URL or triggers a Next.js navigation. This is
 > deliberate: these are the same logical screen showing something else, not
@@ -94,18 +94,18 @@ of sync with each other's progression data.
 
 ## 4. State ownership map
 
-| State | Owned by | Source of truth |
-|---|---|---|
-| Access token (in memory) | `tokenStore.js` (`window` global) | Issued by login / refresh |
-| Refresh token | httpOnly cookie (not JS-readable) | Backend |
-| Session identity (`meData`) | `DashboardApp` | `GET /api/auth/me` |
-| Progress (XP, level, aura, shields, global streak) | `DashboardApp` (`progressData`) | `GET /api/progress` |
-| Habits + per-habit streak/pending state | `useHabits` | `GET /api/habits`, `/api/habits/:id`, `/api/habits/:id/logs` |
-| Review queue / in-progress decision | `useReviewSession` | Derived from habits' `pendingReviewDates`, committed via `POST /api/review/decisions` |
-| Toast queue | `useToast` | Local only, never persisted |
-| Ambient particle layouts | `useAmbientFx` | Local only, memoized random, never persisted |
-| Auth screen + form fields | `useAuthFlow` | Local until submit |
-| Account screen state (My Account / logged out / check-email) | `useAccountFlow` | Local, driven by auth endpoints |
+| State                                                        | Owned by                          | Source of truth                                                                       |
+| ------------------------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------- |
+| Access token (in memory)                                     | `tokenStore.js` (`window` global) | Issued by login / refresh                                                             |
+| Refresh token                                                | httpOnly cookie (not JS-readable) | Backend                                                                               |
+| Session identity (`meData`)                                  | `DashboardApp`                    | `GET /api/auth/me`                                                                    |
+| Progress (XP, level, aura, shields, global streak)           | `DashboardApp` (`progressData`)   | `GET /api/progress`                                                                   |
+| Habits + per-habit streak/pending state                      | `useHabits`                       | `GET /api/habits`, `/api/habits/:id`, `/api/habits/:id/logs`                          |
+| Review queue / in-progress decision                          | `useReviewSession`                | Derived from habits' `pendingReviewDates`, committed via `POST /api/review/decisions` |
+| Toast queue                                                  | `useToast`                        | Local only, never persisted                                                           |
+| Ambient particle layouts                                     | `useAmbientFx`                    | Local only, memoized random, never persisted                                          |
+| Auth screen + form fields                                    | `useAuthFlow`                     | Local until submit                                                                    |
+| Account screen state (My Account / logged out / check-email) | `useAccountFlow`                  | Local, driven by auth endpoints                                                       |
 
 The rule that falls out of this table: **anything that is a fact about the
 user's progress is owned by a hook backed by a `GET` endpoint**, and its

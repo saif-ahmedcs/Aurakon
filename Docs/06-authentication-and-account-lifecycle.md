@@ -117,13 +117,14 @@ measured from the previous token's issue time, and always returns a generic
 
 ## 7. Email change
 
-- **Request** (`PATCH /email`): requires the current password, no-ops if the
-  new address equals the current one, and re-checks inside a transaction
-  that the password hasn't changed and the new address isn't already taken
-  (as anyone's primary or pending email) before issuing a change token,
-  gated by the same 2-minute cooldown pattern.
+- **Request** (`PATCH /email`): no-ops if the new address equals the current
+  one, and re-checks inside a transaction that the new address isn't already
+  taken (as anyone's primary or pending email) before issuing a change
+  token, gated by the same 2-minute cooldown pattern. Does **not** require
+  the current password — see `07-security.md` → Email-change race safety
+  for why that check was dropped from this step.
 - **Confirm** (`POST /verify-email-change/confirm`): requires the current
-  password again, then atomically flips `email ← pending_email` only if no
+  password, then atomically flips `email ← pending_email` only if no
   other account has claimed that address in the meantime (see `07-security.md`
   → Email-change race safety). Refresh tokens are revoked on success.
 - Resend/cancel reuse the same cooldown/idempotency machinery.
