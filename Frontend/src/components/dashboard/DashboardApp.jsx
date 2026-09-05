@@ -27,6 +27,7 @@ import { useReviewSession } from "../../hooks/useReviewSession";
 import { useDayBoundary } from "../../hooks/useDayBoundary";
 
 import { DashboardShell } from "./components/DashboardShell";
+import { TimezoneClock } from "./components/TimezoneClock";
 import { ConfirmDialog } from "./components/modals/ConfirmDialog";
 import { ProfileModal } from "./components/modals/ProfileModal";
 import { HabitDetailModal } from "./components/modals/HabitDetailModal";
@@ -1161,6 +1162,8 @@ export default function DashboardApp() {
           {toast}
         </div>
       )}
+
+      <TimezoneClock timeZone={meData ? meData.timezone : undefined} />
     </AppFrame>
   );
 }

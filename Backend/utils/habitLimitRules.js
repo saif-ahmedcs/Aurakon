@@ -6,6 +6,8 @@ const HABIT_LIMIT_TIERS = [
   { minLevel: 1, limit: 5 },
 ];
 
+const DAILY_HABIT_CREATION_EXTRA_ALLOWANCE = 3;
+
 function getHabitLimit(level) {
   const safeLevel = Number.isFinite(level) ? Math.max(level, 1) : 1;
   const tier = HABIT_LIMIT_TIERS.find((t) => safeLevel >= t.minLevel);
@@ -14,4 +16,14 @@ function getHabitLimit(level) {
     : HABIT_LIMIT_TIERS[HABIT_LIMIT_TIERS.length - 1].limit;
 }
 
-module.exports = { HABIT_LIMIT_TIERS, getHabitLimit };
+function getDailyHabitCreationLimit(level) {
+  return getHabitLimit(level) + DAILY_HABIT_CREATION_EXTRA_ALLOWANCE;
+}
+
+module.exports = {
+  HABIT_LIMIT_TIERS,
+  DAILY_HABIT_CREATION_EXTRA_ALLOWANCE,
+  getHabitLimit,
+  getDailyHabitCreationLimit,
+};
+

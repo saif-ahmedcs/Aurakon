@@ -483,7 +483,7 @@ Lists all of the caller's non-archived habits with any pending reviews attached.
 
 #### `POST /api/habits/` 🔒
 
-Creates a habit. Subject to a level-based habit limit and a daily creation cap equal to that same limit (see [Habit limits](#habit-limits-by-level)).
+Creates a habit. Subject to a level-based active habit limit and a daily creation cap equal to `level habit limit + 3` (see [Habit limits](#habit-limits-by-level)).
 
 **Body**: `{ "title": "1-50 chars", "difficulty": "easy" | "medium" | "hard" }`
 
@@ -805,15 +805,15 @@ No authentication. Provisions a brand-new, fully-seeded throwaway account (`demo
 These power the limits and thresholds referenced above (`Backend/utils/*Rules.js`, `titleThresholds.js`).
 
 #### Habit limits by level
-| Level | Max active habits |
-|---|---|
-| 1–7 | 5 |
-| 8–14 | 7 |
-| 15–19 | 9 |
-| 20–29 | 10 |
-| 30+ | 12 |
+| Level | Max active habits | Daily creation limit |
+|---|---|---|
+| 1–7 | 5 | 8 |
+| 8–14 | 7 | 10 |
+| 15–19 | 9 | 12 |
+| 20–29 | 10 | 13 |
+| 30+ | 12 | 15 |
 
-A user can also create at most that many *new* habits per calendar day (in their own timezone).
+A user can create at most `level habit limit + 3` *new* habits per calendar day (in their own timezone), even if they archive/delete habits throughout the day.
 
 #### Guardian Shield milestones
 Shields are earned automatically at streak milestones, only for eligible difficulties:

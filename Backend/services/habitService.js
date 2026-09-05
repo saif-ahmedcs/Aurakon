@@ -16,7 +16,10 @@ const {
   serializePendingReviewGroup,
   serializeHabitLog,
 } = require("../utils/habitSerializer");
-const { getHabitLimit } = require("../utils/habitLimitRules");
+const {
+  getHabitLimit,
+  getDailyHabitCreationLimit,
+} = require("../utils/habitLimitRules");
 const { todayInTimezone, toLocalDateString } = require("../utils/timezone");
 const {
   ConflictError,
@@ -121,7 +124,10 @@ async function createHabit(title, userId, difficulty, timezone) {
     }
 
     const createdToday = await countHabitsCreatedToday(userId, timezone, tx);
-    if (createdToday >= limit) {
+    const dailyCreationLimit = getDailyHabitCreationLimit(
+      progress.current_level,
+    );
+    if (createdToday >= dailyCreationLimit) {
       throw new ConflictError(
         "Daily habit creation limit reached. Try again tomorrow.",
       );
