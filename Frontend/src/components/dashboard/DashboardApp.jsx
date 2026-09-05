@@ -846,20 +846,17 @@ export default function DashboardApp() {
   const journeyRef = useRef(null);
   const statsRef = useRef(null);
 
-  const handleNavigate = useCallback(
-    (id) => {
-      setActiveTab(id);
-      const targets = {
-        home: homeRef,
-        habits: habitsRef,
-        journey: journeyRef,
-        progress: statsRef,
-      };
-      const el = targets[id] && targets[id].current;
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    },
-    [],
-  );
+  const handleNavigate = useCallback((id) => {
+    setActiveTab(id);
+    const targets = {
+      home: homeRef,
+      habits: habitsRef,
+      journey: journeyRef,
+      progress: statsRef,
+    };
+    const el = targets[id] && targets[id].current;
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   /* -------------------------------------------------------------- */
   /* Menu / logout wiring                                            */
