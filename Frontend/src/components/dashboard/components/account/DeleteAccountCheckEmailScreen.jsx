@@ -16,10 +16,13 @@ export function DeleteAccountCheckEmailScreen({ email, onBack }) {
           <MedalStarIcon />
         </span>
         <h2 className="logged-out-title">Confirm Account Deletion</h2>
-        <p className="logged-out-body">
+        <p className="logged-out-body" style={{ marginBottom: "10px" }}>
           We sent a verification link to <strong>{email}</strong>. Open it to
           permanently delete your account, it won't be removed until you
           confirm from there.
+        </p>
+        <p className="logged-out-body" style={{ fontSize: "12px", color: "var(--t3)" }}>
+          Didn't receive the email? Check your Spam or Junk folder.
         </p>
         <button
           type="button"

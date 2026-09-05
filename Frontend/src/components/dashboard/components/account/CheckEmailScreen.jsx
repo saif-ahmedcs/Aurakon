@@ -14,9 +14,12 @@ export function CheckEmailScreen({ email, onBack }) {
           <MedalStarIcon />
         </span>
         <h2 className="logged-out-title">Check Your Email</h2>
-        <p className="logged-out-body">
+        <p className="logged-out-body" style={{ marginBottom: "10px" }}>
           We sent a verification link to <strong>{email}</strong>. Open it to
           choose a new password.
+        </p>
+        <p className="logged-out-body" style={{ fontSize: "12px", color: "var(--t3)" }}>
+          Didn't receive the email? Check your Spam or Junk folder.
         </p>
         <button
           type="button"

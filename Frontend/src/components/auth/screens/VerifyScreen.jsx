@@ -25,6 +25,10 @@ export function VerifyScreen({
         </div>
       )}
 
+      <p className="tx" style={{ marginBottom: "16px", fontSize: "12.5px" }}>
+        Didn't receive the email? Check your Spam or Junk folder.
+      </p>
+
       {resendFeedback && (
         <div
           className={`auth-alert ${

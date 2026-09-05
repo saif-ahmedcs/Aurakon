@@ -138,6 +138,12 @@ export function TokenVerifyScreen({ token, goTo, initialEmail = "" }) {
         </div>
       )}
 
+      {resendFeedback && resendFeedback.type === "success" && (
+        <p className="tx" style={{ marginBottom: "14px", fontSize: "12.5px" }}>
+          Didn't receive the email? Check your Spam or Junk folder.
+        </p>
+      )}
+
       <form onSubmit={handleResend} style={{ width: "100%", textAlign: "left" }}>
         <input
           type="email"

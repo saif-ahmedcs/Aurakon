@@ -1594,6 +1594,11 @@ button.detail-day:hover { filter: brightness(1.18); }
 }
 .account-delete-btn:active { transform: scale(.98); }
 
+.account-page-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
+.account-contact-copy { font-size: 11.5px; font-weight: 600; color: var(--t2); opacity: .7; }
+.account-contact-link { font-size: 12.5px; font-weight: 700; color: var(--t1); text-decoration: none; opacity: .9; }
+.account-contact-link:hover { color: var(--accent-bright); opacity: 1; text-decoration: underline; }
+
 .confirm-warning-icon { display: flex; justify-content: center; margin-bottom: 10px; }
 
 /* ---------- logged out / check-email / reset password screens ---------- */

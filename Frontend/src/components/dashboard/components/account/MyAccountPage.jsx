@@ -226,7 +226,7 @@ export function MyAccountPage({
           {!tzSaved && timeZoneSource && timeZoneSource !== "manual" && (
             <p className="account-tz-unconfirmed-note">
               {timeZoneSource === "detected"
-                ? "Set automatically at signup — not yet manually confirmed."
+                ? "Set automatically at signup, not yet manually confirmed."
                 : "Never confirmed — streaks are running on this default."}
             </p>
           )}
@@ -315,6 +315,16 @@ export function MyAccountPage({
           >
             Delete Account
           </button>
+        </div>
+
+        <div className="account-page-footer">
+          <span className="account-contact-copy">Need help?</span>{" "}
+          <a
+            className="account-contact-link"
+            href="mailto:seefahmed@gmail.com?subject=Aurakon%20Support"
+          >
+            Contact Us
+          </a>
         </div>
       </div>
 
