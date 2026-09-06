@@ -42,32 +42,49 @@ export function beginLogout() {
 /*  Cross-tab refresh coordination                                     */
 /* ------------------------------------------------------------------ */
 
-const LOCK_KEY = "aurakon:refresh-lock";
-const LOCK_TIMEOUT_MS = 4000;
+const LOCK_NAME = "aurakon:token-refresh-lock";
+const RESULT_KEY = "aurakon:token-refresh-result";
+const RESULT_FRESHNESS_MS = 4000;
 const CHANNEL_NAME = "aurakon:token-refresh";
+
+// Fallback coordination for browsers without the Web Locks API.
+const LEGACY_LOCK_KEY = "aurakon:refresh-lock";
+const LEGACY_LOCK_TIMEOUT_MS = 4000;
 
 let refreshInFlight = null;
 
-function acquireLock() {
+function hasWebLocks() {
+  return (
+    typeof navigator !== "undefined" &&
+    !!navigator.locks &&
+    typeof navigator.locks.request === "function"
+  );
+}
+
+function readRecentResult() {
   try {
-    const raw = localStorage.getItem(LOCK_KEY);
-    if (raw) {
-      const ts = Number(raw);
-      if (Date.now() - ts < LOCK_TIMEOUT_MS) return false; // another tab holds a fresh lock
+    const raw = localStorage.getItem(RESULT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.at !== "number" || !parsed.accessToken) {
+      return null;
     }
-    localStorage.setItem(LOCK_KEY, String(Date.now()));
-    return true;
+    if (Date.now() - parsed.at > RESULT_FRESHNESS_MS) return null;
+    return parsed.accessToken;
   } catch {
-    // localStorage unavailable (SSR, privacy mode) – fall through
-    return true;
+    return null;
   }
 }
 
-function releaseLock() {
+function writeRecentResult(accessToken) {
   try {
-    localStorage.removeItem(LOCK_KEY);
+    localStorage.setItem(
+      RESULT_KEY,
+      JSON.stringify({ accessToken, at: Date.now() }),
+    );
   } catch {
-    // best-effort
+    // best-effort - a missed cache write just means the next tab in
+    // line performs its own refresh instead of reusing this one.
   }
 }
 
@@ -79,74 +96,144 @@ function broadcastChannel() {
   }
 }
 
+async function refreshOnce(alreadyRetried = false) {
+  try {
+    const res = await refreshSessionRequest();
+    return res.accessToken;
+  } catch (err) {
+    if (!alreadyRetried && err && err.error === "token_already_used") {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return refreshOnce(true);
+    }
+    throw err;
+  }
+}
+
 export function refreshAccessToken() {
   if (typeof window === "undefined") return refreshSessionRequest();
 
-  // Intra-tab dedup – multiple components hitting 401 at once share one promise.
   if (refreshInFlight) return refreshInFlight;
 
-  // Try to become the leader.
-  if (acquireLock()) {
-    refreshInFlight = performRefreshAsLeader();
-    return refreshInFlight;
-  }
+  refreshInFlight = (
+    hasWebLocks() ? refreshWithWebLock() : refreshWithLegacyLock()
+  ).finally(() => {
+    refreshInFlight = null;
+  });
 
-  // Another tab is refreshing – wait for the result via the channel.
-  return waitForRefreshResult();
+  return refreshInFlight;
 }
 
-async function performRefreshAsLeader() {
+async function refreshWithWebLock() {
+  const startGeneration = logoutGeneration;
+
+  return navigator.locks.request(LOCK_NAME, async () => {
+    const cached = readRecentResult();
+    if (cached) {
+      if (startGeneration === logoutGeneration) setAccessToken(cached);
+      return cached;
+    }
+
+    const accessToken = await refreshOnce();
+    writeRecentResult(accessToken);
+    if (startGeneration === logoutGeneration) {
+      setAccessToken(accessToken);
+    }
+    return accessToken;
+  });
+}
+
+function acquireLegacyLock() {
+  try {
+    const raw = localStorage.getItem(LEGACY_LOCK_KEY);
+    if (raw) {
+      const ts = Number(raw);
+      if (Date.now() - ts < LEGACY_LOCK_TIMEOUT_MS) return false; // another tab holds a fresh lock
+    }
+    localStorage.setItem(LEGACY_LOCK_KEY, String(Date.now()));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function releaseLegacyLock() {
+  try {
+    localStorage.removeItem(LEGACY_LOCK_KEY);
+  } catch {
+    // best-effort
+  }
+}
+
+function refreshWithLegacyLock() {
+  if (acquireLegacyLock()) {
+    return performLegacyRefreshAsLeader();
+  }
+  return waitForLegacyRefreshResult();
+}
+
+async function performLegacyRefreshAsLeader() {
   const channel = broadcastChannel();
   const startGeneration = logoutGeneration;
 
   try {
-    const res = await refreshSessionRequest();
+    const cached = readRecentResult();
+    const accessToken = cached ? cached : await refreshOnce();
+    if (!cached) writeRecentResult(accessToken);
     if (startGeneration === logoutGeneration) {
-      setAccessToken(res.accessToken);
+      setAccessToken(accessToken);
     }
-    channel?.postMessage({ ok: true, accessToken: res.accessToken });
-    return res.accessToken;
+    channel?.postMessage({ ok: true, accessToken });
+    return accessToken;
   } catch (err) {
     channel?.postMessage({ ok: false, error: err });
     throw err;
   } finally {
-    releaseLock();
-    refreshInFlight = null;
+    releaseLegacyLock();
     channel?.close();
   }
 }
 
-function waitForRefreshResult() {
+const LEGACY_RESULT_POLL_INTERVAL_MS = 300;
+const LEGACY_RESULT_POLL_ATTEMPTS = 10;
+
+function waitForLegacyRefreshResult() {
   const startGeneration = logoutGeneration;
   return new Promise((resolve, reject) => {
     const channel = broadcastChannel();
+
+    const fallbackToOwnRefresh = async () => {
+      for (let i = 0; i < LEGACY_RESULT_POLL_ATTEMPTS; i++) {
+        const cached = readRecentResult();
+        if (cached) {
+          if (startGeneration === logoutGeneration) setAccessToken(cached);
+          resolve(cached);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, LEGACY_RESULT_POLL_INTERVAL_MS));
+      }
+
+      try {
+        const accessToken = await refreshOnce();
+        writeRecentResult(accessToken);
+        if (startGeneration === logoutGeneration) {
+          setAccessToken(accessToken);
+        }
+        resolve(accessToken);
+      } catch (err) {
+        reject(err);
+      }
+    };
+
     if (!channel) {
-      // BroadcastChannel unavailable – fall back to an independent request.
-      // The backend grace window (5 s) protects against a benign race.
-      refreshSessionRequest()
-        .then((res) => {
-          if (startGeneration === logoutGeneration) {
-            setAccessToken(res.accessToken);
-          }
-          resolve(res.accessToken);
-        })
-        .catch(reject);
+      fallbackToOwnRefresh();
       return;
     }
 
     const timeout = setTimeout(() => {
       channel.close();
-      // Stale lock – the leader may have crashed.  Try our own refresh.
-      localStorage.removeItem(LOCK_KEY);
-      refreshSessionRequest()
-        .then((res) => {
-          if (startGeneration === logoutGeneration) {
-            setAccessToken(res.accessToken);
-          }
-          resolve(res.accessToken);
-        })
-        .catch(reject);
-    }, LOCK_TIMEOUT_MS);
+      localStorage.removeItem(LEGACY_LOCK_KEY);
+      fallbackToOwnRefresh();
+    }, LEGACY_LOCK_TIMEOUT_MS);
 
     channel.onmessage = (e) => {
       clearTimeout(timeout);

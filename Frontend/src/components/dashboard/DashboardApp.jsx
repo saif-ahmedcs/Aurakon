@@ -391,6 +391,7 @@ export default function DashboardApp() {
 
   const applyProgressPatch = useCallback((patch) => {
     if (!patch) return;
+    progressSeq.current += 1;
     setProgressData((prev) => {
       if (!prev) return prev;
       let changed = false;
@@ -707,9 +708,18 @@ export default function DashboardApp() {
         refreshProgress();
       } catch (err) {
         showToast(err.error || "Could not update the habit. Try again.");
+        loadHabits(meData && meData.timezone);
+        refreshProgress();
       }
     },
-    [updateHabit, showToast, meData, applyProgressPatch, refreshProgress],
+    [
+      updateHabit,
+      showToast,
+      meData,
+      applyProgressPatch,
+      refreshProgress,
+      loadHabits,
+    ],
   );
 
   const [addHabitOpen, setAddHabitOpen] = useState(false);

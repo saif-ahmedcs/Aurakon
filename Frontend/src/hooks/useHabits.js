@@ -173,6 +173,9 @@ export function useHabits({ showToast }) {
       // unresolved and could commit any moment - this snapshot cannot
       // be trusted as final. Refetch rather than apply it.
     }
+    withLogs.forEach((h) => {
+      refreshSeq.current[h.id] = (refreshSeq.current[h.id] || 0) + 1;
+    });
     setHabits(withLogs);
     setLoaded(true);
   }, []);
@@ -223,11 +226,13 @@ export function useHabits({ showToast }) {
 
   const reconcileAfterFailedMutation = useCallback(
     async (id, timeZone, snapshot) => {
+      const seq = (refreshSeq.current[id] = (refreshSeq.current[id] || 0) + 1);
       try {
         const [dto, logs] = await Promise.all([
           getHabitDetailRequest(id),
           listHabitLogsRequest(id),
         ]);
+        if (seq !== refreshSeq.current[id]) return;
         setHabits((prev) =>
           prev.map((h) =>
             h.id === id ? buildHabitState(dto, logs, timeZone, h) : h,
@@ -243,6 +248,7 @@ export function useHabits({ showToast }) {
           }
         }
       } catch (refetchErr) {
+        if (seq !== refreshSeq.current[id]) return;
         if (refetchErr?.status === 404) {
           setHabits((prev) => prev.filter((h) => h.id !== id));
         } else {
@@ -511,24 +517,21 @@ export function useHabits({ showToast }) {
     [trackMutation],
   );
 
-  /* The backend only persists renames; difficulty is fixed at creation. */
   const updateHabit = useCallback(
     async (id, updates, timeZone) => {
       const dto = await trackMutation(
         updateHabitRequest(id, { title: updates.name }),
       );
       mutationEpoch.current += 1;
-      const existing = habits.find((h) => h.id === id);
-      const next = {
-        ...(existing || {}),
-        name: dto.title,
-      };
-      replaceHabit(next);
+      setHabits((prev) =>
+        prev.map((h) => (h.id === id ? { ...h, name: dto.title } : h)),
+      );
       if (dto?.affectedHabitIds?.length > 0) {
         refreshHabitsRef.current?.(dto.affectedHabitIds, timeZone);
       }
       return {
-        ...next,
+        id,
+        name: dto.title,
         earnedBonuses: dto?.earnedBonuses || [],
         earnedShields: dto?.earnedShields || [],
         reversedBonuses: dto?.reversedBonuses || [],
@@ -536,7 +539,7 @@ export function useHabits({ showToast }) {
         level: dto?.level,
       };
     },
-    [habits, replaceHabit, trackMutation],
+    [trackMutation],
   );
 
   const addHabit = useCallback(
