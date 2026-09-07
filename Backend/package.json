@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "echo 'No build step required'",
     "start": "node server.js",
     "test": "node --test test/cleanupRunner.test.js",
     "demo:reset": "node scripts/resetDemoAccount.js",
