@@ -119,6 +119,7 @@ export function useHabits({ showToast }) {
   const toggleInFlight = useRef(new Set());
   const refreshSeq = useRef({});
   const pendingMutations = useRef(new Set());
+  const loadSeq = useRef(0);
 
   const mutationEpoch = useRef(0);
 
@@ -138,6 +139,7 @@ export function useHabits({ showToast }) {
   }, []);
 
   const load = useCallback(async (timeZone) => {
+    const seq = (loadSeq.current += 1);
     let withLogs;
     const MAX_ATTEMPTS = 5;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -145,6 +147,7 @@ export function useHabits({ showToast }) {
       const inFlightAtStart = Array.from(pendingMutations.current);
 
       const dtos = await listHabitsRequest();
+      if (seq !== loadSeq.current) return;
       withLogs = await Promise.all(
         dtos.map(async (dto) => {
           try {
@@ -155,10 +158,12 @@ export function useHabits({ showToast }) {
           }
         }),
       );
+      if (seq !== loadSeq.current) return;
 
       if (inFlightAtStart.length > 0) {
         await Promise.allSettled(inFlightAtStart);
       }
+      if (seq !== loadSeq.current) return;
 
       const committedDuringFetch = epochAtStart !== mutationEpoch.current;
       const stillInFlight = pendingMutations.current.size > 0;
@@ -173,6 +178,7 @@ export function useHabits({ showToast }) {
       // unresolved and could commit any moment - this snapshot cannot
       // be trusted as final. Refetch rather than apply it.
     }
+    if (seq !== loadSeq.current) return;
     withLogs.forEach((h) => {
       refreshSeq.current[h.id] = (refreshSeq.current[h.id] || 0) + 1;
     });

@@ -40,6 +40,26 @@ import { DeleteAccountCheckEmailScreen } from "./components/account/DeleteAccoun
 import { EmailChangeCheckScreen } from "./components/account/EmailChangeCheckScreen";
 import { MyAccountPage } from "./components/account/MyAccountPage";
 
+function formatRetryMessage(msg) {
+  return msg.replace(
+    /Try again after (\d{4}-\d{2}-\d{2}T[\d:.]+Z)\.?/i,
+    (_match, iso) => {
+      const d = new Date(iso);
+      const dateStr = d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const timeStr = d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      });
+      return `Try again after ${dateStr} at ${timeStr}.`;
+    },
+  );
+}
+
 /* Shared frame for every screen: the app root class plus the global
  * dashboard stylesheet (fonts, tokens, components).
  *
@@ -928,14 +948,14 @@ export default function DashboardApp() {
         showToast("Name updated");
       } catch (err) {
         let message = err.error || "Could not update the name.";
-        if (err.status === 429 && typeof err.retryAfter === "number") {
+        if (err.status === 429 && typeof err.retryAfter === "number" && !message.toLowerCase().includes("try again")) {
           const mins = Math.ceil(err.retryAfter / 60);
           message +=
             mins >= 2
               ? ` Try again in ${mins} minutes.`
               : ` Try again in ${err.retryAfter} seconds.`;
         }
-        showToast(message);
+        showToast(formatRetryMessage(message));
       }
     },
     [showToast],

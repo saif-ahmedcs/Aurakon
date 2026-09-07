@@ -30,6 +30,26 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
+function formatRetryMessage(msg) {
+  return msg.replace(
+    /Try again after (\d{4}-\d{2}-\d{2}T[\d:.]+Z)\.?/i,
+    (_match, iso) => {
+      const d = new Date(iso);
+      const dateStr = d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const timeStr = d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      });
+      return `Try again after ${dateStr} at ${timeStr}.`;
+    },
+  );
+}
+
 function meetsPasswordPolicy(password) {
   return (
     password.length >= 8 &&
@@ -174,7 +194,7 @@ export function useAuthFlow({
       } catch (err) {
         let message = err.error || "Something went wrong. Please try again.";
 
-        if (err.status === 429 && typeof err.retryAfter === "number") {
+        if (err.status === 429 && typeof err.retryAfter === "number" && !message.toLowerCase().includes("try again")) {
           const mins = Math.ceil(err.retryAfter / 60);
           message =
             mins >= 2
@@ -190,7 +210,7 @@ export function useAuthFlow({
           setRegisteredEmail(email);
         }
 
-        setLoginError(message);
+        setLoginError(formatRetryMessage(message));
       } finally {
         setLoginLoading(false);
       }
@@ -212,7 +232,7 @@ export function useAuthFlow({
     } catch (err) {
       let message = err.error || "Couldn't start the demo. Please try again.";
 
-      if (err.status === 429 && typeof err.retryAfter === "number") {
+      if (err.status === 429 && typeof err.retryAfter === "number" && !message.toLowerCase().includes("try again")) {
         const mins = Math.ceil(err.retryAfter / 60);
         message =
           mins >= 2
@@ -220,7 +240,7 @@ export function useAuthFlow({
             : `${message} Try again in ${err.retryAfter} seconds.`;
       }
 
-      setDemoError(message);
+      setDemoError(formatRetryMessage(message));
     } finally {
       setDemoLoading(false);
     }

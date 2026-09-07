@@ -43,6 +43,7 @@ export function MyAccountPage({
   const [savingEmail, setSavingEmail] = useState(false);
   const [deleteStep, setDeleteStep] = useState(null); // null | "warn" | "confirm"
   const [deleteSending, setDeleteSending] = useState(false);
+  const [tzSending, setTzSending] = useState(false);
   const [forgotPwOpen, setForgotPwOpen] = useState(false);
   const [tzSaved, setTzSaved] = useState(false);
   const [pendingTz, setPendingTz] = useState(null);
@@ -84,14 +85,21 @@ export function MyAccountPage({
   };
 
   const confirmTimeZoneChange = async () => {
-    const ok = await onChangeTimeZone(pendingTz);
-    if (ok) {
-      setTzSaved(true);
+    if (tzSending) return;
+    setTzSending(true);
+    try {
+      const ok = await onChangeTimeZone(pendingTz);
+      if (ok) {
+        setTzSaved(true);
+      }
+      setPendingTz(null);
+    } finally {
+      setTzSending(false);
     }
-    setPendingTz(null);
   };
 
   const cancelTimeZoneChange = () => {
+    if (tzSending) return;
     setPendingTz(null);
     setTzSaved(false);
   };
@@ -483,10 +491,10 @@ export function MyAccountPage({
               setting.
             </>
           }
-          confirmLabel="Yes, Change It"
+          confirmLabel={tzSending ? "Changing..." : "Yes, Change It"}
           confirmClassName="btn-primary confirm-actions-btn"
-          onCancel={cancelTimeZoneChange}
-          onConfirm={confirmTimeZoneChange}
+          onCancel={tzSending ? () => {} : cancelTimeZoneChange}
+          onConfirm={tzSending ? () => {} : confirmTimeZoneChange}
         />
       )}
 
