@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export function proxy(request) {
+export default function proxy(request) {
   const backendUrl = process.env.BACKEND_INTERNAL_URL?.trim();
 
   if (process.env.NODE_ENV === "production" && !backendUrl) {
@@ -8,7 +8,10 @@ export function proxy(request) {
       "[proxy] FATAL: BACKEND_INTERNAL_URL is not defined in production environment. " +
       "Configure BACKEND_INTERNAL_URL to point to the backend service.";
     console.error(errorMsg);
-    throw new Error(errorMsg);
+    return NextResponse.json(
+      { error: "Backend not configured." },
+      { status: 503 },
+    );
   }
 
   const resolvedBackendUrl = (backendUrl || "http://localhost:3000").replace(
