@@ -1463,7 +1463,12 @@ button.detail-day:hover { filter: brightness(1.18); }
   isolation: isolate;
 }
 .account-page::before {
-  content: ""; position: fixed; inset: 0; z-index: -1;
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: -1;
+  /* Sized off the *largest* viewport height (not "inset:0"/"100vh") so
+     the box doesn't resize - and re-crop its cover background - the
+     moment the mobile address bar auto-hides on first scroll. */
+  height: 100vh;
+  height: 100lvh;
   background:
     radial-gradient(120% 70% at 50% -10%, rgba(168,85,247,0.12), transparent 55%),
     radial-gradient(45% 90% at 0% 50%, rgba(200,180,230,0.14), transparent 65%),
@@ -1612,7 +1617,9 @@ button.detail-day:hover { filter: brightness(1.18); }
 /* same cinematic backdrop as the account page - a flat near-black fill
    read as dead black bars on either side of the centered card */
 .logged-out-screen::before {
-  content: ""; position: fixed; inset: 0; z-index: -1;
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: -1;
+  height: 100vh;
+  height: 100lvh;
   background:
     radial-gradient(120% 70% at 50% -10%, rgba(168,85,247,0.12), transparent 55%),
     radial-gradient(45% 90% at 0% 50%, rgba(200,180,230,0.14), transparent 65%),
