@@ -46,7 +46,7 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
-  output: "standalone",
+  output: process.env.VERCEL ? undefined : "standalone",
   devIndicators: false,
   async headers() {
     return [
