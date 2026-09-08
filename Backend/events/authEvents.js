@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { EventEmitter } = require("events");
+const { waitUntil } = require("@vercel/functions");
 const emailService = require("../services/emailService");
 const {
   getVerificationEmailHtml,
@@ -50,9 +51,15 @@ function buildCorrelationId(rawToken) {
 function deliverEmail(payload, fallbackEventName) {
   const eventName = payload.eventName || fallbackEventName;
 
-  return emailService.sendEmail({ ...payload, eventName }).catch((error) => {
-    console.error(`[${eventName}] email delivery failed: ${error.message}`);
-  });
+  const deliveryPromise = emailService
+    .sendEmail({ ...payload, eventName })
+    .catch((error) => {
+      console.error(`[${eventName}] email delivery failed: ${error.message}`);
+    });
+
+  waitUntil(deliveryPromise);
+
+  return deliveryPromise;
 }
 
 function sendVerificationEmail(email, rawToken, eventName) {
