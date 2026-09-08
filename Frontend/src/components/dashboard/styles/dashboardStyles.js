@@ -1473,6 +1473,14 @@ button.detail-day:hover { filter: brightness(1.18); }
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  /* Promotes this fixed layer to its own GPU compositor layer so mobile
+     WebKit (iOS Safari in particular) stops repainting/dragging it during
+     scroll - without this, position:fixed backgrounds visibly lag/shift
+     on mobile even though the CSS position never actually changes. */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 .account-page-header {
   position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
@@ -1622,6 +1630,10 @@ button.detail-day:hover { filter: brightness(1.18); }
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 .logged-out-card {
   width: 360px; max-width: 100%; text-align: center; padding: 34px 26px;
