@@ -5,9 +5,9 @@ component composition, state ownership, and the session/auth lifecycle.
 This is the map connecting the other frontend docs, not a replacement for
 them:
 
-- `10-frontend-and-ui-gamification.docx` — the visual/gamification design
+- `14-frontend-and-ui-gamification.pdf` — the visual/gamification design
   itself (warrior art, rank emblems, HUD).
-- `11-frontend-backend-reconciliation-contract.md` — what happens to state
+- `12-frontend-backend-reconciliation-contract.md` — what happens to state
   after a mutation is sent to the backend.
 - `05-lifecycle-and-architecture.md` — deployment topology
   (Vercel / Render / TiDB), which is backend/infra scope, not this doc.
@@ -110,7 +110,7 @@ of sync with each other's progression data.
 The rule that falls out of this table: **anything that is a fact about the
 user's progress is owned by a hook backed by a `GET` endpoint**, and its
 reconciliation after a mutation follows
-`11-frontend-backend-reconciliation-contract.md`. Anything that is purely
+`12-frontend-backend-reconciliation-contract.md`. Anything that is purely
 an interaction concern — which modal is open, which tab is active, form
 values, the toast queue, particle positions — is local state with no
 server round-trip and no persistence.
@@ -176,7 +176,7 @@ instead of quietly proxying nowhere.
   (sparkles, rising embers, gold sparks), memoized on their count so a
   re-render never reshuffles the scenery. `useCrossfadeImage` from the
   same file drives the warrior-avatar stage transitions described in
-  `10-frontend-and-ui-gamification.docx`.
+  `14-frontend-and-ui-gamification.pdf`.
 - **`useAuraEnergy`** — owns only the pulse-animation timing; the energy
   value itself is always the server's, re-synced by the consumer after
   every progression-affecting action.
@@ -197,9 +197,9 @@ small set of page-frame rules (width, base type scale, font smoothing).
 ## 10. What this document doesn't cover
 
 - Mutation outcomes, optimistic updates, and race guards — see
-  `11-frontend-backend-reconciliation-contract.md`.
+  `12-frontend-backend-reconciliation-contract.md`.
 - The visual design of the gamification layer itself — see
-  `10-frontend-and-ui-gamification.docx`.
+  `14-frontend-and-ui-gamification.pdf`.
 - Server-side computation of streaks, XP, and shields — see
   `02-streaks-and-pending-reviews.md`, `03-progression-and-rewards.md`,
   `04-guardian-shield.md`.

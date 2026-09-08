@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuraIntroScene } from "../hooks/useAuraIntroScene";
-import SceneStyles from "../components/scene/SceneStyles";
 import ParticleCanvas from "../components/scene/ParticleCanvas";
 import RingGlow from "../components/scene/RingGlow";
 import RingSVG from "../components/scene/RingSVG";
@@ -13,9 +12,7 @@ export default function AuraLogin() {
   useAuraIntroScene();
 
   return (
-    <>
-      <SceneStyles />
-      <div className="scene">
+    <div className="scene">
         <ParticleCanvas />
         <div className="cz">
           <RingGlow />
@@ -27,6 +24,5 @@ export default function AuraLogin() {
         <FormZone />
         <BackgroundGlow />
       </div>
-    </>
   );
 }

@@ -1,4 +1,20 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
+/**
+ * On mobile / low-power devices the feTurbulence + feDisplacementMap SVG
+ * filter pipeline is extremely GPU-heavy (fractal noise generation per
+ * pixel). We swap the smoke filters for lightweight Gaussian blurs that
+ * give a visually similar soft-glow result without stalling the GPU.
+ */
 export default function RingSVG() {
+  const [lite, setLite] = useState(false);
+
+  useEffect(() => {
+    setLite(window.innerWidth <= 768);
+  }, []);
+
   return (
             <svg viewBox="0 0 600 600" width="100%" height="100%" style={{overflow: 'visible'}}>
               <defs>
@@ -13,21 +29,39 @@ export default function RingSVG() {
                 <filter id="fkg" x="-60%" y="-60%" width="220%" height="220%">
                   <feGaussianBlur stdDeviation={4} />
                 </filter>
-                <filter id="smokeO" x="-45%" y="-45%" width="190%" height="190%">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.013 0.026" numOctaves={1} seed={7} result="noiseO" />
-                  <feDisplacementMap in="SourceGraphic" in2="noiseO" scale={34} xChannelSelector="R" yChannelSelector="G" result="disp" />
-                  <feGaussianBlur in="disp" stdDeviation={16} />
-                </filter>
-                <filter id="smokeM" x="-35%" y="-35%" width="170%" height="170%">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.019 0.038" numOctaves={1} seed={4} result="noiseM" />
-                  <feDisplacementMap in="SourceGraphic" in2="noiseM" scale={16} xChannelSelector="R" yChannelSelector="G" result="disp" />
-                  <feGaussianBlur in="disp" stdDeviation={6} />
-                </filter>
-                <filter id="smokeC" x="-20%" y="-20%" width="140%" height="140%">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.03 0.06" numOctaves={1} seed={9} result="noiseC" />
-                  <feDisplacementMap in="SourceGraphic" in2="noiseC" scale={6} xChannelSelector="R" yChannelSelector="G" result="disp" />
-                  <feGaussianBlur in="disp" stdDeviation="1.4" />
-                </filter>
+
+                {lite ? (
+                  <>
+                    {/* Lightweight mobile replacements — simple blurs instead of turbulence */}
+                    <filter id="smokeO" x="-45%" y="-45%" width="190%" height="190%">
+                      <feGaussianBlur stdDeviation={14} />
+                    </filter>
+                    <filter id="smokeM" x="-35%" y="-35%" width="170%" height="170%">
+                      <feGaussianBlur stdDeviation={5} />
+                    </filter>
+                    <filter id="smokeC" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation={1.2} />
+                    </filter>
+                  </>
+                ) : (
+                  <>
+                    <filter id="smokeO" x="-45%" y="-45%" width="190%" height="190%">
+                      <feTurbulence type="fractalNoise" baseFrequency="0.013 0.026" numOctaves={1} seed={7} result="noiseO" />
+                      <feDisplacementMap in="SourceGraphic" in2="noiseO" scale={34} xChannelSelector="R" yChannelSelector="G" result="disp" />
+                      <feGaussianBlur in="disp" stdDeviation={16} />
+                    </filter>
+                    <filter id="smokeM" x="-35%" y="-35%" width="170%" height="170%">
+                      <feTurbulence type="fractalNoise" baseFrequency="0.019 0.038" numOctaves={1} seed={4} result="noiseM" />
+                      <feDisplacementMap in="SourceGraphic" in2="noiseM" scale={16} xChannelSelector="R" yChannelSelector="G" result="disp" />
+                      <feGaussianBlur in="disp" stdDeviation={6} />
+                    </filter>
+                    <filter id="smokeC" x="-20%" y="-20%" width="140%" height="140%">
+                      <feTurbulence type="fractalNoise" baseFrequency="0.03 0.06" numOctaves={1} seed={9} result="noiseC" />
+                      <feDisplacementMap in="SourceGraphic" in2="noiseC" scale={6} xChannelSelector="R" yChannelSelector="G" result="disp" />
+                      <feGaussianBlur in="disp" stdDeviation="1.4" />
+                    </filter>
+                  </>
+                )}
               </defs>
               <g id="swirlOuter" style={{transformOrigin: '300px 300px'}}>
                 <circle id="ro" cx={300} cy={300} r={260} fill="none" stroke="rgba(120,50,225,.36)" strokeWidth={46} transform="rotate(-90 300 300)" filter="url(#smokeO)" style={{opacity: 0}} />

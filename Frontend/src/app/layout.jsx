@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./scene.css";
 import ServiceWorkerRegistration from "../components/pwa/ServiceWorkerRegistration";
 
 export const metadata = {

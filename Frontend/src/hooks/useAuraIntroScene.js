@@ -76,6 +76,7 @@ export function useAuraIntroScene() {
     }
 
     const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const IS_MOBILE = window.innerWidth <= 768;
     class PS {
       constructor(canvas, info) {
         this.cv = canvas;
@@ -91,6 +92,10 @@ export function useAuraIntroScene() {
         this.cG = 0;
         this.cO = 0;
         this.dim = false;
+        // Halve particle budgets on mobile for smoother performance
+        this.maxA = IS_MOBILE ? 100 : 200;
+        this.maxG = IS_MOBILE ? 35 : 70;
+        this.maxO = IS_MOBILE ? 45 : 90;
 
         this.glow = document.createElement("canvas");
         this.glow.width = this.glow.height = 64;
@@ -141,7 +146,7 @@ export function useAuraIntroScene() {
         else if (p.type === "o") this.cO++;
       }
       spawnA() {
-        if (this.cA > 200) return;
+        if (this.cA > this.maxA) return;
         const W = this.cv.width / DPR,
           H = this.cv.height / DPR;
         const { cx, cy } = this.info;
@@ -170,7 +175,7 @@ export function useAuraIntroScene() {
         });
       }
       spawnG() {
-        if (this.cG > 70) return;
+        if (this.cG > this.maxG) return;
         const W = this.cv.width / DPR,
           H = this.cv.height / DPR;
         const { cx } = this.info;
@@ -194,7 +199,7 @@ export function useAuraIntroScene() {
         }
       }
       spawnO() {
-        if (this.cO > 90) return;
+        if (this.cO > this.maxO) return;
         const { cx, cy } = this.info;
         const ang = Math.random() * Math.PI * 2,
           rad = Math.random() * 95 + 42,
@@ -766,20 +771,30 @@ export function useAuraIntroScene() {
       return Promise.race([Promise.all(decodes), timeout]);
     }
 
-    preloadCriticalImages().then(() => {
-      initScene();
+    function startScene() {
+      preloadCriticalImages().then(() => {
+        initScene();
 
-      const scene = document.querySelector(".scene");
-      requestAnimationFrame(() => {
+        const scene = document.querySelector(".scene");
         requestAnimationFrame(() => {
-          scene.classList.add("bg-in");
+          requestAnimationFrame(() => {
+            scene.classList.add("bg-in");
+          });
+        });
+        scene.addEventListener("transitionend", (e) => {
+          if (e.propertyName === "opacity" && e.target === scene) {
+            scene.classList.add("bg-settled");
+          }
         });
       });
-      scene.addEventListener("transitionend", (e) => {
-        if (e.propertyName === "opacity" && e.target === scene) {
-          scene.classList.add("bg-settled");
-        }
-      });
-    });
+    }
+
+    // Defer heavy particle/canvas work so the browser can finish first
+    // paint and become interactive before we start the animation loop.
+    if (typeof requestIdleCallback === "function") {
+      requestIdleCallback(startScene, { timeout: 2000 });
+    } else {
+      setTimeout(startScene, 100);
+    }
   }, []);
 }
