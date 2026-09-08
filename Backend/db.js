@@ -31,7 +31,7 @@ pool.on("connection", (connection) => {
   });
 });
 
-attachDatabasePool(pool);
+attachDatabasePool(pool.pool);
 
 const RETRYABLE_ERROR_CODES = new Set([
   "ER_LOCK_DEADLOCK",
