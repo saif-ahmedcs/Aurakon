@@ -1,6 +1,7 @@
 require("dotenv").config();
 const fs = require("fs");
 const mysql = require("mysql2/promise");
+const { attachDatabasePool } = require("@vercel/functions");
 
 const sslEnabled = process.env.DB_SSL === "true";
 const sslOptions = sslEnabled
@@ -29,6 +30,8 @@ pool.on("connection", (connection) => {
     if (err) console.error("Failed to set session time_zone to UTC:", err);
   });
 });
+
+attachDatabasePool(pool);
 
 const RETRYABLE_ERROR_CODES = new Set([
   "ER_LOCK_DEADLOCK",
