@@ -4,9 +4,10 @@
 // Consolidating them here means a future asset rename only needs to
 // happen in one place.
 
-export const LOGO_IMAGE = "/assets/logo.png";
-export const WARRIOR_IMAGE = "/assets/warrior.png";
+export const LOGO_IMAGE = "/assets/logo.webp";
+export const WARRIOR_IMAGE = "/assets/warrior.webp";
 export const SCENE_BACKGROUND_IMAGE = "/assets/scene-bg.jpg";
+export const ACCOUNT_BG_IMAGE = "/assets/account-bg.webp";
 
 /* ------------------------------------------------------------------ */
 /* Dashboard asset paths (also served from /public).                   */

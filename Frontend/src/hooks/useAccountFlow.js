@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { logoutRequest, forgotPasswordRequest } from "../services/authApi";
+import { ACCOUNT_BG_IMAGE } from "../constants/assets";
 import {
   logoutAllDevicesRequest,
   changePasswordRequest,
@@ -45,6 +46,19 @@ export function useAccountFlow({
 
   // Full sign-out screen shown after "Log Out".
   const [loggedOut, setLoggedOut] = useState(false);
+
+  useEffect(() => {
+    const warm = () => {
+      const img = new Image();
+      img.src = ACCOUNT_BG_IMAGE;
+    };
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(warm, { timeout: 2000 });
+      return () => cancelIdleCallback(id);
+    }
+    const t = setTimeout(warm, 300);
+    return () => clearTimeout(t);
+  }, []);
 
   const logOut = useCallback(async () => {
     beginLogout();

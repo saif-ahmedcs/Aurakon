@@ -100,6 +100,7 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
   .fz{position:absolute;bottom:0;left:0;right:0;flex:none;width:100%;
     padding:0 18px 32px;align-items:flex-end;
     background:linear-gradient(to top,rgba(5,4,12,.97) 45%,rgba(5,4,12,.82) 72%,transparent 100%);}
+  .inp,.gtrig,.gmodal-box{backdrop-filter:none;-webkit-backdrop-filter:none;}
 }
 
 @property --bangle{syntax:'<angle>';inherits:false;initial-value:0deg;}
@@ -112,6 +113,7 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
     rgba(168,85,247,0) 52%,rgba(124,58,237,.9) 66%,rgba(168,85,247,0) 80%,
     rgba(168,85,247,0) 100%);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
   -webkit-mask-composite:xor;mask-composite:exclude;
   animation:fc-orbit 8s linear infinite;}
 @keyframes fc-orbit{to{--bangle:360deg;}}
@@ -372,4 +374,3 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
     `}</style>
   );
 }
-

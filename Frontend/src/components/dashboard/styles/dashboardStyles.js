@@ -1,3 +1,5 @@
+import { ACCOUNT_BG_IMAGE } from "../../../constants/assets";
+
 export const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Cinzel+Decorative:wght@700;900&family=Shippori+Mincho:wght@500;600;700;800&family=Zen+Old+Mincho:wght@500;600;700;900&display=swap');
 
@@ -1474,7 +1476,7 @@ button.detail-day:hover { filter: brightness(1.18); }
     radial-gradient(45% 90% at 0% 50%, rgba(200,180,230,0.14), transparent 65%),
     radial-gradient(45% 90% at 100% 50%, rgba(200,180,230,0.14), transparent 65%),
     linear-gradient(rgba(5,4,8,0.42), rgba(5,4,8,0.6)),
-    url('/assets/account-bg.jpg');
+    url('${ACCOUNT_BG_IMAGE}');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -1625,7 +1627,7 @@ button.detail-day:hover { filter: brightness(1.18); }
     radial-gradient(45% 90% at 0% 50%, rgba(200,180,230,0.14), transparent 65%),
     radial-gradient(45% 90% at 100% 50%, rgba(200,180,230,0.14), transparent 65%),
     linear-gradient(rgba(5,4,8,0.42), rgba(5,4,8,0.6)),
-    url('/assets/account-bg.jpg');
+    url('${ACCOUNT_BG_IMAGE}');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

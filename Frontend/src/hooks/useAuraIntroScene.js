@@ -498,7 +498,15 @@ export function useAuraIntroScene() {
       tick() {
         if (!this.on) return;
         this.update();
-        this.render();
+        // Physics always advance every frame so motion speed/timing never
+        // changes. Once the scene is idle ("dim"/settled — the state it
+        // sits in for the entire time someone's on the login form), only
+        // paint every other frame: this halves the per-particle canvas
+        // draw-call cost (drawImage/arc/stroke + composite-mode switches)
+        // for an ambient effect that's already faint and slow-moving, so
+        // the drop is not perceptible.
+        this._frameCount = (this._frameCount || 0) + 1;
+        if (!this.dim || this._frameCount % 2 === 0) this.render();
         this.raf = requestAnimationFrame(() => this.tick());
       }
       start() {
