@@ -13,7 +13,7 @@ export default function SceneStyles() {
   --ib:rgba(140,80,255,0.22);
   --t1:#ffffff;--t2:rgba(255,255,255,0.5);--t3:rgba(255,255,255,0.28);
 }
-html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;
+html,body{width:100%;min-height:100%;background:var(--bg);
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
   color:var(--t1);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 
