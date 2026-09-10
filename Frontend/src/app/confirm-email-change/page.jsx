@@ -11,7 +11,6 @@ import WarriorImage from "../../components/scene/WarriorImage";
 import BackgroundGlow from "../../components/scene/BackgroundGlow";
 import FormInput from "../../components/common/FormInput";
 import { confirmEmailChangeRequest } from "../../services/authApi";
-import { getAccessToken, refreshAccessToken } from "../../services/tokenStore";
 
 function ConfirmEmailChangeInner() {
   useAuraIntroScene();
@@ -50,14 +49,9 @@ function ConfirmEmailChangeInner() {
     setError("");
 
     try {
-      if (!getAccessToken()) {
-        await refreshAccessToken();
-      }
-      const accessToken = getAccessToken();
       await confirmEmailChangeRequest({
         token,
         currentPassword: password,
-        accessToken,
       });
       setSuccess(true);
     } catch (err) {
@@ -106,7 +100,8 @@ function ConfirmEmailChangeInner() {
                     <div className="ic">✉</div>
                     <h3>Confirm New Email</h3>
                     <p className="tx">
-                      Enter your current password to finalize updating your account email.
+                      Enter your current password to finalize updating your
+                      account email.
                     </p>
                     <form onSubmit={handleSubmit} style={{ textAlign: "left" }}>
                       <FormInput
@@ -122,7 +117,9 @@ function ConfirmEmailChangeInner() {
                       />
                       {error && <div className="login-err">{error}</div>}
                       <button className="btn" type="submit" disabled={loading}>
-                        {loading ? "Confirming Change…" : "Confirm Email Change"}
+                        {loading
+                          ? "Confirming Change…"
+                          : "Confirm Email Change"}
                       </button>
                     </form>
                     <div className="bt">
@@ -149,7 +146,9 @@ export default function ConfirmEmailChangePage() {
   return (
     <Suspense
       fallback={
-        <div style={{ width: "100vw", height: "100vh", background: "#050408" }} />
+        <div
+          style={{ width: "100vw", height: "100vh", background: "#050408" }}
+        />
       }
     >
       <ConfirmEmailChangeInner />

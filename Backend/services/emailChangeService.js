@@ -190,17 +190,14 @@ async function checkEmailChangeToken(token) {
 }
 
 // ------------- CONFIRM EMAIL CHANGE --------------
-async function confirmEmailChange(userId, token, currentPassword) {
+async function confirmEmailChange(token, currentPassword) {
   if (!token) {
     throw new BadRequestError("token is required");
   }
 
   const tokenHash = hashToken(token);
 
-  const preTokenRow = await userModel.findEmailChangeTokenStateForUser(
-    userId,
-    tokenHash,
-  );
+  const preTokenRow = await userModel.findEmailChangeTokenState(tokenHash);
   const preState =
     confirmationTokenService.classifyConfirmationToken(preTokenRow);
 
@@ -219,11 +216,7 @@ async function confirmEmailChange(userId, token, currentPassword) {
     outcome = await runInTransaction((tx) =>
       confirmationTokenService.runIdempotentConfirmation({
         findState: async (tx) => {
-          matchedRow = await userModel.findEmailChangeTokenStateForUser(
-            userId,
-            tokenHash,
-            tx,
-          );
+          matchedRow = await userModel.findEmailChangeTokenState(tokenHash, tx);
           return matchedRow;
         },
         execute: async (tokenRow, tx) => {
@@ -240,7 +233,7 @@ async function confirmEmailChange(userId, token, currentPassword) {
             }
             throw new BadRequestError("invalid or expired token");
           }
-          await refreshTokenModel.deleteAllByUserId(userId, tx);
+          await refreshTokenModel.deleteAllByUserId(tokenRow.id, tx);
         },
         onReplay: async (tokenRow) => {
           assertPasswordStillValid(tokenRow, preTokenRow, passwordMatch);
@@ -250,13 +243,25 @@ async function confirmEmailChange(userId, token, currentPassword) {
     );
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") {
-      await userModel.cancelPendingEmailChange(userId, undefined, tokenHash);
+      if (matchedRow) {
+        await userModel.cancelPendingEmailChange(
+          matchedRow.id,
+          undefined,
+          tokenHash,
+        );
+      }
       throw new ConflictError(
         "This email address is no longer available. Please request a new email change.",
       );
     }
     if (err instanceof ConflictError) {
-      await userModel.cancelPendingEmailChange(userId, undefined, tokenHash);
+      if (matchedRow) {
+        await userModel.cancelPendingEmailChange(
+          matchedRow.id,
+          undefined,
+          tokenHash,
+        );
+      }
       throw err;
     }
     if (

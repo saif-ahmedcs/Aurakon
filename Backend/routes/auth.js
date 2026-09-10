@@ -347,13 +347,11 @@ router.get(
 
 router.post(
   "/verify-email-change/confirm",
-  auth,
   confirmEmailChangeLimiter,
   validate(confirmEmailChangeSchema),
   asyncHandler(async (req, res) => {
     const { token, currentPassword } = req.body;
     const result = await emailChangeService.confirmEmailChange(
-      req.user.id,
       token,
       currentPassword,
     );

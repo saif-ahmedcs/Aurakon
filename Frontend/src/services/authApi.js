@@ -224,18 +224,13 @@ export async function setGenderRequest({ gender, accessToken }) {
 /**
  * POST /api/auth/verify-email-change/confirm
  */
-export async function confirmEmailChangeRequest({
-  token,
-  currentPassword,
-  accessToken,
-}) {
+export async function confirmEmailChangeRequest({ token, currentPassword }) {
   let res;
   try {
     res = await fetch("/api/auth/verify-email-change/confirm", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       credentials: "include",
       body: JSON.stringify({ token, currentPassword }),

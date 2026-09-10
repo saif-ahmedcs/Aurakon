@@ -123,7 +123,11 @@ async function main() {
     TEST_EMAIL,
     PASSWORD,
   );
-  check("same email returns no-op message", typeof noopResult.message, "string");
+  check(
+    "same email returns no-op message",
+    typeof noopResult.message,
+    "string",
+  );
   check("same email sends no email", sentEmails.length, 0);
   const [noopRows] = await pool.query(
     "SELECT pending_email FROM users WHERE id = ?",
@@ -171,7 +175,6 @@ async function main() {
 
   // 5. confirm with valid token (confirmation re-checks the current password)
   const confirmResult = await emailChangeService.confirmEmailChange(
-    userId,
     rawToken,
     PASSWORD,
   );
@@ -185,12 +188,15 @@ async function main() {
   check("pending_email cleared", afterRows[0].pending_email, null);
   // The hash/expiry are intentionally retained until the idempotency
   // window passes - they power the "recently consumed" replay state.
-  check("token hash retained for replay window", typeof afterRows[0].email_change_token_hash, "string");
+  check(
+    "token hash retained for replay window",
+    typeof afterRows[0].email_change_token_hash,
+    "string",
+  );
   check("consumed_at stamped", !!afterRows[0].email_change_consumed_at, true);
 
   // 6. token reuse inside the idempotency window replays the success
   const replayResult = await emailChangeService.confirmEmailChange(
-    userId,
     rawToken,
     PASSWORD,
   );
@@ -203,7 +209,7 @@ async function main() {
 
   // 6b. token reuse with the wrong password is rejected
   try {
-    await emailChangeService.confirmEmailChange(userId, rawToken, "wrongpass");
+    await emailChangeService.confirmEmailChange(rawToken, "wrongpass");
     check(
       "reuse with wrong password rejected",
       "no error thrown",
@@ -235,11 +241,7 @@ async function main() {
   );
 
   try {
-    await emailChangeService.confirmEmailChange(
-      userId,
-      expiredToken,
-      PASSWORD,
-    );
+    await emailChangeService.confirmEmailChange(expiredToken, PASSWORD);
     check("expired token rejected", "no error thrown", "error thrown");
   } catch (err) {
     check("expired token rejected", err.status, 400);
@@ -263,7 +265,7 @@ async function main() {
 
   // 8. missing token
   try {
-    await emailChangeService.confirmEmailChange(userId, null, PASSWORD);
+    await emailChangeService.confirmEmailChange(null, PASSWORD);
     check("missing token rejected", "no error thrown", "error thrown");
   } catch (err) {
     check("missing token rejected", err.status, 400);
@@ -310,18 +312,13 @@ async function main() {
   );
 
   try {
-    await emailChangeService.confirmEmailChange(
-      supersedeUserId,
-      tokenX,
-      PASSWORD,
-    );
+    await emailChangeService.confirmEmailChange(tokenX, PASSWORD);
     check("superseded token rejected", "no error thrown", "error thrown");
   } catch (err) {
     check("superseded token rejected", err.status, 400);
   }
 
   const confirmY = await emailChangeService.confirmEmailChange(
-    supersedeUserId,
     tokenY,
     PASSWORD,
   );

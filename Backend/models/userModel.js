@@ -263,7 +263,7 @@ async function cancelPendingEmailChange(
 
 async function findEmailChangeTokenState(tokenHash, db = pool) {
   const [rows] = await db.query(
-    `SELECT id, email, pending_email, email_change_token_expires,
+    `SELECT id, email, password_hash, pending_email, email_change_token_expires,
             email_change_consumed_at
      FROM users
      WHERE email_change_token_hash = ?
@@ -275,6 +275,7 @@ async function findEmailChangeTokenState(tokenHash, db = pool) {
   return {
     id: row.id,
     email: row.email,
+    passwordHash: row.password_hash,
     pendingEmail: row.pending_email,
     expiresAt: row.email_change_token_expires,
     consumedAt: row.email_change_consumed_at,
