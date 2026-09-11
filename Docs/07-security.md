@@ -65,22 +65,22 @@ by IP, by a canonicalized email (`user+tag@domain` → `user@domain`), by user
 id, or by refresh-token hash, depending on the endpoint. A representative
 subset:
 
-| Endpoint | Window | Max | Key |
-|---|---|---|---|
-| Register | 15 min | 5 | IP |
-| Register (per email) | 60 min | 3 | email |
-| Login | 15 min | 10 | IP + email |
-| Login (per account) | 15 min | 10 | email |
-| Login (per IP) | 15 min | 25 | IP |
-| Forgot password (cooldown) | 15 min | 1 | IP + email |
-| Forgot password (daily) | 24 h | 3 | IP + email |
-| Change password | 60 min | 3 | user id |
-| Change password (daily) | 24 h | 3 | user id |
-| Change email | 15 min | 5 | user id |
-| Delete account (request) | 60 min | 2 | user id |
-| Refresh | 15 min | 40 | refresh-token hash |
-| Logout-all | 15 min | 3 | user id |
-| Authenticated surface (general) | 60 s | 60 | user id |
+| Endpoint                        | Window | Max | Key                |
+| ------------------------------- | ------ | --- | ------------------ |
+| Register                        | 15 min | 5   | IP                 |
+| Register (per email)            | 60 min | 3   | email              |
+| Login                           | 15 min | 10  | IP + email         |
+| Login (per account)             | 15 min | 10  | email              |
+| Login (per IP)                  | 15 min | 25  | IP                 |
+| Forgot password (cooldown)      | 15 min | 1   | IP + email         |
+| Forgot password (daily)         | 24 h   | 3   | IP + email         |
+| Change password                 | 60 min | 3   | user id            |
+| Change password (daily)         | 24 h   | 3   | user id            |
+| Change email                    | 15 min | 5   | user id            |
+| Delete account (request)        | 60 min | 2   | user id            |
+| Refresh                         | 15 min | 40  | refresh-token hash |
+| Logout-all                      | 15 min | 3   | user id            |
+| Authenticated surface (general) | 60 s   | 60  | user id            |
 
 A global IP limiter (300 req/min) wraps the entire API in `server.js`.
 Several auth endpoints layer two or three limiters at once (e.g. login
@@ -128,11 +128,11 @@ Email verification, email change, password reset, and account deletion
 tokens all share the same three-state model
 (`services/confirmationTokenService.js`):
 
-| State | Meaning |
-|---|---|
-| `active` | Unexpired and unconsumed; can be used. |
+| State               | Meaning                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `active`            | Unexpired and unconsumed; can be used.                                                                                                                |
 | `recently_consumed` | Consumed within the last 5 minutes (`CONFIRMATION_IDEMPOTENCY_WINDOW_MS`); a repeat request returns the original success outcome instead of an error. |
-| `expired` | Unknown, past expiry, or consumed more than 5 minutes ago; treated as invalid. |
+| `expired`           | Unknown, past expiry, or consumed more than 5 minutes ago; treated as invalid.                                                                        |
 
 This lets a duplicate confirmation (double-click, retried request) succeed
 idempotently instead of surfacing a confusing "invalid token" error for
@@ -161,14 +161,22 @@ of creating a duplicate email.
 Three independently-scheduled jobs run inside the same process
 (`services/cleanupRunner.js`):
 
-| Job | Interval | Cleans up |
-|---|---|---|
-| `cleanupConsumedConfirmationTokens` | 5 min | Consumed verification / email-change / reset tokens past the 5-minute idempotency window; `account_deletion_confirmations` rows past the same window. |
-| `cleanupExpiredTokens` | 1 h | Expired refresh tokens; used refresh tokens older than a 60-second grace period (`USED_TOKEN_GRACE_PERIOD_MS`); expired-but-unconsumed reset/verification/delete/email-change tokens. |
-| `cleanupUnverified` | 24 h | Unverified accounts older than `CLEANUP_UNVERIFIED_DAYS` (default 7), deleted under a per-row `FOR UPDATE` recheck so an account that verifies at the same moment isn't deleted out from under the user. |
+| Job                                 | Interval | Cleans up                                                                                                                                                                                                |
+| ----------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cleanupConsumedConfirmationTokens` | 5 min    | Consumed verification / email-change / reset tokens past the 5-minute idempotency window; `account_deletion_confirmations` rows past the same window.                                                    |
+| `cleanupExpiredTokens`              | 1 h      | Expired refresh tokens; used refresh tokens older than a 60-second grace period (`USED_TOKEN_GRACE_PERIOD_MS`); expired-but-unconsumed reset/verification/delete/email-change tokens.                    |
+| `cleanupUnverified`                 | 24 h     | Unverified accounts older than `CLEANUP_UNVERIFIED_DAYS` (default 7), deleted under a per-row `FOR UPDATE` recheck so an account that verifies at the same moment isn't deleted out from under the user. |
 
 Cleanup is intentionally decoupled from request-time security decisions (see
 Decisions) — request handling never depends on cleanup having already run.
+
+**Deployment note:** the interval-based schedule above only runs when
+`server.js` is the entrypoint (the docker-compose deployment), since it relies
+on a long-lived process. Vercel's serverless entrypoint (`api/index.js`) never
+imports `server.js`, so on the Vercel deployment these jobs instead run once a
+day via `api/cron/cleanup.js`, triggered by Vercel Cron (`vercel.json`'s
+`crons` config, Hobby plan doesn't allow sub-daily schedules). The endpoint is
+gated behind a `CRON_SECRET` bearer-token check.
 
 > _Note:_ `USED_TOKEN_GRACE_PERIOD_MS` (60s, used only by the hourly cleanup
 > job to decide when a rotated refresh-token row is safe to hard-delete) is

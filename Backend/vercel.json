@@ -1,4 +1,11 @@
 {
   "regions": ["fra1"],
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [
+    { "source": "/api/cron/cleanup", "destination": "/api/cron/cleanup" },
+    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [{ "path": "/api/cron/cleanup", "schedule": "0 3 * * *" }],
+  "functions": {
+    "api/cron/cleanup.js": { "maxDuration": 60 }
+  }
 }
