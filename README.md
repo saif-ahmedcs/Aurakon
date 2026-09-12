@@ -40,7 +40,7 @@ Aurakon turns personal consistency into a warrior's progression journey. Every h
 - [Testing & Verification](#testing--verification)
 - [Documentation](#documentation)
 - [Running It Locally](#running-it-locally)
-  [Copyright & Usage](#copyright--usage)
+- [Copyright & Usage](#copyright--usage)
 
 ## At a Glance
 
