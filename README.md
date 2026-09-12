@@ -308,7 +308,7 @@ The `/Docs` directory holds the project's internal engineering documentation: fo
 ## Running It Locally
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/saif-ahmedcs/Aurakon.git
 cd Aurakon
 cp .env.example .env   # fill in DB credentials, JWT_SECRET, Gmail SMTP creds
 docker compose up --build
